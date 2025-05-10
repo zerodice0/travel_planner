@@ -1,4 +1,3 @@
-// src/entities/trip/types.ts
 export interface Trip {
   id: string;
   owner_id: string;
@@ -12,6 +11,11 @@ export interface Trip {
   cover_image_url: string | null;
   created_at: string;
   updated_at: string;
+  // 조인을 위한 필드 추가
+  profiles?: {
+    username: string;
+    avatar_url: string | null;
+  };
 }
 
 // 여행 생성 시 필요한 데이터 타입

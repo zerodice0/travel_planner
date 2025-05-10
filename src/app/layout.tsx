@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Header } from "@/widgets/header/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +28,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Header />
         {children}
+        <footer className="bg-gray-100 py-6 mt-12">
+          <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
+            &copy; {new Date().getFullYear()} 이토록 P다운 플래너. All rights reserved.
+          </div>
+        </footer>
       </body>
     </html>
   );

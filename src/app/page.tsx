@@ -11,7 +11,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
-
+  
   useEffect(() => {
     // 인증된 사용자 확인
     const checkUser = async () => {
