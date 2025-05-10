@@ -7,20 +7,54 @@ import { usePlaces } from '@/entities/place/hooks';
 import { CreatePlaceData, Place } from '@/entities/place/types';
 
 export default function PlacesPage() {
-  const { places, createPlace, deletePlace } = usePlaces();
+  const { places, selectedPlace, createPlace, deletePlace, updatePlace, selectPlace } = usePlaces();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const filteredPlaces = selectedCategory 
     ? places.filter(place => place.category === selectedCategory)
     : places;
 
-  // 타입 호환성 문제 해결을 위한 래퍼 함수
+  // 장소 추가 핸들러
   const handlePlaceAdd = async (placeData: CreatePlaceData): Promise<void> => {
     await createPlace(placeData);
   };
 
-  // 선택한 장소를 지도에서 보여주기 위한 상태
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  // 장소 선택 핸들러
+  const handlePlaceSelect = (place: Place) => {
+    selectPlace(place);
+  };
+  
+  // 장소 업데이트 핸들러 (라벨 변경, 메모 변경 등)
+  const handlePlaceUpdate = async (updatedPlace: Place): Promise<void> => {
+    try {
+      console.log('장소 업데이트:', updatedPlace.name);
+      
+      // 업데이트할 필드 추출
+      const updates: Partial<Place> = {};
+      
+      // 커스텀 라벨이 변경되었는지 확인
+      if (updatedPlace.custom_label !== undefined) {
+        console.log('라벨 업데이트:', updatedPlace.custom_label);
+        updates.custom_label = updatedPlace.custom_label || '';
+      }
+      
+      // 메모가 변경되었는지 확인
+      if (updatedPlace.notes !== undefined) {
+        console.log('메모 업데이트:', updatedPlace.notes);
+        updates.notes = updatedPlace.notes || '';
+      }
+      
+      // 필드가 하나라도 업데이트되면 API 호출
+      if (Object.keys(updates).length > 0) {
+        await updatePlace(updatedPlace.id, updates);
+      } else {
+        console.warn('업데이트할 필드가 없습니다.');
+      }
+    } catch (error) {
+      console.error('장소 업데이트 오류:', error);
+      throw error;
+    }
+  };  
 
   return (
     <div className="flex flex-col h-screen">
@@ -49,16 +83,19 @@ export default function PlacesPage() {
         <div className="w-1/3 overflow-auto p-4 border-r">
           <PlaceList 
             places={filteredPlaces} 
-            onPlaceSelect={setSelectedPlace}
+            selectedPlace={selectedPlace} // 선택된 장소 전달
+            onPlaceSelect={handlePlaceSelect} // 장소 선택 이벤트 핸들러 전달
             onPlaceDelete={deletePlace}
+            onPlaceUpdate={handlePlaceUpdate} // 장소 업데이트 핸들러 전달
           />
         </div>
         <div className="w-2/3">
           <PlaceMap 
             places={filteredPlaces}
-            selectedPlace={selectedPlace}
+            selectedPlace={selectedPlace} // 선택된 장소 전달
             onPlaceAdd={handlePlaceAdd}
-            onPlaceSelect={setSelectedPlace}
+            onPlaceSelect={handlePlaceSelect} // 장소 선택 이벤트 핸들러 전달
+            onPlaceUpdate={handlePlaceUpdate} // 장소 업데이트 핸들러 전달
           />
         </div>
       </div>

@@ -1,4 +1,3 @@
-// src/entities/place/types.ts
 export interface Place {
   id: string;
   owner_id: string;
@@ -6,10 +5,11 @@ export interface Place {
   address: string | null;
   latitude: number;
   longitude: number;
-  category: string; // 음식점, 관광지, 쇼핑, 숙소 등
+  category: string;
   notes: string | null;
   rating: number | null;
   is_public: boolean;
+  custom_label?: string | null;
   created_at: string;
   updated_at: string;
 }

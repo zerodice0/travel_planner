@@ -1,9 +1,11 @@
+// src/entities/place/hooks.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '@/shared/api/supabase';
-import { Place } from './types';
+import { Place, CreatePlaceData } from './types';
 
 export function usePlaces() {
   const [places, setPlaces] = useState<Place[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +24,7 @@ export function usePlaces() {
         setPlaces(data || []);
       } catch (err) {
         console.error('관심 장소 불러오기 오류:', err);
-        setError((err as Error).message);
+        setError(err instanceof Error ? err.message : '오류가 발생했습니다');
       } finally {
         setLoading(false);
       }
@@ -31,13 +33,15 @@ export function usePlaces() {
     fetchPlaces();
   }, []);
 
-  const createPlace = async (placeData: Omit<Place, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => {
+  const createPlace = async (placeData: CreatePlaceData) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         throw new Error('인증된 사용자만 장소를 추가할 수 있습니다.');
       }
+      
+      // 프로필 존재 여부 확인 및 생성 로직 (필요시)
       
       const { data, error } = await supabase
         .from('places_of_interest')
@@ -73,6 +77,11 @@ export function usePlaces() {
         prev.map(place => place.id === id ? (data as Place) : place)
       );
       
+      // 선택된 장소도 업데이트
+      if (selectedPlace && selectedPlace.id === id) {
+        setSelectedPlace(data as Place);
+      }
+      
       return data as Place;
     } catch (err) {
       console.error('장소 업데이트 오류:', err);
@@ -90,18 +99,29 @@ export function usePlaces() {
       if (error) throw error;
       
       setPlaces(prev => prev.filter(place => place.id !== id));
+      
+      // 선택된 장소가 삭제된 경우 선택 해제
+      if (selectedPlace && selectedPlace.id === id) {
+        setSelectedPlace(null);
+      }
     } catch (err) {
       console.error('장소 삭제 오류:', err);
       throw err;
     }
   };
 
+  const selectPlace = (place: Place | null) => {
+    setSelectedPlace(place);
+  };
+
   return {
     places,
+    selectedPlace,
     loading,
     error,
     createPlace,
     updatePlace,
-    deletePlace
+    deletePlace,
+    selectPlace
   };
 }
