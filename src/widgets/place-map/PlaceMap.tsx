@@ -19,19 +19,11 @@ const defaultCenter = {
 // 카테고리별 이모지/아이콘 정의
 const categoryIcons = {
   '음식점': '🍽️',
+  '카페': '☕️',
   '관광지': '🏞️',
   '쇼핑': '🛍️',
   '숙소': '🏨',
   '기타': '📍'
-};
-
-// 카테고리별 마커 색상 (배경색으로 사용)
-const categoryColors = {
-  '음식점': '#FF5252', // 빨간색
-  '관광지': '#448AFF', // 파란색
-  '쇼핑': '#AB47BC', // 보라색
-  '숙소': '#FF9800', // 주황색
-  '기타': '#4CAF50'  // 초록색
 };
 
 interface PlaceMapProps {
@@ -58,6 +50,16 @@ export function PlaceMap({
     libraries: libraries
   });
   
+  // loadError 디버깅을 위한 코드 추가
+  useEffect(() => {
+    if (loadError) {
+      console.error('Google Maps API 로드 오류:', loadError);
+      // API 키가 설정되어 있는지 확인 (보안을 위해 전체 키는 출력하지 않음)
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      console.log('API 키 설정 여부:', apiKey ? `설정됨 (${apiKey.substring(0, 4)}...)` : '설정되지 않음');
+    }
+  }, [loadError]);
+  
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowData, setInfoWindowData] = useState<Place | null>(null);
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +71,70 @@ export function PlaceMap({
   // 메모 수정 상태 추가
   const [editingNotes, setEditingNotes] = useState<boolean>(false);
   const [newNotes, setNewNotes] = useState<string>('');
+
+  // Autocomplete 초기화 및 설정
+  const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
+    
+    // 장소 선택 이벤트 리스너
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      
+      console.log('선택된 장소 데이터:', place);
+      
+      if (!place.geometry || !place.geometry.location) {
+        console.log("선택된 장소에 지오메트리 정보가 없습니다.");
+        return;
+      }
+      
+      // 지도 중심 이동
+      map?.setCenter(place.geometry.location);
+      map?.setZoom(15);
+      
+      // 주소 처리 - formatted_address가 있으면 사용, 없으면 address_components에서 구성
+      let address = place.formatted_address;
+      if (!address && place.address_components && place.address_components.length > 0) {
+        address = place.address_components.map(component => component.long_name).join(' ');
+      }
+      
+      // 장소 추가 준비
+      if (onPlaceAdd && place.name) {
+        setInfoWindowData({
+          id: 'new',
+          owner_id: '',
+          name: place.name,
+          address: address || '주소 정보 없음',
+          latitude: place.geometry.location.lat(),
+          longitude: place.geometry.location.lng(),
+          category: '기타', // 기본값
+          notes: '',
+          rating: 0,
+          is_public: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          custom_label: customLabel
+        } as Place);
+      }
+      
+      // 검색창 초기화 (선택적)
+      if (autocompleteInputRef.current) {
+        autocompleteInputRef.current.value = '';
+      }
+    });
+  }, [map, onPlaceAdd, customLabel]);
+
+  // Autocomplete 초기화를 위한 useEffect 추가
+  useEffect(() => {
+    if (isLoaded && autocompleteInputRef.current && window.google) {
+      const autocompleteInstance = new window.google.maps.places.Autocomplete(
+        autocompleteInputRef.current,
+        { 
+          fields: ['name', 'geometry', 'formatted_address', 'address_components', 'place_id'],
+          types: ['establishment', 'geocode'],
+        }
+      );
+      onAutocompleteLoad(autocompleteInstance);
+    }
+  }, [isLoaded, onAutocompleteLoad]);
 
   useEffect(() => {
     if (selectedPlace && map) {
@@ -195,48 +261,6 @@ export function PlaceMap({
     console.log('맵 줌 레벨:', map.getZoom());
   }, []);
   
-  // Autocomplete 초기화 및 설정
-  const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
-    
-    // 장소 선택 이벤트 리스너
-    autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      
-      if (!place.geometry || !place.geometry.location) {
-        console.log("선택된 장소에 지오메트리 정보가 없습니다.");
-        return;
-      }
-      
-      // 지도 중심 이동
-      map?.setCenter(place.geometry.location);
-      map?.setZoom(15);
-      
-      // 장소 추가 준비
-      if (onPlaceAdd && place.name && place.formatted_address) {
-        setInfoWindowData({
-          id: 'new',
-          owner_id: '',
-          name: place.name,
-          address: place.formatted_address,
-          latitude: place.geometry.location.lat(),
-          longitude: place.geometry.location.lng(),
-          category: '기타', // 기본값
-          notes: '',
-          rating: 0,
-          is_public: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          custom_label: customLabel
-        } as Place);
-      }
-      
-      // 검색창 초기화 (선택적)
-      if (autocompleteInputRef.current) {
-        autocompleteInputRef.current.value = '';
-      }
-    });
-  }, [map, onPlaceAdd, customLabel]);
-  
   // 새 장소 추가
   const handleAddPlace = async () => {
     if (onPlaceAdd && infoWindowData && infoWindowData.id === 'new') {
@@ -350,7 +374,7 @@ export function PlaceMap({
     
     // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 아이콘만
     const labelText = hasCustomLabel 
-      ? `${categoryIcon} ${place.custom_label}`
+      ? `${place.custom_label}`
       : categoryIcon;
     
     return {
@@ -364,30 +388,96 @@ export function PlaceMap({
   
   // 사용자 정의 마커 아이콘 생성 함수
   const createCustomMarkerIcon = (place: Place) => {
-    // 카테고리에 따른 배경색 설정
-    const backgroundColor = categoryColors[place.category as keyof typeof categoryColors] || '#4CAF50';
+    // 카테고리에 따른 이모지 선택
+    const categoryIcon = categoryIcons[place.category as keyof typeof categoryIcons] || '📍';
     
-    // SVG 마커 생성 (배경색 + 그림자 효과)
-    const svgMarker = {
-      path: 'M-1.5,-3.5a5,5 0 1,0 10,0a5,5 0 1,0 -10,0', // 원형 마커
-      fillColor: backgroundColor,
-      fillOpacity: 0.9,
-      strokeWeight: 1,
-      strokeColor: '#FFFFFF',
-      scale: 2.5,
-      // 그림자 효과 추가
-      shadow: '0 2px 6px rgba(0, 0, 0, 0.4)'
+    // 카테고리별 배경색 설정 - 이모지가 잘 보이도록 배경 추가
+    const getCategoryColor = (category: string) => {
+      switch(category) {
+        case '음식점': return '#FF5252'; // 빨간색
+        case '카페': return '#448AFF'; // 파란색
+        case '관광지': return '#AB47BC'; // 보라색
+        case '쇼핑': return '#FF9800'; // 주황색
+        case '숙소': return '#4CAF50'; // 초록색
+        default: return '#4CAF50'; // 초록색 (기타)
+      }
     };
     
-    return svgMarker;
+    // 이모지를 표시하는 데이터 URL 생성
+    const canvas = document.createElement('canvas');
+    canvas.width = 48;
+    canvas.height = 48;
+    
+    const context = canvas.getContext('2d');
+    if (context) {
+      // 배경을 투명하게 설정
+      context.clearRect(0, 0, 48, 48);
+      
+      // 그림자 효과
+      context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      context.shadowBlur = 4;
+      context.shadowOffsetX = 2;
+      context.shadowOffsetY = 2;
+      
+      // 원형 배경 그리기
+      context.beginPath();
+      context.arc(24, 24, 16, 0, Math.PI * 2);
+      context.fillStyle = getCategoryColor(place.category);
+      context.fill();
+      
+      // 테두리 추가
+      context.strokeStyle = 'white';
+      context.lineWidth = 2;
+      context.stroke();
+      
+      // 그림자 효과 초기화 (이모지에는 적용하지 않음)
+      context.shadowColor = 'transparent';
+      context.shadowBlur = 0;
+      context.shadowOffsetX = 0;
+      context.shadowOffsetY = 0;
+      
+      // 이모지 크기와 위치 설정
+      context.font = '18px Arial';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = 'white';
+      
+      // 이모지 그리기
+      context.fillText(categoryIcon, 24, 24);
+    }
+    
+    return {
+      url: canvas.toDataURL(),
+      scaledSize: new window.google.maps.Size(48, 48),
+      anchor: new window.google.maps.Point(24, 24),
+    };
   };
   
   if (loadError) {
-    return <div className="p-4 dark:text-gray-300">지도를 불러오는 중 오류가 발생했습니다.</div>;
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg text-center h-full flex flex-col items-center justify-center">
+        <div className="text-red-600 dark:text-red-400 text-2xl mb-2">🚫</div>
+        <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">Google Maps를 불러올 수 없습니다</h3>
+        <p className="text-sm text-red-600 dark:text-red-300 mb-4">
+          API 키 문제 또는 네트워크 오류로 지도를 표시할 수 없습니다.
+        </p>
+        <details className="text-xs text-gray-600 dark:text-gray-400 text-left">
+          <summary className="cursor-pointer hover:underline">기술적 상세 정보</summary>
+          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
+            <code>Error: {loadError.toString()}</code>
+          </div>
+        </details>
+      </div>
+    );
   }
   
   if (!isLoaded) {
-    return <div className="p-4 dark:text-gray-300">지도를 불러오는 중...</div>;
+    return (
+      <div className="p-6 dark:text-gray-300 h-full flex flex-col items-center justify-center">
+        <div className="animate-spin text-2xl mb-3">🔄</div>
+        <p>지도를 불러오는 중...</p>
+      </div>
+    );
   }
 
   return (
@@ -399,21 +489,8 @@ export function PlaceMap({
             <input
               ref={autocompleteInputRef}
               type="text"
-              placeholder="장소 검색..."
+              placeholder="장소명 또는 주소로 검색..."
               className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-              onLoad={(e) => {
-                // Autocomplete 인스턴스 생성 및 설정
-                if (window.google && e.currentTarget) {
-                  const autocompleteInstance = new window.google.maps.places.Autocomplete(
-                    e.currentTarget,
-                    { 
-                      fields: ['name', 'geometry', 'formatted_address'],
-                      componentRestrictions: { country: 'kr' } // 한국 지역으로 제한 (선택적)
-                    }
-                  );
-                  onAutocompleteLoad(autocompleteInstance);
-                }
-              }}
             />
           </div>
           

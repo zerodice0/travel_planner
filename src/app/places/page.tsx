@@ -67,7 +67,7 @@ export default function PlacesPage() {
           >
             전체
           </button>
-          {['음식점', '관광지', '쇼핑', '숙소', '기타'].map(category => (
+          {['음식점', '카페', '관광지', '쇼핑', '숙소', '기타'].map(category => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
