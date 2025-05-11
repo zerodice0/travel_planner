@@ -451,6 +451,39 @@ export function PlaceMap({
         .dark .gm-style .gm-style-iw-t::after {
           background: #1f2937;
         }
+        
+        /* 커스텀 스크롤바 스타일 */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .scrollbar-light::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 3px;
+        }
+        
+        .scrollbar-light::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 3px;
+        }
+        
+        .scrollbar-light::-webkit-scrollbar-thumb:hover {
+          background: #a8a8a8;
+        }
+        
+        .scrollbar-dark::-webkit-scrollbar-track {
+          background: #374151;
+          border-radius: 3px;
+        }
+        
+        .scrollbar-dark::-webkit-scrollbar-thumb {
+          background: #4b5563;
+          border-radius: 3px;
+        }
+        
+        .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+          background: #6b7280;
+        }
       `}</style>
       
       <GoogleMap
@@ -508,12 +541,12 @@ export function PlaceMap({
             onCloseClick={() => setInfoWindowData(null)}
             options={{
               pixelOffset: new window.google.maps.Size(0, -30),
-              maxWidth: 320,
+              maxWidth: 300,
             }}
           >
-            <div className={`p-2 max-w-[300px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
-              <h3 className="text-lg font-semibold">{infoWindowData.name}</h3>
-              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{infoWindowData.address}</p>
+            <div className={`p-3 max-w-[280px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
+              <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
               
               {/* 라벨 표시 및 편집 영역 */}
               {editingInfoWindowLabel ? (
@@ -550,6 +583,7 @@ export function PlaceMap({
                         <button
                           onClick={handleStartEditLabelInInfoWindow}
                           className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                          title="라벨 편집"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -598,7 +632,7 @@ export function PlaceMap({
                         ...infoWindowData,
                         notes: e.target.value
                       })}
-                      className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                      className={`w-full p-1 border rounded text-sm max-h-[100px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
                     />
                   </div>
@@ -611,63 +645,65 @@ export function PlaceMap({
                   </button>
                 </div>
               ) : (
-                <div className="mt-2">
-                  {/* 메모 표시 및 편집 영역 */}
-                  <div className="mt-2">
-                    <div className="flex justify-between items-center">
-                      <h4 className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
-                      {!editingNotes && onPlaceUpdate && (
+                <div className="mt-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
+                    {!editingNotes && onPlaceUpdate && (
+                      <button
+                        onClick={handleStartEditNotes}
+                        className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                        title="메모 편집"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  
+                  {editingNotes ? (
+                    <div className="mt-1">
+                      <textarea
+                        value={newNotes}
+                        onChange={(e) => setNewNotes(e.target.value)}
+                        className={`w-full p-1 border rounded text-sm max-h-[120px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                        rows={3}
+                        placeholder="메모를 입력하세요..."
+                        autoFocus
+                      />
+                      <div className="flex justify-end mt-1">
                         <button
-                          onClick={handleStartEditNotes}
-                          className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                          onClick={handleSaveNotes}
+                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
+                          저장
                         </button>
-                      )}
-                    </div>
-                    
-                    {editingNotes ? (
-                      <div className="mt-1">
-                        <textarea
-                          value={newNotes}
-                          onChange={(e) => setNewNotes(e.target.value)}
-                          className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
-                          rows={3}
-                          placeholder="메모를 입력하세요..."
-                          autoFocus
-                        />
-                        <div className="flex justify-end mt-1">
-                          <button
-                            onClick={handleSaveNotes}
-                            className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
-                          >
-                            저장
-                          </button>
-                          <button
-                            onClick={() => setEditingNotes(false)}
-                            className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
-                          >
-                            취소
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setEditingNotes(false)}
+                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
+                        >
+                          취소
+                        </button>
                       </div>
-                    ) : (
-                      <p className={`text-sm mt-1 whitespace-pre-wrap ${theme === 'dark' ? 'text-gray-300' : ''}`}>
+                    </div>
+                  ) : (
+                    <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}`}>
+                      <p className={`whitespace-pre-wrap ${theme === 'dark' ? 'text-gray-300' : ''}`}>
                         {infoWindowData.notes || 
                           <span className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} italic`}>메모가 없습니다. 편집 버튼을 클릭하여 메모를 추가하세요.</span>
                         }
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   
-                  <div className="mt-1 flex items-center">
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                      카테고리: {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
-                    </span>
+                  <div className={`my-2 border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}></div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                      {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
+                    </div>
                     {infoWindowData.rating && infoWindowData.rating > 0 && (
-                      <div className="ml-2 flex">
+                      <div className="flex">
                         {Array.from({ length: infoWindowData.rating }).map((_, i) => (
                           <span key={i} className={`${theme === 'dark' ? 'text-yellow-300' : 'text-yellow-400'}`}>★</span>
                         ))}
