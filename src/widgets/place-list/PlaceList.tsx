@@ -90,6 +90,46 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     setEditingNotesId(null);
   };
 
+  // 구글맵으로 장소 열기
+  const openInGoogleMaps = (place: Place) => {
+    // 사용자 에이전트 문자열을 가져옴
+    const userAgent = navigator.userAgent || navigator.vendor || '';
+    
+    // 모바일 기기인지 확인 (iOS 또는 Android)
+    const isMobile = /android|iphone|ipad|ipod/i.test(userAgent.toLowerCase());
+    
+    // 구글맵 URL 생성 (웹 또는 앱용)
+    let googleMapsUrl = '';
+    
+    if (isMobile) {
+      // 모바일 환경에서는 앱 스키마 또는 유니버설 링크 사용
+      // Android의 경우 geo: 스키마 사용
+      if (/android/i.test(userAgent)) {
+        // Android용 URL 스키마
+        googleMapsUrl = `geo:${place.latitude},${place.longitude}?q=${encodeURIComponent(place.name || place.address || '')}`;
+      } else {
+        // iOS용 URL 스키마
+        googleMapsUrl = `https://maps.apple.com/?q=${encodeURIComponent(place.name || place.address || '')}&ll=${place.latitude},${place.longitude}`;
+      }
+    } else {
+      // 데스크톱 환경에서는 일반 웹 URL 사용
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
+      if (place.name) {
+        googleMapsUrl += `&query_place_id=${encodeURIComponent(place.name)}`;
+      }
+    }
+    
+    // URL 열기 시도
+    try {
+      window.open(googleMapsUrl, '_blank');
+    } catch (error) {
+      console.error('지도 앱을 열 수 없습니다:', error);
+      // 앱 열기 실패 시 웹 버전으로 대체
+      const webFallbackUrl = `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
+      window.open(webFallbackUrl, '_blank');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!onPlaceDelete) return;
     
@@ -231,6 +271,23 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
               {place.address && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{place.address}</p>
               )}
+              
+              {/* 구글맵에서 보기 버튼 */}
+              <div className="mt-2 mb-2">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openInGoogleMaps(place);
+                  }}
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 dark:bg-gray-600 dark:border-gray-500 dark:text-white dark:hover:bg-gray-500 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  지도 앱에서 보기
+                </button>
+              </div>
+              
               {place.notes && (
                 <div className="mt-2">
                   {editingNotesId === place.id ? (
@@ -248,7 +305,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                             e.stopPropagation();
                             handleSaveNotes(place);
                           }}
-                          className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800"
+                          className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
                         >
                           저장
                         </button>
@@ -257,91 +314,53 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                             e.stopPropagation();
                             handleCancelEditNotes();
                           }}
-                          className="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"
+                          className="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
                         >
                           취소
                         </button>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        <span>마크다운 문법을 지원합니다: **볼드**, *이탤릭*, # 제목, - 목록, `코드`, ```코드블록```</span>
-                      </div>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <div className="text-sm dark:text-gray-300 markdown-content">
-                        <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }} />
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">메모</h4>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartEditNotes(place);
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                          </svg>
+                        </button>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartEditNotes(place);
-                        }}
-                        className="absolute top-0 right-0 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 p-1"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                        </svg>
-                      </button>
+                      <div 
+                        className="text-sm text-gray-600 dark:text-gray-400 prose-sm max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }}
+                      ></div>
                     </div>
                   )}
                 </div>
               )}
               {!place.notes && (
                 <div className="mt-2">
-                  {editingNotesId === place.id ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={newNotesValue}
-                        onChange={(e) => setNewNotesValue(e.target.value)}
-                        className="w-full h-32 text-sm p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        placeholder="메모를 입력하세요... (마크다운 지원)"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSaveNotes(place);
-                          }}
-                          className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800"
-                        >
-                          저장
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelEditNotes();
-                          }}
-                          className="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"
-                        >
-                          취소
-                        </button>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        <span>마크다운 문법을 지원합니다: **볼드**, *이탤릭*, # 제목, - 목록, `코드`, ```코드블록```</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartEditNotes(place);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 border border-dashed border-gray-300 dark:border-gray-600 rounded-md"
-                    >
-                      메모 추가하기
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingNotesId(place.id);
+                      setNewNotesValue("");
+                    }}
+                    className="text-xs text-gray-500 dark:text-gray-400 flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                    메모 추가하기
+                  </button>
                 </div>
               )}
-              <div className="mt-2 flex justify-end">
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  onClick={() => onPlaceSelect(place)}
-                >
-                  지도에서 보기
-                </button>
-              </div>
             </div>
           )}
         </div>
