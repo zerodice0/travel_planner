@@ -195,7 +195,9 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{place.address}</p>
               )}
               {place.notes && (
-                <p className="text-sm mt-2 whitespace-pre-wrap dark:text-gray-300">{place.notes}</p>
+                <div className="text-sm mt-2 dark:text-gray-300 markdown-content">
+                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }} />
+                </div>
               )}
               <div className="mt-2 flex justify-end">
                 <button
@@ -211,4 +213,51 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       ))}
     </div>
   );
+}
+
+// 마크다운을 HTML로 변환하는 함수 추가
+// 컴포넌트 밖에 정의
+function parseMarkdownToHTML(markdown: string): string {
+  if (!markdown) return '';
+  
+  // 줄바꿈을 임시로 다른 문자열로 대체
+  let html = markdown.replace(/\r\n|\n\r|\n|\r/g, '\n');
+  
+  // 코드 블록 (```..```) - 이 부분이 다른 정규식에 영향을 주지 않도록 먼저 처리
+  html = html.replace(/```([\s\S]*?)```/gm, function(match, code) {
+    return `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+  });
+  
+  // 인라인 코드 (`..`)
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // 헤더
+  html = html.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+  
+  // 볼드, 이탤릭
+  html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  // 링크
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  
+  // 순서없는 목록
+  // 전체 목록을 찾아서 처리
+  html = html.replace(/((^|\n)- (.*?)(\n|$))+/g, function(match) {
+    return '<ul>' + match.replace(/^- (.*?)$/gm, '<li>$1</li>') + '</ul>';
+  });
+  
+  // 인용문
+  html = html.replace(/^> (.*?)$/gm, '<blockquote>$1</blockquote>');
+  
+  // 수평선
+  html = html.replace(/^---+$/gm, '<hr>');
+  
+  // 줄바꿈
+  html = html.replace(/\n/g, '<br>');
+  
+  return html;
 }
