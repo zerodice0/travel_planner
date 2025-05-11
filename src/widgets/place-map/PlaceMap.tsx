@@ -7,8 +7,7 @@ import { useTheme } from '@/shared/providers/ThemeProvider';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '100%',
-  border: '1px solid #ccc'
+  height: '100%'
 };
 
 const defaultCenter = {
@@ -446,7 +445,7 @@ export function PlaceMap({
     
     // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 아이콘만
     const labelText = hasCustomLabel 
-      ? `${place.custom_label}`
+      ? `${categoryIcon} ${place.custom_label}`
       : categoryIcon;
     
     return {
@@ -764,62 +763,67 @@ export function PlaceMap({
             }}
           >
             <div className={`p-3 max-w-[280px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
-              <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
-              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
-              
-              {/* 라벨 표시 및 편집 영역 */}
-              {editingInfoWindowLabel ? (
-                <div className="mt-2 flex items-center">
+              {infoWindowData.custom_label && !editingInfoWindowLabel ? (
+                <>
+                  <div className="flex items-center">
+                    <h3 className="text-lg font-semibold truncate text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
+                    {onPlaceUpdate && (
+                      <button
+                        onClick={handleStartEditLabelInInfoWindow}
+                        className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                        title="라벨 편집"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <p className={`text-sm font-normal ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-1`}>{infoWindowData.name}</p>
+                </>
+              ) : !editingInfoWindowLabel ? (
+                <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
+              ) : (
+                // 라벨 편집 UI - 커스텀 라벨이 있던 위치에 표시
+                <div className="flex items-center h-[28px]">
                   <input
                     type="text"
                     value={newInfoWindowLabel}
                     onChange={(e) => setNewInfoWindowLabel(e.target.value)}
-                    className={`text-sm p-1 border rounded ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                    className={`text-lg font-semibold p-0.5 border rounded w-[60%] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     placeholder="라벨 입력..."
                     autoFocus
                   />
-                  <button
-                    onClick={handleSaveLabelInInfoWindow}
-                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} p-1`}
-                  >
-                    저장
-                  </button>
-                  <button
-                    onClick={() => setEditingInfoWindowLabel(false)}
-                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} p-1`}
-                  >
-                    취소
-                  </button>
+                  <div className="flex-shrink-0 flex ml-1">
+                    <button
+                      onClick={handleSaveLabelInInfoWindow}
+                      className={`text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-1.5 py-0.5 rounded bg-opacity-20 bg-green-100 dark:bg-green-900 dark:bg-opacity-20`}
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={() => setEditingInfoWindowLabel(false)}
+                      className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-1.5 py-0.5 rounded bg-opacity-20 bg-gray-100 dark:bg-gray-900 dark:bg-opacity-20`}
+                    >
+                      취소
+                    </button>
+                  </div>
                 </div>
-              ) : (
+              )}
+              {editingInfoWindowLabel && (
+                <p className={`text-sm font-normal ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-1`}>{infoWindowData.name}</p>
+              )}
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
+              
+              {/* 라벨 추가 버튼 - 커스텀 라벨이 없을 때만 표시 */}
+              {!infoWindowData.custom_label && !editingInfoWindowLabel && onPlaceUpdate && (
                 <div className="mt-2 flex items-center">
-                  {infoWindowData.custom_label ? (
-                    <>
-                      <span className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400 bg-blue-900/50' : 'text-blue-600 bg-blue-50'} px-2 py-0.5 rounded-full`}>
-                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.custom_label}
-                      </span>
-                      {onPlaceUpdate && (
-                        <button
-                          onClick={handleStartEditLabelInInfoWindow}
-                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
-                          title="라벨 편집"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    onPlaceUpdate && (
-                      <button
-                        onClick={handleStartEditLabelInInfoWindow}
-                        className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
-                      >
-                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
-                      </button>
-                    )
-                  )}
+                  <button
+                    onClick={handleStartEditLabelInInfoWindow}
+                    className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
+                  >
+                    {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
+                  </button>
                 </div>
               )}
               
