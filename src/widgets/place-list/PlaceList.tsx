@@ -14,6 +14,9 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [newLabelValue, setNewLabelValue] = useState<string>("");
+  // 메모 수정을 위한 상태 추가
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [newNotesValue, setNewNotesValue] = useState<string>("");
 
   const handleToggleExpand = (id: string) => {
     setExpandedPlaceId(expandedPlaceId === id ? null : id);
@@ -51,6 +54,40 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   // 라벨 편집 취소 함수
   const handleCancelEditLabel = () => {
     setEditingLabelId(null);
+  };
+
+  // 메모 편집 시작 함수
+  const handleStartEditNotes = (place: Place) => {
+    setEditingNotesId(place.id);
+    setNewNotesValue(place.notes || "");
+  };
+
+  // 메모 저장 함수
+  const handleSaveNotes = async (place: Place) => {
+    if (!onPlaceUpdate) return;
+    
+    try {
+      setEditingNotesId(null); // 먼저 편집 상태 해제
+      
+      // 전체 place 객체를 복사하고 메모만 업데이트
+      const updatedPlace = {
+        ...place,
+        notes: newNotesValue || '' // 빈 값이면 빈 문자열로 설정
+      };
+      
+      console.log('메모 업데이트 요청:', updatedPlace);
+      await onPlaceUpdate(updatedPlace);
+    } catch (error) {
+      console.error("메모 업데이트 중 오류 발생:", error);
+      // 실패 시 편집 모드 유지
+      setEditingNotesId(place.id);
+      alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 메모 편집 취소 함수
+  const handleCancelEditNotes = () => {
+    setEditingNotesId(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -195,8 +232,106 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{place.address}</p>
               )}
               {place.notes && (
-                <div className="text-sm mt-2 dark:text-gray-300 markdown-content">
-                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }} />
+                <div className="mt-2">
+                  {editingNotesId === place.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={newNotesValue}
+                        onChange={(e) => setNewNotesValue(e.target.value)}
+                        className="w-full h-32 text-sm p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        placeholder="메모를 입력하세요... (마크다운 지원)"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveNotes(place);
+                          }}
+                          className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelEditNotes();
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"
+                        >
+                          취소
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <span>마크다운 문법을 지원합니다: **볼드**, *이탤릭*, # 제목, - 목록, `코드`, ```코드블록```</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="text-sm dark:text-gray-300 markdown-content">
+                        <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }} />
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEditNotes(place);
+                        }}
+                        className="absolute top-0 right-0 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 p-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!place.notes && (
+                <div className="mt-2">
+                  {editingNotesId === place.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={newNotesValue}
+                        onChange={(e) => setNewNotesValue(e.target.value)}
+                        className="w-full h-32 text-sm p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        placeholder="메모를 입력하세요... (마크다운 지원)"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveNotes(place);
+                          }}
+                          className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelEditNotes();
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"
+                        >
+                          취소
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <span>마크다운 문법을 지원합니다: **볼드**, *이탤릭*, # 제목, - 목록, `코드`, ```코드블록```</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartEditNotes(place);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 border border-dashed border-gray-300 dark:border-gray-600 rounded-md"
+                    >
+                      메모 추가하기
+                    </button>
+                  )}
                 </div>
               )}
               <div className="mt-2 flex justify-end">
