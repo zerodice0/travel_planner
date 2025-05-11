@@ -553,29 +553,22 @@ export function PlaceMap({
 
   return (
     <div className="h-full relative">
-      <div className="absolute top-4 left-0 right-0 z-10 px-4">
-        <div className="bg-white dark:bg-gray-800 rounded-md shadow-md p-2 flex flex-col gap-2 transition-colors">
-          <div className="flex justify-between items-center">
-            {/* Autocomplete 사용 */}
-            <input
-              ref={autocompleteInputRef}
-              type="text"
-              placeholder="장소명 또는 주소로 검색..."
-              className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+      {/* infoWindowData가 없을 때만 검색 UI를 표시합니다 */}
+      {!infoWindowData && (
+        <div className="absolute top-4 left-0 right-0 z-10 px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-md shadow-md p-2 flex flex-col gap-2 transition-colors">
+            <div className="flex justify-between items-center">
+              {/* Autocomplete 사용 */}
+              <input
+                ref={autocompleteInputRef}
+                type="text"
+                placeholder="장소명 또는 주소로 검색..."
+                className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+              />
+            </div>
           </div>
-          
-          {infoWindowData && infoWindowData.id === 'new' && (
-            <input
-              type="text"
-              value={customLabel}
-              onChange={(e) => setCustomLabel(e.target.value)}
-              placeholder="장소 라벨 입력 (선택사항)"
-              className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
-          )}
         </div>
-      </div>
+      )}
       
       {/* 커스텀 마커 스타일 */}
       <style jsx global>{`
@@ -686,7 +679,13 @@ export function PlaceMap({
               lat: infoWindowData.latitude,
               lng: infoWindowData.longitude
             }}
-            onCloseClick={() => setInfoWindowData(null)}
+            onCloseClick={() => {
+              setInfoWindowData(null);
+              // infoWindow가 닫힐 때 검색 필드를 초기화합니다
+              if (autocompleteInputRef.current) {
+                autocompleteInputRef.current.value = '';
+              }
+            }}
             options={{
               pixelOffset: new window.google.maps.Size(0, -30),
               maxWidth: 300,
