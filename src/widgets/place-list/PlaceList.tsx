@@ -30,6 +30,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     { value: '관광지', label: '🏞️ 관광지' },
     { value: '쇼핑', label: '🛍️ 쇼핑' },
     { value: '숙소', label: '🏨 숙소' },
+    { value: '유원지', label: '🎢 유원지' },
     { value: '기타', label: '📍 기타' }
   ];
 
@@ -438,6 +439,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                           case '관광지': return '🏞️';
                           case '쇼핑': return '🛍️';
                           case '숙소': return '🏨';
+                          case '유원지': return '🎢';
                           default: return '📍';
                         }
                       })()}
