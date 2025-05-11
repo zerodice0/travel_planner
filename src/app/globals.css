@@ -1,10 +1,59 @@
 @import "tailwindcss";
 
+/* 기본 라이트 모드 변수 */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --panel-bg: #ffffff;
+  --panel-text: #171717;
+  --panel-border: #e5e7eb;
+  --input-bg: #ffffff;
+  --input-text: #171717;
+  --input-border: #d1d5db;
+  --hover-bg: #f3f4f6;
 }
 
+/* 다크 모드 변수 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --panel-bg: #172031;
+    --panel-text: #e5e7eb;
+    --panel-border: #374151;
+    --input-bg: #1f2937;
+    --input-text: #e5e7eb;
+    --input-border: #4b5563;
+    --hover-bg: #1f2937;
+  }
+}
+
+/* 테마 클래스에 따른 변수 설정 */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --panel-bg: #172031;
+  --panel-text: #e5e7eb;
+  --panel-border: #374151;
+  --input-bg: #1f2937;
+  --input-text: #e5e7eb;
+  --input-border: #4b5563;
+  --hover-bg: #1f2937;
+}
+
+.light {
+  --background: #ffffff;
+  --foreground: #171717;
+  --panel-bg: #ffffff;
+  --panel-text: #171717;
+  --panel-border: #e5e7eb;
+  --input-bg: #ffffff;
+  --input-text: #171717;
+  --input-border: #d1d5db;
+  --hover-bg: #f3f4f6;
+}
+
+/* 내부 스타일 설정을 위한 테마 변수 */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,15 +61,112 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 패널 스타일 */
+#place-detail-panel {
+  background-color: var(--panel-bg) !important;
+  color: var(--panel-text) !important;
+  border-color: var(--panel-border) !important;
+}
+
+#place-detail-panel h3,
+#place-detail-panel h4,
+#place-detail-panel p,
+#place-detail-panel div {
+  color: var(--panel-text) !important;
+}
+
+.place-detail-address {
+  color: #6b7280 !important;
+}
+
+/* 입력 필드 스타일 */
+input, textarea, select {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
+}
+
+/* 호버 스타일 */
+.hover\:bg-gray-50:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+/* 다크 모드 추가 배경색 */
+.dark .bg-gray-750 {
+  background-color: #2d3748;
+}
+
+/* 지도 정보창 스타일 오버라이드 */
+.dark .gm-style-iw,
+.dark .gm-style-iw-d,
+.dark .gm-style-iw-c {
+  color: white !important;
+  background-color: #1f2937 !important;
+}
+
+/* 라이트 모드 지도 정보창 */
+.light .gm-style-iw,
+.light .gm-style-iw-d,
+.light .gm-style-iw-c {
+  color: #171717 !important;
+  background-color: #ffffff !important;
+}
+
+/* 다크 모드 정보창 화살표 */
+.dark .gm-style-iw-t::after {
+  background-color: #1f2937 !important;
+}
+
+/* 라이트 모드 정보창 화살표 */
+.light .gm-style-iw-t::after {
+  background-color: #ffffff !important;
+}
+
+/* 레거시 코드를 위한 다크 모드 오버라이드 */
+.dark .bg-dark-blue,
+.dark [class*="bg-blue-"] {
+  color: white;
+}
+
+/* 입력 필드 스타일 */
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
+}
+
+.light input,
+.light textarea,
+.light select {
+  color-scheme: light;
+}
+
+/* 구글 맵스 팝업 스타일 오버라이드 */
+.dark .gm-ui-hover-effect,
+.dark .gm-style .gm-style-iw-t button {
+  filter: invert(1) !important;
+}
+
+.light .gm-ui-hover-effect,
+.light .gm-style .gm-style-iw-t button {
+  filter: none !important;
+}
+
+/* 테마별 컴포넌트 스타일 */
+.light .bg-white {
+  background-color: #ffffff !important;
+}
+
+.light .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.light .border {
+  border-color: #e5e7eb !important;
 }

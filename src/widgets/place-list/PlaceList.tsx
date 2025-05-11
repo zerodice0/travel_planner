@@ -66,7 +66,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
 
   if (places.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         <p>저장된 관심 장소가 없습니다.</p>
         <p className="mt-2 text-sm">지도에서 장소를 검색하여 추가해보세요.</p>
       </div>
@@ -79,11 +79,13 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
         <div 
           key={place.id}
           className={`border rounded-lg overflow-hidden shadow-sm ${
-            selectedPlace?.id === place.id ? 'bg-blue-50 border-blue-300' : 'bg-white'
-          }`}
+            selectedPlace?.id === place.id 
+              ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700' 
+              : 'bg-white dark:bg-gray-800 dark:border-gray-700'
+          } transition-colors`}
         >
           <div 
-            className="p-3 flex justify-between items-start cursor-pointer hover:bg-gray-50"
+            className="p-3 flex justify-between items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             onClick={() => {
               // 라벨 편집 중일 때는 클릭 이벤트 무시
               if (editingLabelId !== place.id) {
@@ -101,7 +103,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                       type="text"
                       value={newLabelValue}
                       onChange={(e) => setNewLabelValue(e.target.value)}
-                      className="text-xs px-2 py-1 border rounded-md"
+                      className="text-xs px-2 py-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       placeholder="라벨 입력..."
                       onClick={(e) => e.stopPropagation()}
                       autoFocus
@@ -111,7 +113,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                         e.stopPropagation();
                         handleSaveLabel(place);
                       }}
-                      className="ml-1 text-xs text-green-600 hover:text-green-800"
+                      className="ml-1 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
                     >
                       저장
                     </button>
@@ -120,7 +122,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                         e.stopPropagation();
                         handleCancelEditLabel();
                       }}
-                      className="ml-1 text-xs text-gray-600 hover:text-gray-800"
+                      className="ml-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
                     >
                       취소
                     </button>
@@ -129,7 +131,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                   <>
                     {place.custom_label ? (
                       <div className="inline-flex items-center ml-2">
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-0.5 rounded-full">
                           {place.custom_label}
                         </span>
                         <button
@@ -137,7 +139,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                             e.stopPropagation();
                             handleStartEditLabel(place);
                           }}
-                          className="ml-1 text-xs text-gray-400 hover:text-gray-600"
+                          className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -150,7 +152,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                           e.stopPropagation();
                           handleStartEditLabel(place);
                         }}
-                        className="ml-2 text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-full border border-dashed border-gray-300"
+                        className="ml-2 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600"
                       >
                         라벨 추가
                       </button>
@@ -159,11 +161,11 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 )}
               </h3>
               <div className="flex items-center mt-1">
-                <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full mr-2">
+                <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full mr-2">
                   {place.category}
                 </span>
                 {place.rating && place.rating > 0 && (
-                  <div className="text-xs text-yellow-500">
+                  <div className="text-xs text-yellow-500 dark:text-yellow-400">
                     {Array.from({ length: place.rating }).map((_, i) => (
                       <span key={i}>★</span>
                     ))}
@@ -173,7 +175,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
             </div>
             <div className="flex space-x-1">
               <button 
-                className="p-1 text-gray-400 hover:text-gray-600"
+                className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
                 onClick={(e) => {
                   e.stopPropagation(); // 버블링 방지
                   if (onPlaceDelete) handleDelete(place.id);
@@ -188,16 +190,16 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
           </div>
           
           {expandedPlaceId === place.id && (
-            <div className="p-3 border-t bg-gray-50">
+            <div className="p-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700 transition-colors">
               {place.address && (
-                <p className="text-sm text-gray-600 mb-2">{place.address}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{place.address}</p>
               )}
               {place.notes && (
-                <p className="text-sm mt-2 whitespace-pre-wrap">{place.notes}</p>
+                <p className="text-sm mt-2 whitespace-pre-wrap dark:text-gray-300">{place.notes}</p>
               )}
               <div className="mt-2 flex justify-end">
                 <button
-                  className="text-xs text-blue-600 hover:text-blue-800"
+                  className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   onClick={() => onPlaceSelect(place)}
                 >
                   지도에서 보기
