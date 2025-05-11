@@ -1,36 +1,18 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# A Planner as P-like as It Gets
 
-## Getting Started
+## Project Overview
+'A Planner as P-like as It Gets' is a planner that reflects my habit of organizing places I want to visit on Google Maps and then traveling based on the nearest locations while at my destination. When using Google Maps' place list as is, custom labels are not displayed in the mobile environment, and saved places such as restaurants and tourist attractions are mixed together, making it difficult to decide on the next destination. This planner was created to solve these problems.
 
-First, run the development server:
+## Key Features
+- Place search using Google Maps API
+- Place saving and management
+- Categorization of places
+- Custom labeling for each place
+- Memo function for places
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+- **Frontend**: React, TypeScript, Tailwind CSS
+- **Map API**: Google Maps JavaScript API
+- **State Management**: React Hooks
+- **Development Environment**: Next.js
+- **Database**: Supabase
