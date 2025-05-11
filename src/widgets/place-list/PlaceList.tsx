@@ -19,6 +19,19 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   const [newNotesValue, setNewNotesValue] = useState<string>("");
   // 주소 복사 상태 추가
   const [copiedAddressId, setCopiedAddressId] = useState<string | null>(null);
+  // 카테고리 편집을 위한 상태 추가
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [newCategoryValue, setNewCategoryValue] = useState<string>("");
+
+  // 카테고리 목록 정의
+  const categoryOptions = [
+    { value: '음식점', label: '🍽️ 음식점' },
+    { value: '카페', label: '☕️ 카페' },
+    { value: '관광지', label: '🏞️ 관광지' },
+    { value: '쇼핑', label: '🛍️ 쇼핑' },
+    { value: '숙소', label: '🏨 숙소' },
+    { value: '기타', label: '📍 기타' }
+  ];
 
   const handleToggleExpand = (id: string) => {
     setExpandedPlaceId(expandedPlaceId === id ? null : id);
@@ -90,6 +103,40 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   // 메모 편집 취소 함수
   const handleCancelEditNotes = () => {
     setEditingNotesId(null);
+  };
+
+  // 카테고리 편집 시작 함수
+  const handleStartEditCategory = (place: Place) => {
+    setEditingCategoryId(place.id);
+    setNewCategoryValue(place.category || "기타");
+  };
+
+  // 카테고리 저장 함수
+  const handleSaveCategory = async (place: Place) => {
+    if (!onPlaceUpdate) return;
+    
+    try {
+      setEditingCategoryId(null); // 먼저 편집 상태 해제
+      
+      // 전체 place 객체를 복사하고 카테고리만 업데이트
+      const updatedPlace = {
+        ...place,
+        category: newCategoryValue || '기타' // 빈 값이면 기타로 설정
+      };
+      
+      console.log('카테고리 업데이트 요청:', updatedPlace);
+      await onPlaceUpdate(updatedPlace);
+    } catch (error) {
+      console.error("카테고리 업데이트 중 오류 발생:", error);
+      // 실패 시 편집 모드 유지
+      setEditingCategoryId(place.id);
+      alert('카테고리 업데이트에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 카테고리 편집 취소 함수
+  const handleCancelEditCategory = () => {
+    setEditingCategoryId(null);
   };
 
   // 구글맵으로 장소 열기
@@ -299,48 +346,116 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
               {place.address && (
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-600 dark:text-gray-400">🗺️ 주소: {place.address}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyAddressToClipboard(place.id, place.address);
-                    }}
-                    className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300 rounded-md flex items-center transition-colors"
-                    title="주소 복사하기"
-                  >
-                    {copiedAddressId === place.id ? (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        복사됨
-                      </>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                          <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                        </svg>
-                        복사
-                      </>
-                    )}
-                  </button>
+                  <div className="flex space-x-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyAddressToClipboard(place.id, place.address);
+                      }}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300 rounded-md flex items-center transition-colors"
+                      title="주소 복사하기"
+                    >
+                      {copiedAddressId === place.id ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          복사됨
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                          </svg>
+                          복사
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInGoogleMaps(place);
+                      }}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300 rounded-md flex items-center transition-colors"
+                      title="지도 앱에서 보기"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                      </svg>
+                      지도
+                    </button>
+                  </div>
                 </div>
               )}
               
-              {/* 구글맵에서 보기 버튼 */}
-              <div className="mt-2 mb-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openInGoogleMaps(place);
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 dark:bg-gray-600 dark:border-gray-500 dark:text-white dark:hover:bg-gray-500 transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  지도 앱에서 보기
-                </button>
+              {/* 카테고리 편집 UI */}
+              <div className="mb-2">
+                {editingCategoryId === place.id ? (
+                  <div className="flex items-center">
+                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center">카테고리: </span>
+                    <select
+                      value={newCategoryValue}
+                      onChange={(e) => setNewCategoryValue(e.target.value)}
+                      className="text-xs px-2 py-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    >
+                      {categoryOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveCategory(place);
+                      }}
+                      className="ml-1 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCancelEditCategory();
+                      }}
+                      className="ml-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center">카테고리: </span>
+                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center">
+                      {(() => {
+                        // 카테고리에 맞는 이모지 표시
+                        switch(place.category) {
+                          case '음식점': return '🍽️';
+                          case '카페': return '☕️';
+                          case '관광지': return '🏞️';
+                          case '쇼핑': return '🛍️';
+                          case '숙소': return '🏨';
+                          default: return '📍';
+                        }
+                      })()}
+                      <span className="ml-1 text-gray-700 dark:text-gray-300">{place.category}</span>
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartEditCategory(place);
+                      }}
+                      className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
               
               {place.notes && (

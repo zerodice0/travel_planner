@@ -71,6 +71,10 @@ export function PlaceMap({
   // 메모 수정 상태 추가
   const [editingNotes, setEditingNotes] = useState<boolean>(false);
   const [newNotes, setNewNotes] = useState<string>('');
+  
+  // 카테고리 수정 상태 추가
+  const [editingCategory, setEditingCategory] = useState<boolean>(false);
+  const [newCategory, setNewCategory] = useState<string>('');
 
   // Autocomplete 초기화 및 설정
   const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
@@ -191,10 +195,12 @@ export function PlaceMap({
   useEffect(() => {
     setEditingInfoWindowLabel(false);
     setEditingNotes(false); // 메모 편집 상태 초기화
+    setEditingCategory(false); // 카테고리 편집 상태 초기화
     
     if (infoWindowData) {
       setNewInfoWindowLabel(infoWindowData.custom_label || '');
       setNewNotes(infoWindowData.notes || ''); // 메모 상태 초기화
+      setNewCategory(infoWindowData.category || '기타'); // 카테고리 상태 초기화
     }
   }, [infoWindowData]);
 
@@ -401,6 +407,35 @@ export function PlaceMap({
       console.error('메모 업데이트 오류:', error);
       setEditingNotes(true);
       alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+  
+  // 카테고리 편집 시작
+  const handleStartEditCategory = () => {
+    if (infoWindowData) {
+      setEditingCategory(true);
+      setNewCategory(infoWindowData.category || '기타');
+    }
+  };
+  
+  // 카테고리 저장
+  const handleSaveCategory = async () => {
+    if (!infoWindowData || !onPlaceUpdate) return;
+    
+    try {
+      setEditingCategory(false);
+      
+      const updatedPlace = {
+        ...infoWindowData,
+        category: newCategory || '기타'
+      };
+      
+      console.log('카테고리 업데이트 요청:', updatedPlace);
+      await onPlaceUpdate(updatedPlace);
+    } catch (error) {
+      console.error('카테고리 업데이트 오류:', error);
+      setEditingCategory(true);
+      alert('카테고리 업데이트에 실패했습니다. 다시 시도해주세요.');
     }
   };
   
@@ -801,6 +836,7 @@ export function PlaceMap({
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
+                      <option value="카페">☕️ 카페</option>
                       <option value="관광지">🏞️ 관광지</option>
                       <option value="쇼핑">🛍️ 쇼핑</option>
                       <option value="숙소">🏨 숙소</option>
@@ -830,6 +866,60 @@ export function PlaceMap({
                 </div>
               ) : (
                 <div className="mt-3">
+                  {/* 카테고리 편집 UI 추가 */}
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>카테고리</h4>
+                    {!editingCategory && onPlaceUpdate && (
+                      <button
+                        onClick={handleStartEditCategory}
+                        className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                        title="카테고리 편집"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  
+                  {editingCategory ? (
+                    <div className="mb-3">
+                      <select
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                        autoFocus
+                      >
+                        <option value="음식점">🍽️ 음식점</option>
+                        <option value="카페">☕️ 카페</option>
+                        <option value="관광지">🏞️ 관광지</option>
+                        <option value="쇼핑">🛍️ 쇼핑</option>
+                        <option value="숙소">🏨 숙소</option>
+                        <option value="기타">📍 기타</option>
+                      </select>
+                      <div className="flex justify-end mt-1">
+                        <button
+                          onClick={handleSaveCategory}
+                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={() => setEditingCategory(false)}
+                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`flex items-center mb-3 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'} px-2 py-1 rounded-md`}>
+                      <span className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between items-center mb-1">
                     <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
                     {!editingNotes && onPlaceUpdate && (
@@ -888,19 +978,6 @@ export function PlaceMap({
                   )}
                   
                   <div className={`my-2 border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}></div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-900'}`}>
-                      {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
-                    </div>
-                    {/* {infoWindowData.rating && infoWindowData.rating > 0 && (
-                      <div className="flex">
-                        {Array.from({ length: infoWindowData.rating }).map((_, i) => (
-                          <span key={i} className={`${theme === 'dark' ? 'text-yellow-300' : 'text-yellow-400'}`}>★</span>
-                        ))}
-                      </div>
-                    )} */}
-                  </div>
                 </div>
               )}
             </div>

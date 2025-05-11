@@ -50,6 +50,12 @@ export default function PlacesPage() {
         updates.notes = updatedPlace.notes || '';
       }
       
+      // 카테고리가 변경되었는지 확인
+      if (updatedPlace.category !== undefined) {
+        console.log('카테고리 업데이트:', updatedPlace.category);
+        updates.category = updatedPlace.category || '기타';
+      }
+      
       // 필드가 하나라도 업데이트되면 API 호출
       if (Object.keys(updates).length > 0) {
         await updatePlace(updatedPlace.id, updates);
