@@ -34,7 +34,7 @@ interface PlaceMapProps {
   onPlaceUpdate?: (place: Place) => Promise<void>;
 }
 
-const libraries: Libraries = ['places'];
+const libraries: Libraries = ['places', 'geocoding'];
 
 export function PlaceMap({ 
   places, 
@@ -74,6 +74,10 @@ export function PlaceMap({
   // 카테고리 수정 상태 추가
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
   const [newCategory, setNewCategory] = useState<string>('');
+
+  const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLoadingClickInfo, setIsLoadingClickInfo] = useState<boolean>(false);
+  const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
 
   // Autocomplete 초기화 및 설정
   const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
@@ -177,7 +181,7 @@ export function PlaceMap({
   }, [isLoaded, onAutocompleteLoad]);
 
   useEffect(() => {
-    if (selectedPlace && map) {
+    if (selectedPlace && map && !userClickedMap) {
       console.log('지도 이동:', selectedPlace.name);
       
       map.setCenter({
@@ -189,7 +193,7 @@ export function PlaceMap({
       
       setInfoWindowData(selectedPlace);
     }
-  }, [selectedPlace, map]);
+  }, [selectedPlace, map, userClickedMap]);
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
@@ -595,6 +599,89 @@ export function PlaceMap({
     return html;
   }
   
+  // 지도 클릭 이벤트 핸들러 추가
+  const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
+    // 클릭 좌표 가져오기
+    const lat = e.latLng?.lat();
+    const lng = e.latLng?.lng();
+    
+    if (lat === undefined || lng === undefined) return;
+    
+    // 사용자가 맵을 클릭했음을 표시
+    setUserClickedMap(true);
+    
+    // 이미 정보창이 열려있는 경우 닫기
+    if (infoWindowData) {
+      setInfoWindowData(null);
+    }
+    
+    setClickedLocation({lat, lng});
+    setIsLoadingClickInfo(true);
+    
+    try {
+      // 지오코딩 요청으로 클릭한 위치 정보 가져오기
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
+        geocoder.geocode(
+          { location: {lat, lng} },
+          (results, status) => {
+            if (status === 'OK' && results && results.length > 0) {
+              resolve(results[0]);
+            } else {
+              console.error('지오코딩 실패:', status);
+              resolve(null);
+            }
+          }
+        );
+      });
+      
+      if (!result) {
+        setIsLoadingClickInfo(false);
+        return;
+      }
+      
+      console.log('지오코딩 결과:', result);
+      
+      // 장소 이름과 주소 추출
+      const placeName = result.address_components.find(
+        component => component.types.includes('establishment') || 
+                    component.types.includes('point_of_interest') ||
+                    component.types.includes('premise')
+      )?.long_name || result.address_components[0]?.long_name || '이름 없는 장소';
+      
+      const address = result.formatted_address || '';
+      
+      // InfoWindow에 표시할 데이터 설정
+      setInfoWindowData({
+        id: 'new',
+        owner_id: '',
+        name: placeName,
+        address: address,
+        latitude: lat,
+        longitude: lng,
+        category: '기타', // 기본값
+        notes: '',
+        rating: 0,
+        is_public: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        custom_label: customLabel
+      } as Place);
+      
+    } catch (error) {
+      console.error('지오코딩 오류:', error);
+    } finally {
+      setIsLoadingClickInfo(false);
+    }
+  }, [infoWindowData, customLabel, userClickedMap]);
+  
+  // InfoWindow가 닫히면 userClickedMap 플래그를 초기화하는 효과 추가
+  useEffect(() => {
+    if (!infoWindowData) {
+      setUserClickedMap(false);
+    }
+  }, [infoWindowData]);
+  
   if (loadError) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg text-center h-full flex flex-col items-center justify-center">
@@ -709,6 +796,7 @@ export function PlaceMap({
         }
         zoom={13}
         onLoad={onMapLoad}
+        onClick={handleMapClick}
         options={{
           mapTypeControl: false,
           fullscreenControl: false,
@@ -743,6 +831,17 @@ export function PlaceMap({
           />
         ))}
         
+        {/* 지도 클릭으로 선택된 위치 마커 */}
+        {clickedLocation && isLoadingClickInfo && (
+          <Marker
+            position={clickedLocation}
+            icon={{
+              url: '/images/loading-marker.svg',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        )}
+        
         {/* 정보 창 */}
         {infoWindowData && (
           <InfoWindow
@@ -752,6 +851,8 @@ export function PlaceMap({
             }}
             onCloseClick={() => {
               setInfoWindowData(null);
+              setClickedLocation(null);
+              setUserClickedMap(false);
               // infoWindow가 닫힐 때 검색 필드를 초기화합니다
               if (autocompleteInputRef.current) {
                 autocompleteInputRef.current.value = '';
@@ -830,6 +931,11 @@ export function PlaceMap({
               {infoWindowData.id === 'new' ? (
                 <div className="mt-2">
                   <div className="mb-2">
+                    {clickedLocation && (
+                      <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                        <p>지도에서 클릭한 위치를 관심 장소로 추가합니다</p>
+                      </div>
+                    )}
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
@@ -846,6 +952,21 @@ export function PlaceMap({
                       <option value="숙소">🏨 숙소</option>
                       <option value="기타">📍 기타</option>
                     </select>
+                  </div>
+                  
+                  {/* 라벨 입력 필드 추가 */}
+                  <div className="mb-2">
+                    <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>라벨</label>
+                    <input
+                      type="text"
+                      value={infoWindowData.custom_label || ''}
+                      onChange={(e) => setInfoWindowData({
+                        ...infoWindowData,
+                        custom_label: e.target.value
+                      })}
+                      className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                      placeholder="장소의 별명이나 메모를 적어주세요"
+                    />
                   </div>
                   
                   <div className="mb-2">
