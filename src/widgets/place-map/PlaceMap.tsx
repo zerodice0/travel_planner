@@ -549,7 +549,7 @@ export function PlaceMap({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm mt-1">
+                      <p className="text-sm mt-1 whitespace-pre-wrap">
                         {infoWindowData.notes || 
                           <span className="text-gray-400 italic">메모가 없습니다. 편집 버튼을 클릭하여 메모를 추가하세요.</span>
                         }

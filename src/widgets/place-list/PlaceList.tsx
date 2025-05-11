@@ -6,9 +6,10 @@ interface PlaceListProps {
   selectedPlace: Place | null; // 선택된 장소 추가
   onPlaceSelect: (place: Place) => void;
   onPlaceDelete?: (id: string) => Promise<void>;
+  onPlaceUpdate?: (place: Place) => Promise<void>; // 장소 업데이트 함수 추가
 }
 
-export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete }: PlaceListProps) {
+export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete, onPlaceUpdate }: PlaceListProps) {
   const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -192,7 +193,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete 
                 <p className="text-sm text-gray-600 mb-2">{place.address}</p>
               )}
               {place.notes && (
-                <p className="text-sm mt-2">{place.notes}</p>
+                <p className="text-sm mt-2 whitespace-pre-wrap">{place.notes}</p>
               )}
               <div className="mt-2 flex justify-end">
                 <button
