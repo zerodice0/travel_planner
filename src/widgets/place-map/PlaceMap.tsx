@@ -7,8 +7,7 @@ import { useTheme } from '@/shared/providers/ThemeProvider';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '100%',
-  border: '1px solid #ccc'
+  height: '100%'
 };
 
 const defaultCenter = {
@@ -35,7 +34,7 @@ interface PlaceMapProps {
   onPlaceUpdate?: (place: Place) => Promise<void>;
 }
 
-const libraries: Libraries = ['places'];
+const libraries: Libraries = ['places', 'geocoding'];
 
 export function PlaceMap({ 
   places, 
@@ -75,6 +74,10 @@ export function PlaceMap({
   // 카테고리 수정 상태 추가
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
   const [newCategory, setNewCategory] = useState<string>('');
+
+  const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLoadingClickInfo, setIsLoadingClickInfo] = useState<boolean>(false);
+  const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
 
   // Autocomplete 초기화 및 설정
   const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
@@ -178,7 +181,7 @@ export function PlaceMap({
   }, [isLoaded, onAutocompleteLoad]);
 
   useEffect(() => {
-    if (selectedPlace && map) {
+    if (selectedPlace && map && !userClickedMap) {
       console.log('지도 이동:', selectedPlace.name);
       
       map.setCenter({
@@ -190,7 +193,7 @@ export function PlaceMap({
       
       setInfoWindowData(selectedPlace);
     }
-  }, [selectedPlace, map]);
+  }, [selectedPlace, map, userClickedMap]);
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
@@ -446,7 +449,7 @@ export function PlaceMap({
     
     // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 아이콘만
     const labelText = hasCustomLabel 
-      ? `${place.custom_label}`
+      ? `${categoryIcon} ${place.custom_label}`
       : categoryIcon;
     
     return {
@@ -596,6 +599,89 @@ export function PlaceMap({
     return html;
   }
   
+  // 지도 클릭 이벤트 핸들러 추가
+  const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
+    // 클릭 좌표 가져오기
+    const lat = e.latLng?.lat();
+    const lng = e.latLng?.lng();
+    
+    if (lat === undefined || lng === undefined) return;
+    
+    // 사용자가 맵을 클릭했음을 표시
+    setUserClickedMap(true);
+    
+    // 이미 정보창이 열려있는 경우 닫기
+    if (infoWindowData) {
+      setInfoWindowData(null);
+    }
+    
+    setClickedLocation({lat, lng});
+    setIsLoadingClickInfo(true);
+    
+    try {
+      // 지오코딩 요청으로 클릭한 위치 정보 가져오기
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
+        geocoder.geocode(
+          { location: {lat, lng} },
+          (results, status) => {
+            if (status === 'OK' && results && results.length > 0) {
+              resolve(results[0]);
+            } else {
+              console.error('지오코딩 실패:', status);
+              resolve(null);
+            }
+          }
+        );
+      });
+      
+      if (!result) {
+        setIsLoadingClickInfo(false);
+        return;
+      }
+      
+      console.log('지오코딩 결과:', result);
+      
+      // 장소 이름과 주소 추출
+      const placeName = result.address_components.find(
+        component => component.types.includes('establishment') || 
+                    component.types.includes('point_of_interest') ||
+                    component.types.includes('premise')
+      )?.long_name || result.address_components[0]?.long_name || '이름 없는 장소';
+      
+      const address = result.formatted_address || '';
+      
+      // InfoWindow에 표시할 데이터 설정
+      setInfoWindowData({
+        id: 'new',
+        owner_id: '',
+        name: placeName,
+        address: address,
+        latitude: lat,
+        longitude: lng,
+        category: '기타', // 기본값
+        notes: '',
+        rating: 0,
+        is_public: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        custom_label: customLabel
+      } as Place);
+      
+    } catch (error) {
+      console.error('지오코딩 오류:', error);
+    } finally {
+      setIsLoadingClickInfo(false);
+    }
+  }, [infoWindowData, customLabel, userClickedMap]);
+  
+  // InfoWindow가 닫히면 userClickedMap 플래그를 초기화하는 효과 추가
+  useEffect(() => {
+    if (!infoWindowData) {
+      setUserClickedMap(false);
+    }
+  }, [infoWindowData]);
+  
   if (loadError) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg text-center h-full flex flex-col items-center justify-center">
@@ -710,6 +796,7 @@ export function PlaceMap({
         }
         zoom={13}
         onLoad={onMapLoad}
+        onClick={handleMapClick}
         options={{
           mapTypeControl: false,
           fullscreenControl: false,
@@ -744,6 +831,17 @@ export function PlaceMap({
           />
         ))}
         
+        {/* 지도 클릭으로 선택된 위치 마커 */}
+        {clickedLocation && isLoadingClickInfo && (
+          <Marker
+            position={clickedLocation}
+            icon={{
+              url: '/images/loading-marker.svg',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        )}
+        
         {/* 정보 창 */}
         {infoWindowData && (
           <InfoWindow
@@ -753,6 +851,8 @@ export function PlaceMap({
             }}
             onCloseClick={() => {
               setInfoWindowData(null);
+              setClickedLocation(null);
+              setUserClickedMap(false);
               // infoWindow가 닫힐 때 검색 필드를 초기화합니다
               if (autocompleteInputRef.current) {
                 autocompleteInputRef.current.value = '';
@@ -764,68 +864,78 @@ export function PlaceMap({
             }}
           >
             <div className={`p-3 max-w-[280px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
-              <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
-              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
-              
-              {/* 라벨 표시 및 편집 영역 */}
-              {editingInfoWindowLabel ? (
-                <div className="mt-2 flex items-center">
+              {infoWindowData.custom_label && !editingInfoWindowLabel ? (
+                <>
+                  <div className="flex items-center">
+                    <h3 className="text-lg font-semibold truncate text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
+                    {onPlaceUpdate && (
+                      <button
+                        onClick={handleStartEditLabelInInfoWindow}
+                        className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
+                        title="라벨 편집"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <p className={`text-sm font-normal ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-1`}>{infoWindowData.name}</p>
+                </>
+              ) : !editingInfoWindowLabel ? (
+                <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
+              ) : (
+                // 라벨 편집 UI - 커스텀 라벨이 있던 위치에 표시
+                <div className="flex items-center h-[28px]">
                   <input
                     type="text"
                     value={newInfoWindowLabel}
                     onChange={(e) => setNewInfoWindowLabel(e.target.value)}
-                    className={`text-sm p-1 border rounded ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                    className={`text-lg font-semibold p-0.5 border rounded w-[60%] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     placeholder="라벨 입력..."
                     autoFocus
                   />
-                  <button
-                    onClick={handleSaveLabelInInfoWindow}
-                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} p-1`}
-                  >
-                    저장
-                  </button>
-                  <button
-                    onClick={() => setEditingInfoWindowLabel(false)}
-                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} p-1`}
-                  >
-                    취소
-                  </button>
+                  <div className="flex-shrink-0 flex ml-1">
+                    <button
+                      onClick={handleSaveLabelInInfoWindow}
+                      className={`text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-1.5 py-0.5 rounded bg-opacity-20 bg-green-100 dark:bg-green-900 dark:bg-opacity-20`}
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={() => setEditingInfoWindowLabel(false)}
+                      className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-1.5 py-0.5 rounded bg-opacity-20 bg-gray-100 dark:bg-gray-900 dark:bg-opacity-20`}
+                    >
+                      취소
+                    </button>
+                  </div>
                 </div>
-              ) : (
+              )}
+              {editingInfoWindowLabel && (
+                <p className={`text-sm font-normal ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-1`}>{infoWindowData.name}</p>
+              )}
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
+              
+              {/* 라벨 추가 버튼 - 커스텀 라벨이 없을 때만 표시 */}
+              {!infoWindowData.custom_label && !editingInfoWindowLabel && onPlaceUpdate && (
                 <div className="mt-2 flex items-center">
-                  {infoWindowData.custom_label ? (
-                    <>
-                      <span className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400 bg-blue-900/50' : 'text-blue-600 bg-blue-50'} px-2 py-0.5 rounded-full`}>
-                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.custom_label}
-                      </span>
-                      {onPlaceUpdate && (
-                        <button
-                          onClick={handleStartEditLabelInInfoWindow}
-                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
-                          title="라벨 편집"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    onPlaceUpdate && (
-                      <button
-                        onClick={handleStartEditLabelInInfoWindow}
-                        className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
-                      >
-                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
-                      </button>
-                    )
-                  )}
+                  <button
+                    onClick={handleStartEditLabelInInfoWindow}
+                    className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
+                  >
+                    {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
+                  </button>
                 </div>
               )}
               
               {infoWindowData.id === 'new' ? (
                 <div className="mt-2">
                   <div className="mb-2">
+                    {clickedLocation && (
+                      <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                        <p>지도에서 클릭한 위치를 관심 장소로 추가합니다</p>
+                      </div>
+                    )}
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
@@ -842,6 +952,21 @@ export function PlaceMap({
                       <option value="숙소">🏨 숙소</option>
                       <option value="기타">📍 기타</option>
                     </select>
+                  </div>
+                  
+                  {/* 라벨 입력 필드 추가 */}
+                  <div className="mb-2">
+                    <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>라벨</label>
+                    <input
+                      type="text"
+                      value={infoWindowData.custom_label || ''}
+                      onChange={(e) => setInfoWindowData({
+                        ...infoWindowData,
+                        custom_label: e.target.value
+                      })}
+                      className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                      placeholder="장소의 별명이나 메모를 적어주세요"
+                    />
                   </div>
                   
                   <div className="mb-2">
