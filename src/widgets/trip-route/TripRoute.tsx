@@ -187,7 +187,7 @@ export function TripRoute({ visits }: TripRouteProps) {
             {selectedVisit.notes && (
               <p className="text-sm mt-2">{selectedVisit.notes}</p>
             )}
-            {selectedVisit.rating > 0 && (
+            {selectedVisit.rating !== null && selectedVisit.rating > 0 && (
               <div className="mt-1 flex">
                 {Array.from({ length: selectedVisit.rating }).map((_, i) => (
                   <span key={i} className="text-yellow-400">★</span>
