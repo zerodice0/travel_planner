@@ -96,6 +96,43 @@ export function PlaceMap({
         address = place.address_components.map(component => component.long_name).join(' ');
       }
       
+      // 선택된 장소의 좌표
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      
+      // 이미 관심 장소 목록에 있는지 확인
+      const existingPlace = places.find(p => {
+        // 장소 이름과 주소로 비교
+        const nameMatch = p.name === place.name;
+        const addressMatch = p.address === address;
+        
+        // 좌표 비교 (약간의 오차 허용)
+        const latDiff = Math.abs(p.latitude - lat);
+        const lngDiff = Math.abs(p.longitude - lng);
+        const coordsMatch = latDiff < 0.0001 && lngDiff < 0.0001; // 약 10m 이내 오차 허용
+        
+        // 이름과 주소 중 하나라도 일치하고, 좌표가 비슷하면 같은 장소로 간주
+        return (nameMatch || addressMatch) && coordsMatch;
+      });
+      
+      if (existingPlace) {
+        // 이미 저장된 장소가 있으면 해당 장소 선택
+        console.log('이미 저장된 장소를 발견했습니다:', existingPlace.name);
+        
+        // 해당 장소 정보창 표시
+        setInfoWindowData(existingPlace);
+        
+        // 장소 선택 이벤트 발생 (목록에서도 선택되도록)
+        if (onPlaceSelect) {
+          onPlaceSelect(existingPlace);
+        }
+        
+        // 사용자에게 알림
+        alert(`"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`);
+        
+        return;
+      }
+      
       // 장소 추가 준비
       if (onPlaceAdd && place.name) {
         setInfoWindowData({
@@ -103,8 +140,8 @@ export function PlaceMap({
           owner_id: '',
           name: place.name,
           address: address || '주소 정보 없음',
-          latitude: place.geometry.location.lat(),
-          longitude: place.geometry.location.lng(),
+          latitude: lat,
+          longitude: lng,
           category: '기타', // 기본값
           notes: '',
           rating: 0,
@@ -120,7 +157,7 @@ export function PlaceMap({
         autocompleteInputRef.current.value = '';
       }
     });
-  }, [map, onPlaceAdd, customLabel]);
+  }, [map, onPlaceAdd, customLabel, places, onPlaceSelect]);
 
   // Autocomplete 초기화를 위한 useEffect 추가
   useEffect(() => {

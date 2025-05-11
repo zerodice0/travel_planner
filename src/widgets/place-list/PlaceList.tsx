@@ -17,6 +17,8 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   // 메모 수정을 위한 상태 추가
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [newNotesValue, setNewNotesValue] = useState<string>("");
+  // 주소 복사 상태 추가
+  const [copiedAddressId, setCopiedAddressId] = useState<string | null>(null);
 
   const handleToggleExpand = (id: string) => {
     setExpandedPlaceId(expandedPlaceId === id ? null : id);
@@ -141,6 +143,25 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     }
   };
 
+  // 주소 복사 함수 추가
+  const copyAddressToClipboard = (id: string, address: string | null) => {
+    if (!address) return;
+    
+    navigator.clipboard.writeText(address)
+      .then(() => {
+        setCopiedAddressId(id);
+        
+        // 3초 후에 복사 표시 제거
+        setTimeout(() => {
+          setCopiedAddressId(null);
+        }, 3000);
+      })
+      .catch(err => {
+        console.error('주소 복사 실패:', err);
+        alert('주소 복사에 실패했습니다.');
+      });
+  };
+
   if (places.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -173,7 +194,6 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
           >
             <div>
               <h3 className="font-medium">
-                {place.name}
                 {editingLabelId === place.id ? (
                   <div className="mt-1 flex items-center">
                     <input
@@ -207,32 +227,40 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 ) : (
                   <>
                     {place.custom_label ? (
-                      <div className="inline-flex items-center ml-2">
-                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-0.5 rounded-full">
-                          {place.custom_label}
-                        </span>
+                      <>
+                        <div className="flex items-center">
+                          <span className="font-medium text-blue-800 dark:text-blue-200">
+                            {place.custom_label}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditLabel(place);
+                            }}
+                            className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {place.name}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {place.name}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStartEditLabel(place);
                           }}
-                          className="ml-1 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+                          className="ml-2 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
+                          라벨 추가
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartEditLabel(place);
-                        }}
-                        className="ml-2 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600"
-                      >
-                        라벨 추가
-                      </button>
+                      </>
                     )}
                   </>
                 )}
@@ -241,13 +269,13 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full mr-2">
                   {place.category}
                 </span>
-                {place.rating && place.rating > 0 && (
+                {/* {place.rating && place.rating > 0 && (
                   <div className="text-xs text-yellow-500 dark:text-yellow-400">
                     {Array.from({ length: place.rating }).map((_, i) => (
                       <span key={i}>★</span>
                     ))}
                   </div>
-                )}
+                )} */}
               </div>
             </div>
             <div className="flex space-x-1">
@@ -269,7 +297,34 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
           {expandedPlaceId === place.id && (
             <div className="p-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700 transition-colors">
               {place.address && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{place.address}</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">🗺️ 주소: {place.address}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyAddressToClipboard(place.id, place.address);
+                    }}
+                    className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300 rounded-md flex items-center transition-colors"
+                    title="주소 복사하기"
+                  >
+                    {copiedAddressId === place.id ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        복사됨
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                          <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                        </svg>
+                        복사
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
               
               {/* 구글맵에서 보기 버튼 */}
