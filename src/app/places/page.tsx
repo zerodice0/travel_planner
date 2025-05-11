@@ -57,13 +57,13 @@ export default function PlacesPage() {
   };  
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="p-4 bg-white shadow">
-        <h1 className="text-2xl font-bold">나의 관심 장소</h1>
+    <div className="flex flex-col h-screen bg-white dark:bg-gray-900 transition-colors">
+      <div className="p-4 bg-white dark:bg-gray-800 shadow">
+        <h1 className="text-2xl font-bold dark:text-white">나의 관심 장소</h1>
         <div className="mt-2 flex gap-2">
           <button 
             onClick={() => setSelectedCategory(null)} 
-            className={`px-3 py-1 rounded ${!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            className={`px-3 py-1 rounded ${!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
           >
             전체
           </button>
@@ -71,7 +71,7 @@ export default function PlacesPage() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-1 rounded ${selectedCategory === category ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              className={`px-3 py-1 rounded ${selectedCategory === category ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
             >
               {category}
             </button>
@@ -80,7 +80,7 @@ export default function PlacesPage() {
       </div>
       
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-1/3 overflow-auto p-4 border-r">
+        <div id="place-detail-panel" className="w-1/3 overflow-auto p-4 border-r dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
           <PlaceList 
             places={filteredPlaces} 
             selectedPlace={selectedPlace} // 선택된 장소 전달

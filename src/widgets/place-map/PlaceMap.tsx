@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Libraries } from '@react-google-maps/api';
 import { Place } from '@/entities/place/types';
+import { useTheme } from '@/shared/providers/ThemeProvider';
 
 const mapContainerStyle = {
   width: '100%',
@@ -63,6 +64,7 @@ export function PlaceMap({
   const [customLabel, setCustomLabel] = useState<string>('');
   const [editingInfoWindowLabel, setEditingInfoWindowLabel] = useState<boolean>(false);
   const [newInfoWindowLabel, setNewInfoWindowLabel] = useState<string>('');
+  const { theme } = useTheme();
   
   // 메모 수정 상태 추가
   const [editingNotes, setEditingNotes] = useState<boolean>(false);
@@ -92,6 +94,98 @@ export function PlaceMap({
       setNewNotes(infoWindowData.notes || ''); // 메모 상태 초기화
     }
   }, [infoWindowData]);
+
+  // 지도 스타일 설정을 위한 useEffect
+  useEffect(() => {
+    if (map) {
+      // 다크 모드일 때 지도 스타일 적용
+      const darkModeStyle = [
+        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+        {
+          featureType: "administrative.locality",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#d59563" }],
+        },
+        {
+          featureType: "poi",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#d59563" }],
+        },
+        {
+          featureType: "poi.park",
+          elementType: "geometry",
+          stylers: [{ color: "#263c3f" }],
+        },
+        {
+          featureType: "poi.park",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#6b9a76" }],
+        },
+        {
+          featureType: "road",
+          elementType: "geometry",
+          stylers: [{ color: "#38414e" }],
+        },
+        {
+          featureType: "road",
+          elementType: "geometry.stroke",
+          stylers: [{ color: "#212a37" }],
+        },
+        {
+          featureType: "road",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#9ca5b3" }],
+        },
+        {
+          featureType: "road.highway",
+          elementType: "geometry",
+          stylers: [{ color: "#746855" }],
+        },
+        {
+          featureType: "road.highway",
+          elementType: "geometry.stroke",
+          stylers: [{ color: "#1f2835" }],
+        },
+        {
+          featureType: "road.highway",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#f3d19c" }],
+        },
+        {
+          featureType: "transit",
+          elementType: "geometry",
+          stylers: [{ color: "#2f3948" }],
+        },
+        {
+          featureType: "transit.station",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#d59563" }],
+        },
+        {
+          featureType: "water",
+          elementType: "geometry",
+          stylers: [{ color: "#17263c" }],
+        },
+        {
+          featureType: "water",
+          elementType: "labels.text.fill",
+          stylers: [{ color: "#515c6d" }],
+        },
+        {
+          featureType: "water",
+          elementType: "labels.text.stroke",
+          stylers: [{ color: "#17263c" }],
+        },
+      ];
+
+      // 테마에 따라 지도 스타일 설정
+      map.setOptions({
+        styles: theme === 'dark' ? darkModeStyle : []
+      });
+    }
+  }, [map, theme]);
   
   const onMapLoad = useCallback((map: google.maps.Map) => {
     console.log('Google Map 인스턴스 로드됨');
@@ -289,24 +383,24 @@ export function PlaceMap({
   };
   
   if (loadError) {
-    return <div className="p-4">지도를 불러오는 중 오류가 발생했습니다.</div>;
+    return <div className="p-4 dark:text-gray-300">지도를 불러오는 중 오류가 발생했습니다.</div>;
   }
   
   if (!isLoaded) {
-    return <div className="p-4">지도를 불러오는 중...</div>;
+    return <div className="p-4 dark:text-gray-300">지도를 불러오는 중...</div>;
   }
 
   return (
     <div className="h-full relative">
       <div className="absolute top-4 left-0 right-0 z-10 px-4">
-        <div className="bg-white rounded-md shadow-md p-2 flex flex-col gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-md shadow-md p-2 flex flex-col gap-2 transition-colors">
           <div className="flex justify-between items-center">
             {/* Autocomplete 사용 */}
             <input
               ref={autocompleteInputRef}
               type="text"
               placeholder="장소 검색..."
-              className="w-full px-4 py-2 border rounded-md bg-white"
+              className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               onLoad={(e) => {
                 // Autocomplete 인스턴스 생성 및 설정
                 if (window.google && e.currentTarget) {
@@ -329,7 +423,7 @@ export function PlaceMap({
               value={customLabel}
               onChange={(e) => setCustomLabel(e.target.value)}
               placeholder="장소 라벨 입력 (선택사항)"
-              className="w-full px-4 py-2 border rounded-md bg-white"
+              className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
           )}
         </div>
@@ -345,6 +439,17 @@ export function PlaceMap({
           white-space: nowrap;
           text-align: center;
           transform: translateY(-24px);
+        }
+        .dark .gm-style .gm-style-iw-c {
+          background-color: #1f2937;
+          color: #e5e7eb;
+        }
+        .dark .gm-style .gm-style-iw-d {
+          background-color: #1f2937;
+          color: #e5e7eb;
+        }
+        .dark .gm-style .gm-style-iw-t::after {
+          background: #1f2937;
         }
       `}</style>
       
@@ -406,9 +511,9 @@ export function PlaceMap({
               maxWidth: 320,
             }}
           >
-            <div className="p-2 max-w-[300px] bg-white">
+            <div className={`p-2 max-w-[300px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
               <h3 className="text-lg font-semibold">{infoWindowData.name}</h3>
-              <p className="text-sm text-gray-600">{infoWindowData.address}</p>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{infoWindowData.address}</p>
               
               {/* 라벨 표시 및 편집 영역 */}
               {editingInfoWindowLabel ? (
@@ -417,19 +522,19 @@ export function PlaceMap({
                     type="text"
                     value={newInfoWindowLabel}
                     onChange={(e) => setNewInfoWindowLabel(e.target.value)}
-                    className="text-sm p-1 border rounded"
+                    className={`text-sm p-1 border rounded ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     placeholder="라벨 입력..."
                     autoFocus
                   />
                   <button
                     onClick={handleSaveLabelInInfoWindow}
-                    className="ml-1 text-xs text-green-600 hover:text-green-800 p-1"
+                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} p-1`}
                   >
                     저장
                   </button>
                   <button
                     onClick={() => setEditingInfoWindowLabel(false)}
-                    className="ml-1 text-xs text-gray-600 hover:text-gray-800 p-1"
+                    className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} p-1`}
                   >
                     취소
                   </button>
@@ -438,13 +543,13 @@ export function PlaceMap({
                 <div className="mt-2 flex items-center">
                   {infoWindowData.custom_label ? (
                     <>
-                      <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      <span className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400 bg-blue-900/50' : 'text-blue-600 bg-blue-50'} px-2 py-0.5 rounded-full`}>
                         {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.custom_label}
                       </span>
                       {onPlaceUpdate && (
                         <button
                           onClick={handleStartEditLabelInInfoWindow}
-                          className="ml-1 text-xs text-gray-400 hover:text-gray-600 p-1"
+                          className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -456,7 +561,7 @@ export function PlaceMap({
                     onPlaceUpdate && (
                       <button
                         onClick={handleStartEditLabelInInfoWindow}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-0.5 rounded-full border border-dashed border-gray-300"
+                        className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
                       >
                         {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
                       </button>
@@ -468,14 +573,14 @@ export function PlaceMap({
               {infoWindowData.id === 'new' ? (
                 <div className="mt-2">
                   <div className="mb-2">
-                    <label className="block text-sm font-medium mb-1">카테고리</label>
+                    <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
                       onChange={(e) => setInfoWindowData({
                         ...infoWindowData,
                         category: e.target.value
                       })}
-                      className="w-full p-1 border rounded text-sm"
+                      className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
                       <option value="관광지">🏞️ 관광지</option>
@@ -486,21 +591,21 @@ export function PlaceMap({
                   </div>
                   
                   <div className="mb-2">
-                    <label className="block text-sm font-medium mb-1">메모</label>
+                    <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>메모</label>
                     <textarea
                       value={infoWindowData.notes || ''}
                       onChange={(e) => setInfoWindowData({
                         ...infoWindowData,
                         notes: e.target.value
                       })}
-                      className="w-full p-1 border rounded text-sm"
+                      className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
                     />
                   </div>
                   
                   <button
                     onClick={handleAddPlace}
-                    className="w-full mt-1 px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                    className="w-full mt-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                   >
                     관심 장소로 추가
                   </button>
@@ -510,11 +615,11 @@ export function PlaceMap({
                   {/* 메모 표시 및 편집 영역 */}
                   <div className="mt-2">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-sm font-medium text-gray-700">메모</h4>
+                      <h4 className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
                       {!editingNotes && onPlaceUpdate && (
                         <button
                           onClick={handleStartEditNotes}
-                          className="text-xs text-gray-400 hover:text-gray-600 p-1"
+                          className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -528,7 +633,7 @@ export function PlaceMap({
                         <textarea
                           value={newNotes}
                           onChange={(e) => setNewNotes(e.target.value)}
-                          className="w-full p-1 border rounded text-sm"
+                          className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                           rows={3}
                           placeholder="메모를 입력하세요..."
                           autoFocus
@@ -536,35 +641,35 @@ export function PlaceMap({
                         <div className="flex justify-end mt-1">
                           <button
                             onClick={handleSaveNotes}
-                            className="ml-1 text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded"
+                            className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
                           >
                             저장
                           </button>
                           <button
                             onClick={() => setEditingNotes(false)}
-                            className="ml-1 text-xs text-gray-600 hover:text-gray-800 px-2 py-1 rounded"
+                            className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
                           >
                             취소
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm mt-1 whitespace-pre-wrap">
+                      <p className={`text-sm mt-1 whitespace-pre-wrap ${theme === 'dark' ? 'text-gray-300' : ''}`}>
                         {infoWindowData.notes || 
-                          <span className="text-gray-400 italic">메모가 없습니다. 편집 버튼을 클릭하여 메모를 추가하세요.</span>
+                          <span className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} italic`}>메모가 없습니다. 편집 버튼을 클릭하여 메모를 추가하세요.</span>
                         }
                       </p>
                     )}
                   </div>
                   
                   <div className="mt-1 flex items-center">
-                    <span className="text-sm text-gray-700">
+                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                       카테고리: {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
                     </span>
                     {infoWindowData.rating && infoWindowData.rating > 0 && (
                       <div className="ml-2 flex">
                         {Array.from({ length: infoWindowData.rating }).map((_, i) => (
-                          <span key={i} className="text-yellow-400">★</span>
+                          <span key={i} className={`${theme === 'dark' ? 'text-yellow-300' : 'text-yellow-400'}`}>★</span>
                         ))}
                       </div>
                     )}
