@@ -76,7 +76,6 @@ export function PlaceMap({
   const [newCategory, setNewCategory] = useState<string>('');
 
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [isLoadingClickInfo, setIsLoadingClickInfo] = useState<boolean>(false);
   const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
 
   // Autocomplete 초기화 및 설정
@@ -599,82 +598,6 @@ export function PlaceMap({
     return html;
   }
   
-  // 지도 클릭 이벤트 핸들러 추가
-  const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    // 클릭 좌표 가져오기
-    const lat = e.latLng?.lat();
-    const lng = e.latLng?.lng();
-    
-    if (lat === undefined || lng === undefined) return;
-    
-    // 사용자가 맵을 클릭했음을 표시
-    setUserClickedMap(true);
-    
-    // 이미 정보창이 열려있는 경우 닫기
-    if (infoWindowData) {
-      setInfoWindowData(null);
-    }
-    
-    setClickedLocation({lat, lng});
-    setIsLoadingClickInfo(true);
-    
-    try {
-      // 지오코딩 요청으로 클릭한 위치 정보 가져오기
-      const geocoder = new window.google.maps.Geocoder();
-      const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
-        geocoder.geocode(
-          { location: {lat, lng} },
-          (results, status) => {
-            if (status === 'OK' && results && results.length > 0) {
-              resolve(results[0]);
-            } else {
-              console.error('지오코딩 실패:', status);
-              resolve(null);
-            }
-          }
-        );
-      });
-      
-      if (!result) {
-        setIsLoadingClickInfo(false);
-        return;
-      }
-      
-      console.log('지오코딩 결과:', result);
-      
-      // 장소 이름과 주소 추출
-      const placeName = result.address_components.find(
-        component => component.types.includes('establishment') || 
-                    component.types.includes('point_of_interest') ||
-                    component.types.includes('premise')
-      )?.long_name || result.address_components[0]?.long_name || '이름 없는 장소';
-      
-      const address = result.formatted_address || '';
-      
-      // InfoWindow에 표시할 데이터 설정
-      setInfoWindowData({
-        id: 'new',
-        owner_id: '',
-        name: placeName,
-        address: address,
-        latitude: lat,
-        longitude: lng,
-        category: '기타', // 기본값
-        notes: '',
-        rating: 0,
-        is_public: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        custom_label: customLabel
-      } as Place);
-      
-    } catch (error) {
-      console.error('지오코딩 오류:', error);
-    } finally {
-      setIsLoadingClickInfo(false);
-    }
-  }, [infoWindowData, customLabel, userClickedMap]);
-  
   // InfoWindow가 닫히면 userClickedMap 플래그를 초기화하는 효과 추가
   useEffect(() => {
     if (!infoWindowData) {
@@ -796,7 +719,6 @@ export function PlaceMap({
         }
         zoom={13}
         onLoad={onMapLoad}
-        onClick={handleMapClick}
         options={{
           mapTypeControl: false,
           fullscreenControl: false,
@@ -830,17 +752,6 @@ export function PlaceMap({
             zIndex={selectedPlace?.id === place.id ? 1000 : undefined}
           />
         ))}
-        
-        {/* 지도 클릭으로 선택된 위치 마커 */}
-        {clickedLocation && isLoadingClickInfo && (
-          <Marker
-            position={clickedLocation}
-            icon={{
-              url: '/images/loading-marker.svg',
-              scaledSize: new window.google.maps.Size(40, 40)
-            }}
-          />
-        )}
         
         {/* 정보 창 */}
         {infoWindowData && (
