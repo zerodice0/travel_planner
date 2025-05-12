@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Libraries } from '@react-google-maps/api';
 import { Place } from '@/entities/place/types';
 import { useTheme } from '@/shared/providers/ThemeProvider';
+import './PlaceMapStyles.css';
 
 const mapContainerStyle = {
   width: '100%',
@@ -243,7 +244,7 @@ export function PlaceMap({
   const onMapLoad = useCallback((map: google.maps.Map) => {
     console.log('Google Map 인스턴스 로드됨');
     setMap(map);
-    
+
     // 맵 이동 완료 이벤트 리스너
     map.addListener('idle', () => {
       isMapMovingRef.current = false;
@@ -644,68 +645,6 @@ export function PlaceMap({
           </div>
         </div>
       )}
-      
-      {/* 커스텀 마커 스타일 */}
-      <style jsx global>{`
-        .custom-marker-label {
-          background-color: rgba(0, 0, 0, 0.7);
-          padding: 3px 6px;
-          border-radius: 4px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-          white-space: nowrap;
-          text-align: center;
-          transform: translateY(-24px);
-          max-width: 150px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        
-        /* CSS hover는 기존 코드에서 동작하지 않았으므로 JS 이벤트로 대체 */
-        .dark .gm-style .gm-style-iw-c {
-          background-color: #1f2937;
-          color: #e5e7eb;
-        }
-        .dark .gm-style .gm-style-iw-d {
-          background-color: #1f2937;
-          color: #e5e7eb;
-        }
-        .dark .gm-style .gm-style-iw-t::after {
-          background: #1f2937;
-        }
-        
-        /* 커스텀 스크롤바 스타일 */
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-track {
-          background: #374151;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-thumb {
-          background: #4b5563;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
-      `}</style>
       
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
