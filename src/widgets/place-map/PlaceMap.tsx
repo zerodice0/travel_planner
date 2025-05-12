@@ -74,7 +74,6 @@ export function PlaceMap({
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
   
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
   
   // 마지막으로 중심을 이동한 장소 ID를 저장하는 ref
   const lastCenteredPlaceIdRef = useRef<string | null>(null);
@@ -234,16 +233,6 @@ export function PlaceMap({
     }
   }, [map]);
 
-  useEffect(() => {
-    if (selectedPlace && map && !userClickedMap) {
-      // 통합된 맵 중심 이동 함수 사용
-      centerMapOnPlace(selectedPlace);
-      
-      // infoWindowData 상태 업데이트는 중심 이동과 별개로 처리
-      // 이를 통해 상태 업데이트와 맵 이동 사이의 의존성 감소
-      setInfoWindowData(selectedPlace);
-    }
-  }, [selectedPlace, map, userClickedMap, centerMapOnPlace]);
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
@@ -422,8 +411,6 @@ export function PlaceMap({
       setInfoWindowData(place);
       
       if (onPlaceSelect) {
-        // userClickedMap 플래그를 true로 설정하여 selectedPlace 변경 시 중복 이동 방지
-        setUserClickedMap(true);
         onPlaceSelect(place);
       }
     }
@@ -699,7 +686,6 @@ export function PlaceMap({
   // InfoWindow가 닫힐 때 상태 초기화 (기존 유지)
   useEffect(() => {
     if (!infoWindowData) {
-      setUserClickedMap(false);
       // 정보창이 닫힐 때 마지막 중심 이동 장소 기록 초기화
       lastCenteredPlaceIdRef.current = null;
     }
@@ -869,7 +855,6 @@ export function PlaceMap({
             onCloseClick={() => {
               setInfoWindowData(null);
               setClickedLocation(null);
-              setUserClickedMap(false);
               // infoWindow가 닫힐 때 검색 필드를 초기화합니다
               if (autocompleteInputRef.current) {
                 autocompleteInputRef.current.value = '';
