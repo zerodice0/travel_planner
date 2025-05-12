@@ -541,7 +541,26 @@ export function PlaceMap({
       fontWeight: 'bold',
       className: 'custom-marker-label'
     };
-  };
+  }; 
+
+  const onChangeMemo = (e: React.ChangeEvent<HTMLTextAreaElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      notes: e.target.value
+    });
+
+  const onChangeCustomLabel = (e: React.ChangeEvent<HTMLInputElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      custom_label: e.target.value
+    });
+
+  const onChangeCategory = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      category: e.target.value
+    });
+
   
   // 사용자 정의 마커 아이콘 생성 함수
   const createCustomMarkerIcon = (place: Place) => {
@@ -947,10 +966,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        category: e.target.value
-                      })}
+                      onChange={onChangeCategory}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
@@ -968,10 +984,7 @@ export function PlaceMap({
                     <input
                       type="text"
                       value={infoWindowData.custom_label || ''}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        custom_label: e.target.value
-                      })}
+                      onChange={onChangeCustomLabel}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       placeholder="장소의 별명이나 메모를 적어주세요"
                       maxLength={100}
@@ -982,10 +995,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>메모</label>
                     <textarea
                       value={infoWindowData.notes || ''}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        notes: e.target.value
-                      })}
+                      onChange={onChangeMemo}
                       className={`w-full p-1 border rounded text-sm max-h-[100px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
                     />
