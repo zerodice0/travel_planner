@@ -62,7 +62,6 @@ export function PlaceMap({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowData, setInfoWindowData] = useState<Place | null>(null);
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
-  const [customLabel, setCustomLabel] = useState<string>('');
   const [editingInfoWindowLabel, setEditingInfoWindowLabel] = useState<boolean>(false);
   const [newInfoWindowLabel, setNewInfoWindowLabel] = useState<string>('');
   const { theme } = useTheme();
@@ -154,7 +153,7 @@ export function PlaceMap({
           is_public: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          custom_label: customLabel
+          custom_label: '',
         } as Place);
       }
       
@@ -163,7 +162,7 @@ export function PlaceMap({
         autocompleteInputRef.current.value = '';
       }
     });
-  }, [map, onPlaceAdd, customLabel, places, onPlaceSelect]);
+  }, [map, onPlaceAdd, places, onPlaceSelect]);
 
   // Autocomplete 초기화를 위한 useEffect 추가
   useEffect(() => {
@@ -325,11 +324,11 @@ export function PlaceMap({
           notes: infoWindowData.notes || '',
           rating: infoWindowData.rating || 0,
           is_public: false,
-          custom_label: customLabel || ''
+          custom_label: infoWindowData.custom_label || ''
         });
         
         setInfoWindowData(null);
-        setCustomLabel('');
+        
         if (autocompleteInputRef.current) {
           autocompleteInputRef.current.value = '';
         }
@@ -842,7 +841,7 @@ export function PlaceMap({
               <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} line-clamp-2 mb-1`}>{infoWindowData.address}</p>
               
               {/* 라벨 추가 버튼 - 커스텀 라벨이 없을 때만 표시 */}
-              {!infoWindowData.custom_label && !editingInfoWindowLabel && onPlaceUpdate && (
+              {!infoWindowData.custom_label && !editingInfoWindowLabel && onPlaceUpdate && infoWindowData.id !== 'new' && (
                 <div className="mt-2 flex items-center">
                   <button
                     onClick={handleStartEditLabelInInfoWindow}
