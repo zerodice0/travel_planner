@@ -305,6 +305,12 @@ export function PlaceMap({
     console.log('맵 중심 좌표:', map.getCenter()?.toJSON());
     console.log('맵 줌 레벨:', map.getZoom());
   }, []);
+
+  const onMapClick = useCallback(() => {
+    if (infoWindowData) {
+      setInfoWindowData(null);
+    }
+  }, [infoWindowData]);
   
   // 새 장소 추가
   const handleAddPlace = async () => {
@@ -725,6 +731,7 @@ export function PlaceMap({
         }
         zoom={13}
         onLoad={onMapLoad}
+        onClick={onMapClick}
         options={{
           mapTypeControl: false,
           fullscreenControl: false,
