@@ -41,8 +41,6 @@ export function usePlaces() {
         throw new Error('인증된 사용자만 장소를 추가할 수 있습니다.');
       }
       
-      // 프로필 존재 여부 확인 및 생성 로직 (필요시)
-      
       const { data, error } = await supabase
         .from('places_of_interest')
         .insert({
