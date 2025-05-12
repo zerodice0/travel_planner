@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "여행 플래너",
-  description: "당신의 여행을 계획하세요",
+  title: "이토록 P다운 플래너",
+  description: "여행을 계획하기 전에 가고싶은 곳을 먼저 정리해보세요. 그리고, 마음가는대로 여행을 계속해보세요.",
 };
 
 export default function RootLayout({
