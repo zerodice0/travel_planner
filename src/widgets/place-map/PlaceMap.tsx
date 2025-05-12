@@ -452,11 +452,11 @@ export function PlaceMap({
     const categoryIcon = categoryIcons[place.category as keyof typeof categoryIcons] || '📍';
     const hasCustomLabel = place.custom_label && place.custom_label.trim() !== '';
     
-    // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 아이콘만
+    // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 원본 지명 표시
     // 라벨이 너무 길면 최대 15자까지만 표시하고 나머지는 ellipsis 처리
     const labelText = hasCustomLabel 
       ? `${categoryIcon} ${place.custom_label}`
-      : categoryIcon;
+      : `${categoryIcon} ${place.name}`;
     
     return {
       text: labelText,
