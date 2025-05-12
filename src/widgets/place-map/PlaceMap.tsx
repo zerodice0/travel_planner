@@ -72,8 +72,7 @@ export function PlaceMap({
   
   // 카테고리 수정 상태
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
-  const [newCategory, setNewCategory] = useState<string>('');
-
+  
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
   const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
   
@@ -250,12 +249,6 @@ export function PlaceMap({
     setEditingInfoWindowLabel(false);
     setEditingNotes(false); // 메모 편집 상태 초기화
     setEditingCategory(false); // 카테고리 편집 상태 초기화
-    
-    if (infoWindowData) {
-      setNewInfoWindowLabel(infoWindowData.custom_label || '');
-      setNewNotes(infoWindowData.notes || ''); // 메모 상태 초기화
-      setNewCategory(infoWindowData.category || '기타'); // 카테고리 상태 초기화
-    }
   }, [infoWindowData]);
 
   // 지도 스타일 설정을 위한 useEffect
@@ -498,7 +491,10 @@ export function PlaceMap({
   const handleStartEditCategory = () => {
     if (infoWindowData) {
       setEditingCategory(true);
-      setNewCategory(infoWindowData.category || '기타');
+      setInfoWindowData({
+        ...infoWindowData,
+        category: infoWindowData.category || '기타'
+      });
     }
   };
   
@@ -511,7 +507,7 @@ export function PlaceMap({
       
       const updatedPlace = {
         ...infoWindowData,
-        category: newCategory || '기타'
+        category: infoWindowData.category || '기타'
       };
       
       console.log('카테고리 업데이트 요청:', updatedPlace);
@@ -638,7 +634,7 @@ export function PlaceMap({
     let html = markdown.replace(/\r\n|\n\r|\n|\r/g, '\n');
     
     // 코드 블록 (```..```) - 이 부분이 다른 정규식에 영향을 주지 않도록 먼저 처리
-    html = html.replace(/```([\s\S]*?)```/gm, function(match, code) {
+    html = html.replace(/```([\s\S]*?)```/gm, function(_, code) {
       return `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
     });
     
@@ -1029,10 +1025,8 @@ export function PlaceMap({
                   {editingCategory ? (
                     <div className="mb-3">
                       <select
-                        value={newCategory}
-                        onChange={(e) => {
-                          setNewCategory(e.target.value);
-                        }}
+                        value={infoWindowData.category}
+                        onChange={onChangeCategory}
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
                       >
