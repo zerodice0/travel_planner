@@ -447,6 +447,7 @@ export function PlaceMap({
     const hasCustomLabel = place.custom_label && place.custom_label.trim() !== '';
     
     // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 아이콘만
+    // 라벨이 너무 길면 최대 15자까지만 표시하고 나머지는 ellipsis 처리
     const labelText = hasCustomLabel 
       ? `${categoryIcon} ${place.custom_label}`
       : categoryIcon;
@@ -661,7 +662,12 @@ export function PlaceMap({
           white-space: nowrap;
           text-align: center;
           transform: translateY(-24px);
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
+        
+        /* CSS hover는 기존 코드에서 동작하지 않았으므로 JS 이벤트로 대체 */
         .dark .gm-style .gm-style-iw-c {
           background-color: #1f2937;
           color: #e5e7eb;
@@ -778,7 +784,7 @@ export function PlaceMap({
               {infoWindowData.custom_label && !editingInfoWindowLabel ? (
                 <>
                   <div className="flex items-center">
-                    <h3 className="text-lg font-semibold truncate text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
+                    <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
                     {onPlaceUpdate && (
                       <button
                         onClick={handleStartEditLabelInInfoWindow}
@@ -804,6 +810,7 @@ export function PlaceMap({
                     onChange={(e) => setNewInfoWindowLabel(e.target.value)}
                     className={`text-lg font-semibold p-0.5 border rounded w-[60%] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     placeholder="라벨 입력..."
+                    maxLength={100}
                     autoFocus
                   />
                   <div className="flex-shrink-0 flex ml-1">
@@ -877,6 +884,7 @@ export function PlaceMap({
                       })}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       placeholder="장소의 별명이나 메모를 적어주세요"
+                      maxLength={100}
                     />
                   </div>
                   
