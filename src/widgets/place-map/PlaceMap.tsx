@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Libraries } from '@react-google-maps/api';
 import { Place } from '@/entities/place/types';
 import { useTheme } from '@/shared/providers/ThemeProvider';
+import './PlaceMapStyles.css';
 
 const mapContainerStyle = {
   width: '100%',
@@ -49,7 +50,7 @@ export function PlaceMap({
     libraries: libraries
   });
   
-  // loadError 디버깅을 위한 코드 추가
+  // loadError 디버깅을 위한 코드
   useEffect(() => {
     if (loadError) {
       console.error('Google Maps API 로드 오류:', loadError);
@@ -66,16 +67,19 @@ export function PlaceMap({
   const [newInfoWindowLabel, setNewInfoWindowLabel] = useState<string>('');
   const { theme } = useTheme();
   
-  // 메모 수정 상태 추가
+  // 메모 수정 상태
   const [editingNotes, setEditingNotes] = useState<boolean>(false);
   const [newNotes, setNewNotes] = useState<string>('');
   
-  // 카테고리 수정 상태 추가
+  // 카테고리 수정 상태
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
-  const [newCategory, setNewCategory] = useState<string>('');
-
+  
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [userClickedMap, setUserClickedMap] = useState<boolean>(false);
+  
+  // 마지막으로 중심을 이동한 장소 ID를 저장하는 ref
+  const lastCenteredPlaceIdRef = useRef<string | null>(null);
+  // 맵 이동이 진행 중인지 추적하는 ref
+  const isMapMovingRef = useRef<boolean>(false);
 
   // Autocomplete 초기화 및 설정
   const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
@@ -178,134 +182,99 @@ export function PlaceMap({
     }
   }, [isLoaded, onAutocompleteLoad]);
 
-  useEffect(() => {
-    if (selectedPlace && map && !userClickedMap) {
-      console.log('지도 이동:', selectedPlace.name);
+  // 맵 중심 이동 로직을 하나의 함수로 통합
+  const centerMapOnPlace = useCallback((place: Place, withZoom: boolean = true) => {
+    if (!map || isMapMovingRef.current) return;
+    
+    try {
+      isMapMovingRef.current = true;
       
-      map.setCenter({
-        lat: selectedPlace.latitude,
-        lng: selectedPlace.longitude
-      });
+      // 이미 같은 장소로 중심 이동을 한 경우 중복 호출 방지
+      if (lastCenteredPlaceIdRef.current === place.id) {
+        console.log('이미 중심으로 이동한 장소입니다:', place.name);
+        isMapMovingRef.current = false;
+        return;
+      }
       
-      map.setZoom(16);
+      console.log('지도 이동:', place.name);
       
-      setInfoWindowData(selectedPlace);
+      const bounds = map.getBounds();
+      const ne = bounds?.getNorthEast();
+      const sw = bounds?.getSouthWest();
+      
+      if (bounds && ne && sw) {
+        // 화면 높이의 15% 정도 위로 오프셋 적용
+        const latOffset = (ne.lat() - sw.lat()) * 0.15; 
+        
+        map.setCenter({
+          lat: place.latitude - latOffset,
+          lng: place.longitude
+        });
+      } else {
+        map.setCenter({
+          lat: place.latitude,
+          lng: place.longitude
+        });
+      }
+      
+      if (withZoom) {
+        map.setZoom(16);
+      }
+      
+      // 마지막으로 중심 이동한 장소 ID 업데이트
+      lastCenteredPlaceIdRef.current = place.id;
+      
+      // 맵 이동이 완료된 후 플래그 초기화를 위한 타임아웃 설정
+      setTimeout(() => {
+        isMapMovingRef.current = false;
+      }, 300); // 애니메이션 완료 시간을 고려한 지연 시간
+    } catch (error) {
+      console.error('맵 중심 이동 오류:', error);
+      isMapMovingRef.current = false;
     }
-  }, [selectedPlace, map, userClickedMap]);
+  }, [map]);
+
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
     setEditingNotes(false); // 메모 편집 상태 초기화
     setEditingCategory(false); // 카테고리 편집 상태 초기화
-    
-    if (infoWindowData) {
-      setNewInfoWindowLabel(infoWindowData.custom_label || '');
-      setNewNotes(infoWindowData.notes || ''); // 메모 상태 초기화
-      setNewCategory(infoWindowData.category || '기타'); // 카테고리 상태 초기화
-    }
   }, [infoWindowData]);
-
-  // 지도 스타일 설정을 위한 useEffect
-  useEffect(() => {
-    if (map) {
-      // 다크 모드일 때 지도 스타일 적용
-      const darkModeStyle = [
-        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-        {
-          featureType: "administrative.locality",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "poi",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "poi.park",
-          elementType: "geometry",
-          stylers: [{ color: "#263c3f" }],
-        },
-        {
-          featureType: "poi.park",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#6b9a76" }],
-        },
-        {
-          featureType: "road",
-          elementType: "geometry",
-          stylers: [{ color: "#38414e" }],
-        },
-        {
-          featureType: "road",
-          elementType: "geometry.stroke",
-          stylers: [{ color: "#212a37" }],
-        },
-        {
-          featureType: "road",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#9ca5b3" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "geometry",
-          stylers: [{ color: "#746855" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "geometry.stroke",
-          stylers: [{ color: "#1f2835" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#f3d19c" }],
-        },
-        {
-          featureType: "transit",
-          elementType: "geometry",
-          stylers: [{ color: "#2f3948" }],
-        },
-        {
-          featureType: "transit.station",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "water",
-          elementType: "geometry",
-          stylers: [{ color: "#17263c" }],
-        },
-        {
-          featureType: "water",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#515c6d" }],
-        },
-        {
-          featureType: "water",
-          elementType: "labels.text.stroke",
-          stylers: [{ color: "#17263c" }],
-        },
-      ];
-
-      // 테마에 따라 지도 스타일 설정
-      map.setOptions({
-        styles: theme === 'dark' ? darkModeStyle : []
-      });
-    }
-  }, [map, theme]);
   
   const onMapLoad = useCallback((map: google.maps.Map) => {
     console.log('Google Map 인스턴스 로드됨');
     setMap(map);
+
+    // 맵 이동 완료 이벤트 리스너
+    map.addListener('idle', () => {
+      isMapMovingRef.current = false;
+    });
     
     console.log('맵 중심 좌표:', map.getCenter()?.toJSON());
     console.log('맵 줌 레벨:', map.getZoom());
   }, []);
 
+  // 편집 모드 중에는 맵 변경을 무시하기 위한 유틸리티 함수
+  const isInputFocused = () => {
+    if (typeof document === 'undefined') return false;
+    
+    // 현재 포커스된 요소가 input, textarea, select 인지 확인
+    const activeElement = document.activeElement;
+    return activeElement && (
+      activeElement.tagName === 'INPUT' || 
+      activeElement.tagName === 'TEXTAREA' || 
+      activeElement.tagName === 'SELECT'
+    );
+  };
+  
+  // onMapClick 함수 업데이트 - 편집 중인 경우 클릭을 무시
   const onMapClick = useCallback(() => {
+    // 편집 모드일 때는 정보창 닫기를 방지
+    if (isInputFocused()) {
+      console.log('편집 모드에서 맵 클릭 무시됨');
+      return;
+    }
+    
     if (infoWindowData) {
       setInfoWindowData(null);
     }
@@ -340,26 +309,23 @@ export function PlaceMap({
   };
   
   // 기존 장소 클릭
-  const handleMarkerClick = (place: Place) => {
+  const handleMarkerClick = useCallback((place: Place) => {
     if (infoWindowData && infoWindowData.id === place.id) {
       setInfoWindowData(null);
     } else {
-      setInfoWindowData(place);
+      // 통합된 맵 중심 이동 함수 사용
+      centerMapOnPlace(place);
       
-      if (map) {
-        map.setCenter({
-          lat: place.latitude,
-          lng: place.longitude
-        });
-      }
+      // InfoWindow 표시를 위한 상태 업데이트
+      setInfoWindowData(place);
       
       if (onPlaceSelect) {
         onPlaceSelect(place);
       }
     }
-  };
+  }, [infoWindowData, centerMapOnPlace, onPlaceSelect]);
   
-  // 정보창에서 라벨 편집 시작
+  // 라벨 편집 시작 함수
   const handleStartEditLabelInInfoWindow = () => {
     if (infoWindowData) {
       setEditingInfoWindowLabel(true);
@@ -421,7 +387,10 @@ export function PlaceMap({
   const handleStartEditCategory = () => {
     if (infoWindowData) {
       setEditingCategory(true);
-      setNewCategory(infoWindowData.category || '기타');
+      setInfoWindowData({
+        ...infoWindowData,
+        category: infoWindowData.category || '기타'
+      });
     }
   };
   
@@ -434,7 +403,7 @@ export function PlaceMap({
       
       const updatedPlace = {
         ...infoWindowData,
-        category: newCategory || '기타'
+        category: infoWindowData.category || '기타'
       };
       
       console.log('카테고리 업데이트 요청:', updatedPlace);
@@ -464,7 +433,26 @@ export function PlaceMap({
       fontWeight: 'bold',
       className: 'custom-marker-label'
     };
-  };
+  }; 
+
+  const onChangeMemo = (e: React.ChangeEvent<HTMLTextAreaElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      notes: e.target.value
+    });
+
+  const onChangeCustomLabel = (e: React.ChangeEvent<HTMLInputElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      custom_label: e.target.value
+    });
+
+  const onChangeCategory = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      category: e.target.value
+    });
+
   
   // 사용자 정의 마커 아이콘 생성 함수
   const createCustomMarkerIcon = (place: Place) => {
@@ -542,7 +530,7 @@ export function PlaceMap({
     let html = markdown.replace(/\r\n|\n\r|\n|\r/g, '\n');
     
     // 코드 블록 (```..```) - 이 부분이 다른 정규식에 영향을 주지 않도록 먼저 처리
-    html = html.replace(/```([\s\S]*?)```/gm, function(match, code) {
+    html = html.replace(/```([\s\S]*?)```/gm, function(_, code) {
       return `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
     });
     
@@ -604,10 +592,11 @@ export function PlaceMap({
     return html;
   }
   
-  // InfoWindow가 닫히면 userClickedMap 플래그를 초기화하는 효과 추가
+  // InfoWindow가 닫힐 때 상태 초기화 (기존 유지)
   useEffect(() => {
     if (!infoWindowData) {
-      setUserClickedMap(false);
+      // 정보창이 닫힐 때 마지막 중심 이동 장소 기록 초기화
+      lastCenteredPlaceIdRef.current = null;
     }
   }, [infoWindowData]);
   
@@ -656,68 +645,6 @@ export function PlaceMap({
           </div>
         </div>
       )}
-      
-      {/* 커스텀 마커 스타일 */}
-      <style jsx global>{`
-        .custom-marker-label {
-          background-color: rgba(0, 0, 0, 0.7);
-          padding: 3px 6px;
-          border-radius: 4px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-          white-space: nowrap;
-          text-align: center;
-          transform: translateY(-24px);
-          max-width: 150px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        
-        /* CSS hover는 기존 코드에서 동작하지 않았으므로 JS 이벤트로 대체 */
-        .dark .gm-style .gm-style-iw-c {
-          background-color: #1f2937;
-          color: #e5e7eb;
-        }
-        .dark .gm-style .gm-style-iw-d {
-          background-color: #1f2937;
-          color: #e5e7eb;
-        }
-        .dark .gm-style .gm-style-iw-t::after {
-          background: #1f2937;
-        }
-        
-        /* 커스텀 스크롤바 스타일 */
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-light::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-track {
-          background: #374151;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-thumb {
-          background: #4b5563;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-dark::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
-      `}</style>
       
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
@@ -775,14 +702,14 @@ export function PlaceMap({
             onCloseClick={() => {
               setInfoWindowData(null);
               setClickedLocation(null);
-              setUserClickedMap(false);
               // infoWindow가 닫힐 때 검색 필드를 초기화합니다
               if (autocompleteInputRef.current) {
                 autocompleteInputRef.current.value = '';
               }
             }}
             options={{
-              pixelOffset: new window.google.maps.Size(0, -30),
+              // 정보창이 마커 중앙에 표시되도록 오프셋 조정
+              pixelOffset: new window.google.maps.Size(0, -10),
               maxWidth: 300,
             }}
           >
@@ -808,18 +735,22 @@ export function PlaceMap({
               ) : !editingInfoWindowLabel ? (
                 <h3 className="text-lg font-semibold truncate">{infoWindowData.name}</h3>
               ) : (
-                // 라벨 편집 UI - 커스텀 라벨이 있던 위치에 표시
-                <div className="flex items-center h-[28px]">
-                  <input
-                    type="text"
-                    value={newInfoWindowLabel}
-                    onChange={(e) => setNewInfoWindowLabel(e.target.value)}
-                    className={`text-lg font-semibold p-0.5 border rounded w-[60%] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
-                    placeholder="라벨 입력..."
-                    maxLength={100}
-                    autoFocus
-                  />
-                  <div className="flex-shrink-0 flex ml-1">
+                // 라벨 편집 UI - 커스텀 라벨 대신 표시
+                <div className="flex flex-col items-start h-auto">
+                  <div className="w-full mb-2">
+                    <input
+                      type="text"
+                      value={newInfoWindowLabel}
+                      onChange={(e) => {
+                        setNewInfoWindowLabel(e.target.value);
+                      }}
+                      className={`text-lg font-semibold p-0.5 border rounded w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
+                      placeholder="라벨 입력..."
+                      maxLength={100}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex-shrink-0 flex w-full justify-end">
                     <button
                       onClick={handleSaveLabelInInfoWindow}
                       className={`text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-1.5 py-0.5 rounded bg-opacity-20 bg-green-100 dark:bg-green-900 dark:bg-opacity-20`}
@@ -863,10 +794,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        category: e.target.value
-                      })}
+                      onChange={onChangeCategory}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
@@ -884,10 +812,7 @@ export function PlaceMap({
                     <input
                       type="text"
                       value={infoWindowData.custom_label || ''}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        custom_label: e.target.value
-                      })}
+                      onChange={onChangeCustomLabel}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       placeholder="장소의 별명이나 메모를 적어주세요"
                       maxLength={100}
@@ -898,10 +823,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>메모</label>
                     <textarea
                       value={infoWindowData.notes || ''}
-                      onChange={(e) => setInfoWindowData({
-                        ...infoWindowData,
-                        notes: e.target.value
-                      })}
+                      onChange={onChangeMemo}
                       className={`w-full p-1 border rounded text-sm max-h-[100px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
                     />
@@ -916,7 +838,7 @@ export function PlaceMap({
                 </div>
               ) : (
                 <div className="mt-3">
-                  {/* 카테고리 편집 UI 추가 */}
+                  {/* 카테고리 편집 UI */}
                   <div className="flex justify-between items-center mb-2">
                     <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>카테고리</h4>
                     {!editingCategory && onPlaceUpdate && (
@@ -935,8 +857,8 @@ export function PlaceMap({
                   {editingCategory ? (
                     <div className="mb-3">
                       <select
-                        value={newCategory}
-                        onChange={(e) => setNewCategory(e.target.value)}
+                        value={infoWindowData.category}
+                        onChange={onChangeCategory}
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
                       >
@@ -989,7 +911,9 @@ export function PlaceMap({
                     <div className="mt-1">
                       <textarea
                         value={newNotes}
-                        onChange={(e) => setNewNotes(e.target.value)}
+                        onChange={(e) => {
+                          setNewNotes(e.target.value);
+                        }}
                         className={`w-full p-1 border rounded text-sm max-h-[120px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         rows={3}
                         placeholder="메모를 입력하세요. 마크다운 문법을 지원합니다 (**볼드**, *이탤릭*, ```코드```)"
