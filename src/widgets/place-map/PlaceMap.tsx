@@ -11,11 +11,6 @@ const mapContainerStyle = {
   height: '100%'
 };
 
-const defaultCenter = {
-  lat: 37.5665, // 서울 좌표
-  lng: 126.9780
-};
-
 // 카테고리별 이모지/아이콘 정의
 const categoryIcons = {
   '음식점': '🍽️',
@@ -78,9 +73,7 @@ export function PlaceMap({
   
   // 마지막으로 중심을 이동한 장소 ID를 저장하는 ref
   const lastCenteredPlaceIdRef = useRef<string | null>(null);
-  // 맵 이동이 진행 중인지 추적하는 ref
-  const isMapMovingRef = useRef<boolean>(false);
-
+  
   // Autocomplete 초기화 및 설정
   const onAutocompleteLoad = useCallback((autocomplete: google.maps.places.Autocomplete) => {
     
@@ -184,38 +177,21 @@ export function PlaceMap({
 
   // 맵 중심 이동 로직을 하나의 함수로 통합
   const centerMapOnPlace = useCallback((place: Place, withZoom: boolean = true) => {
-    if (!map || isMapMovingRef.current) return;
+    if (!map) return;
     
     try {
-      isMapMovingRef.current = true;
-      
       // 이미 같은 장소로 중심 이동을 한 경우 중복 호출 방지
       if (lastCenteredPlaceIdRef.current === place.id) {
         console.log('이미 중심으로 이동한 장소입니다:', place.name);
-        isMapMovingRef.current = false;
         return;
       }
       
       console.log('지도 이동:', place.name);
       
-      const bounds = map.getBounds();
-      const ne = bounds?.getNorthEast();
-      const sw = bounds?.getSouthWest();
-      
-      if (bounds && ne && sw) {
-        // 화면 높이의 15% 정도 위로 오프셋 적용
-        const latOffset = (ne.lat() - sw.lat()) * 0.15; 
-        
-        map.setCenter({
-          lat: place.latitude - latOffset,
-          lng: place.longitude
-        });
-      } else {
-        map.setCenter({
-          lat: place.latitude,
-          lng: place.longitude
-        });
-      }
+      map.setCenter({
+        lat: place.latitude,
+        lng: place.longitude
+      });
       
       if (withZoom) {
         map.setZoom(16);
@@ -223,17 +199,16 @@ export function PlaceMap({
       
       // 마지막으로 중심 이동한 장소 ID 업데이트
       lastCenteredPlaceIdRef.current = place.id;
-      
-      // 맵 이동이 완료된 후 플래그 초기화를 위한 타임아웃 설정
-      setTimeout(() => {
-        isMapMovingRef.current = false;
-      }, 300); // 애니메이션 완료 시간을 고려한 지연 시간
     } catch (error) {
       console.error('맵 중심 이동 오류:', error);
-      isMapMovingRef.current = false;
     }
   }, [map]);
 
+  useEffect(() => {
+    if (selectedPlace) {
+      centerMapOnPlace(selectedPlace);
+    }
+  }, [selectedPlace, centerMapOnPlace]);
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
@@ -245,9 +220,9 @@ export function PlaceMap({
     console.log('Google Map 인스턴스 로드됨');
     setMap(map);
 
-    // 맵 이동 완료 이벤트 리스너
-    map.addListener('idle', () => {
-      isMapMovingRef.current = false;
+    map.setCenter({
+      lat: 37.5665, // 서울 좌표
+      lng: 126.9780
     });
     
     console.log('맵 중심 좌표:', map.getCenter()?.toJSON());
@@ -648,13 +623,6 @@ export function PlaceMap({
       
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
-        center={userLocation || selectedPlace ? 
-          { 
-            lat: userLocation?.lat || selectedPlace?.latitude || defaultCenter.lat, 
-            lng: userLocation?.lng || selectedPlace?.longitude || defaultCenter.lng 
-          } : 
-          defaultCenter
-        }
         zoom={13}
         onLoad={onMapLoad}
         onClick={onMapClick}
@@ -708,9 +676,8 @@ export function PlaceMap({
               }
             }}
             options={{
-              // 정보창이 마커 중앙에 표시되도록 오프셋 조정
-              pixelOffset: new window.google.maps.Size(0, -10),
-              maxWidth: 300,
+              maxWidth: 500,
+              pixelOffset: new window.google.maps.Size(0, -40),
             }}
           >
             <div className={`p-3 max-w-[280px] ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
