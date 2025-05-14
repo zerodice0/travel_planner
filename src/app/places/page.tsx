@@ -45,9 +45,9 @@ export default function PlacesPage() {
       }
       
       // 메모가 변경되었는지 확인
-      if (updatedPlace.notes !== undefined) {
-        console.log('메모 업데이트:', updatedPlace.notes);
-        updates.notes = updatedPlace.notes || '';
+      if (updatedPlace.memo !== undefined) {
+        console.log('메모 업데이트:', updatedPlace.memo);
+        updates.memo = updatedPlace.memo || '';
       }
       
       // 카테고리가 변경되었는지 확인

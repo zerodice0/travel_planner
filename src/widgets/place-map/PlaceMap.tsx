@@ -63,11 +63,12 @@ export function PlaceMap({
   const { theme } = useTheme();
   
   // 메모 수정 상태
-  const [editingNotes, setEditingNotes] = useState<boolean>(false);
-  const [newNotes, setNewNotes] = useState<string>('');
+  const [editingMemo, setEditingMemo] = useState<boolean>(false);
+  const [newMemo, setNewMemo] = useState<string>('');
   
   // 카테고리 수정 상태
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
+  const [newCategory, setNewCategory] = useState<string>('');
   
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
   
@@ -145,7 +146,7 @@ export function PlaceMap({
           latitude: lat,
           longitude: lng,
           category: '기타', // 기본값
-          notes: '',
+          memo: '',
           rating: 0,
           is_public: false,
           created_at: new Date().toISOString(),
@@ -212,7 +213,7 @@ export function PlaceMap({
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
-    setEditingNotes(false); // 메모 편집 상태 초기화
+    setEditingMemo(false); // 메모 편집 상태 초기화
     setEditingCategory(false); // 카테고리 편집 상태 초기화
   }, [infoWindowData]);
   
@@ -265,7 +266,7 @@ export function PlaceMap({
           latitude: infoWindowData.latitude,
           longitude: infoWindowData.longitude,
           category: infoWindowData.category || '기타',
-          notes: infoWindowData.notes || '',
+          memo: infoWindowData.memo || '',
           rating: infoWindowData.rating || 0,
           is_public: false,
           custom_label: infoWindowData.custom_label || ''
@@ -322,6 +323,13 @@ export function PlaceMap({
       
       console.log('정보창 라벨 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          custom_label: newInfoWindowLabel || ''
+        }
+      );
     } catch (error) {
       console.error('라벨 업데이트 오류:', error);
       setEditingInfoWindowLabel(true);
@@ -330,30 +338,30 @@ export function PlaceMap({
   };
   
   // 메모 편집 시작
-  const handleStartEditNotes = () => {
+  const handleStartEditMemo = () => {
     if (infoWindowData) {
-      setEditingNotes(true);
-      setNewNotes(infoWindowData.notes || '');
+      setEditingMemo(true);
+      setNewMemo(infoWindowData.memo || '');
     }
   };
   
   // 메모 저장
-  const handleSaveNotes = async () => {
+  const handleSaveMemo = async () => {
     if (!infoWindowData || !onPlaceUpdate) return;
     
     try {
-      setEditingNotes(false);
+      setEditingMemo(false);
       
       const updatedPlace = {
         ...infoWindowData,
-        notes: newNotes || ''
+        memo: newMemo || ''
       };
       
       console.log('메모 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
     } catch (error) {
       console.error('메모 업데이트 오류:', error);
-      setEditingNotes(true);
+      setEditingMemo(true);
       alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
     }
   };
@@ -362,10 +370,7 @@ export function PlaceMap({
   const handleStartEditCategory = () => {
     if (infoWindowData) {
       setEditingCategory(true);
-      setInfoWindowData({
-        ...infoWindowData,
-        category: infoWindowData.category || '기타'
-      });
+      setNewCategory(infoWindowData.category || '기타');
     }
   };
   
@@ -378,11 +383,18 @@ export function PlaceMap({
       
       const updatedPlace = {
         ...infoWindowData,
-        category: infoWindowData.category || '기타'
+        category: newCategory || '기타'
       };
       
       console.log('카테고리 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          category: newCategory || '기타'
+        }
+      );
     } catch (error) {
       console.error('카테고리 업데이트 오류:', error);
       setEditingCategory(true);
@@ -413,7 +425,7 @@ export function PlaceMap({
   const onChangeMemo = (e: React.ChangeEvent<HTMLTextAreaElement>) => infoWindowData &&
     setInfoWindowData({
       ...infoWindowData,
-      notes: e.target.value
+      memo: e.target.value
     });
 
   const onChangeCustomLabel = (e: React.ChangeEvent<HTMLInputElement>) => infoWindowData &&
@@ -423,10 +435,7 @@ export function PlaceMap({
     });
 
   const onChangeCategory = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
-    setInfoWindowData({
-      ...infoWindowData,
-      category: e.target.value
-    });
+    setNewCategory(e.target.value);
 
   
   // 사용자 정의 마커 아이콘 생성 함수
@@ -789,7 +798,7 @@ export function PlaceMap({
                   <div className="mb-2">
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>메모</label>
                     <textarea
-                      value={infoWindowData.notes || ''}
+                      value={infoWindowData.memo || ''}
                       onChange={onChangeMemo}
                       className={`w-full p-1 border rounded text-sm max-h-[100px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
@@ -824,7 +833,7 @@ export function PlaceMap({
                   {editingCategory ? (
                     <div className="mb-3">
                       <select
-                        value={infoWindowData.category}
+                        value={newCategory}
                         onChange={onChangeCategory}
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
@@ -861,9 +870,9 @@ export function PlaceMap({
                   
                   <div className="flex justify-between items-center mb-1">
                     <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
-                    {!editingNotes && onPlaceUpdate && (
+                    {!editingMemo && onPlaceUpdate && (
                       <button
-                        onClick={handleStartEditNotes}
+                        onClick={handleStartEditMemo}
                         className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
                         title="메모 편집"
                       >
@@ -874,12 +883,12 @@ export function PlaceMap({
                     )}
                   </div>
                   
-                  {editingNotes ? (
+                  {editingMemo ? (
                     <div className="mt-1">
                       <textarea
-                        value={newNotes}
+                        value={newMemo}
                         onChange={(e) => {
-                          setNewNotes(e.target.value);
+                          setNewMemo(e.target.value);
                         }}
                         className={`w-full p-1 border rounded text-sm max-h-[120px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         rows={3}
@@ -891,13 +900,13 @@ export function PlaceMap({
                       </p>
                       <div className="flex justify-end mt-1">
                         <button
-                          onClick={handleSaveNotes}
+                          onClick={handleSaveMemo}
                           className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
                         >
                           저장
                         </button>
                         <button
-                          onClick={() => setEditingNotes(false)}
+                          onClick={() => setEditingMemo(false)}
                           className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
                         >
                           취소
@@ -906,9 +915,9 @@ export function PlaceMap({
                     </div>
                   ) : (
                     <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}`}>
-                      {infoWindowData.notes ? (
+                      {infoWindowData.memo ? (
                         <div className={`markdown-content markdown-inherit-color ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
-                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.notes) }} />
+                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.memo) }} />
                         </div>
                       ) : (
                         <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} italic`}>

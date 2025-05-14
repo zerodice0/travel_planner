@@ -75,7 +75,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   // 메모 편집 시작 함수
   const handleStartEditNotes = (place: Place) => {
     setEditingNotesId(place.id);
-    setNewNotesValue(place.notes || "");
+    setNewNotesValue(place.memo || "");
   };
 
   // 메모 저장 함수
@@ -460,7 +460,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 )}
               </div>
               
-              {place.notes && (
+              {place.memo && (
                 <div className="mt-2">
                   {editingNotesId === place.id ? (
                     <div className="space-y-2">
@@ -510,13 +510,13 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                       </div>
                       <div 
                         className="text-sm text-gray-600 dark:text-gray-400 prose-sm max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.notes) }}
+                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(place.memo) }}
                       ></div>
                     </div>
                   )}
                 </div>
               )}
-              {!place.notes && (
+              {!place.memo && (
                 <div className="mt-2">
                   <button
                     onClick={(e) => {
