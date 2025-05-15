@@ -63,11 +63,12 @@ export function PlaceMap({
   const { theme } = useTheme();
   
   // 메모 수정 상태
-  const [editingNotes, setEditingNotes] = useState<boolean>(false);
-  const [newNotes, setNewNotes] = useState<string>('');
+  const [editingMemo, setEditingMemo] = useState<boolean>(false);
+  const [newMemo, setNewMemo] = useState<string>('');
   
   // 카테고리 수정 상태
   const [editingCategory, setEditingCategory] = useState<boolean>(false);
+  const [newCategory, setNewCategory] = useState<string>('');
   
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
   
@@ -161,10 +162,16 @@ export function PlaceMap({
     });
   }, [map, onPlaceAdd, places, onPlaceSelect]);
 
-  // Autocomplete 초기화를 위한 useEffect 추가
+  // Autocomplete 초기화를 위한 useEffect
   useEffect(() => {
-    if (isLoaded && autocompleteInputRef.current && window.google) {
-      const autocompleteInstance = new window.google.maps.places.Autocomplete(
+    let autocompleteInstance: google.maps.places.Autocomplete | null = null;
+    
+    if (
+      isLoaded && window.google &&  // 구글 맵스 API가 됐을 때
+      autocompleteInputRef.current && // autocomplete input 필드를 참조하는 ref가 존재할 때
+      !infoWindowData // infoWindow가 닫혔을 때
+    ) {
+      autocompleteInstance = new window.google.maps.places.Autocomplete(
         autocompleteInputRef.current,
         { 
           fields: ['name', 'geometry', 'formatted_address', 'address_components', 'place_id'],
@@ -173,7 +180,13 @@ export function PlaceMap({
       );
       onAutocompleteLoad(autocompleteInstance);
     }
-  }, [isLoaded, onAutocompleteLoad]);
+
+    return () => {
+      if (autocompleteInstance && google.maps.event) {
+        google.maps.event.clearInstanceListeners(autocompleteInstance);
+      }
+    }
+  }, [isLoaded, onAutocompleteLoad, infoWindowData]);
 
   // 맵 중심 이동 로직을 하나의 함수로 통합
   const centerMapOnPlace = useCallback((place: Place, withZoom: boolean = true) => {
@@ -212,7 +225,7 @@ export function PlaceMap({
   
   useEffect(() => {
     setEditingInfoWindowLabel(false);
-    setEditingNotes(false); // 메모 편집 상태 초기화
+    setEditingMemo(false); // 메모 편집 상태 초기화
     setEditingCategory(false); // 카테고리 편집 상태 초기화
   }, [infoWindowData]);
   
@@ -322,6 +335,13 @@ export function PlaceMap({
       
       console.log('정보창 라벨 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          custom_label: newInfoWindowLabel || ''
+        }
+      );
     } catch (error) {
       console.error('라벨 업데이트 오류:', error);
       setEditingInfoWindowLabel(true);
@@ -330,30 +350,37 @@ export function PlaceMap({
   };
   
   // 메모 편집 시작
-  const handleStartEditNotes = () => {
+  const handleStartEditMemo = () => {
     if (infoWindowData) {
-      setEditingNotes(true);
-      setNewNotes(infoWindowData.notes || '');
+      setEditingMemo(true);
+      setNewMemo(infoWindowData.notes || '');
     }
   };
   
   // 메모 저장
-  const handleSaveNotes = async () => {
+  const handleSaveMemo = async () => {
     if (!infoWindowData || !onPlaceUpdate) return;
     
     try {
-      setEditingNotes(false);
+      setEditingMemo(false);
       
       const updatedPlace = {
         ...infoWindowData,
-        notes: newNotes || ''
+        memo: newMemo || ''
       };
       
       console.log('메모 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          notes: newMemo || ''
+        }
+      );
     } catch (error) {
       console.error('메모 업데이트 오류:', error);
-      setEditingNotes(true);
+      setEditingMemo(true);
       alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
     }
   };
@@ -362,10 +389,7 @@ export function PlaceMap({
   const handleStartEditCategory = () => {
     if (infoWindowData) {
       setEditingCategory(true);
-      setInfoWindowData({
-        ...infoWindowData,
-        category: infoWindowData.category || '기타'
-      });
+      setNewCategory(infoWindowData.category || '기타');
     }
   };
   
@@ -378,11 +402,18 @@ export function PlaceMap({
       
       const updatedPlace = {
         ...infoWindowData,
-        category: infoWindowData.category || '기타'
+        category: newCategory || '기타'
       };
       
       console.log('카테고리 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          category: newCategory || '기타'
+        }
+      );
     } catch (error) {
       console.error('카테고리 업데이트 오류:', error);
       setEditingCategory(true);
@@ -422,7 +453,10 @@ export function PlaceMap({
       custom_label: e.target.value
     });
 
-  const onChangeCategory = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+  const onChangeCategoryForUpdatingPlace = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+    setNewCategory(e.target.value);
+
+  const onChangeCategoryForAddingNewPlace = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
     setInfoWindowData({
       ...infoWindowData,
       category: e.target.value
@@ -575,6 +609,15 @@ export function PlaceMap({
     }
   }, [infoWindowData]);
   
+  // 현재 열려있는 정보창(infoWindow)의 장소가 삭제되었는지 감지하는 useEffect 추가
+  useEffect(() => {
+    // 정보창이 열려있고, 해당 장소가 places 배열에 더 이상 존재하지 않으면 정보창 닫기
+    if (infoWindowData && infoWindowData.id !== "new" && !places.some(place => place.id === infoWindowData.id)) {
+      console.log('현재 정보창에 표시된 장소가 삭제되었습니다. 정보창을 닫습니다.');
+      setInfoWindowData(null);
+    }
+  }, [places, infoWindowData]);
+  
   if (loadError) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg text-center h-full flex flex-col items-center justify-center">
@@ -685,7 +728,7 @@ export function PlaceMap({
                 <>
                   <div className="flex items-center">
                     <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
-                    {onPlaceUpdate && (
+                    {onPlaceUpdate && infoWindowData.id !== 'new' && (
                       <button
                         onClick={handleStartEditLabelInInfoWindow}
                         className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
@@ -761,7 +804,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
-                      onChange={onChangeCategory}
+                      onChange={onChangeCategoryForAddingNewPlace}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
@@ -824,8 +867,8 @@ export function PlaceMap({
                   {editingCategory ? (
                     <div className="mb-3">
                       <select
-                        value={infoWindowData.category}
-                        onChange={onChangeCategory}
+                        value={newCategory}
+                        onChange={onChangeCategoryForUpdatingPlace}
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
                       >
@@ -861,9 +904,9 @@ export function PlaceMap({
                   
                   <div className="flex justify-between items-center mb-1">
                     <h4 className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>메모</h4>
-                    {!editingNotes && onPlaceUpdate && (
+                    {!editingMemo && onPlaceUpdate && (
                       <button
-                        onClick={handleStartEditNotes}
+                        onClick={handleStartEditMemo}
                         className={`text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
                         title="메모 편집"
                       >
@@ -874,12 +917,12 @@ export function PlaceMap({
                     )}
                   </div>
                   
-                  {editingNotes ? (
+                  {editingMemo ? (
                     <div className="mt-1">
                       <textarea
-                        value={newNotes}
+                        value={newMemo}
                         onChange={(e) => {
-                          setNewNotes(e.target.value);
+                          setNewMemo(e.target.value);
                         }}
                         className={`w-full p-1 border rounded text-sm max-h-[120px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         rows={3}
@@ -891,13 +934,13 @@ export function PlaceMap({
                       </p>
                       <div className="flex justify-end mt-1">
                         <button
-                          onClick={handleSaveNotes}
+                          onClick={handleSaveMemo}
                           className={`ml-1 text-xs ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-800'} px-2 py-1 rounded`}
                         >
                           저장
                         </button>
                         <button
-                          onClick={() => setEditingNotes(false)}
+                          onClick={() => setEditingMemo(false)}
                           className={`ml-1 text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} px-2 py-1 rounded`}
                         >
                           취소
