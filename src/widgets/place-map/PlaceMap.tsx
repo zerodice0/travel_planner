@@ -162,10 +162,15 @@ export function PlaceMap({
     });
   }, [map, onPlaceAdd, places, onPlaceSelect]);
 
-  // Autocomplete 초기화를 위한 useEffect 추가
+  // Autocomplete 초기화를 위한 useEffect
   useEffect(() => {
     let autocompleteInstance: google.maps.places.Autocomplete | null = null;
-    if (isLoaded && autocompleteInputRef.current && window.google) {
+    
+    if (
+      isLoaded && window.google &&  // 구글 맵스 API가 됐을 때
+      autocompleteInputRef.current && // autocomplete input 필드를 참조하는 ref가 존재할 때
+      !infoWindowData // infoWindow가 닫혔을 때
+    ) {
       autocompleteInstance = new window.google.maps.places.Autocomplete(
         autocompleteInputRef.current,
         { 
@@ -181,7 +186,7 @@ export function PlaceMap({
         google.maps.event.clearInstanceListeners(autocompleteInstance);
       }
     }
-  }, [isLoaded, onAutocompleteLoad]);
+  }, [isLoaded, onAutocompleteLoad, infoWindowData]);
 
   // 맵 중심 이동 로직을 하나의 함수로 통합
   const centerMapOnPlace = useCallback((place: Place, withZoom: boolean = true) => {
