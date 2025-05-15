@@ -441,8 +441,14 @@ export function PlaceMap({
       custom_label: e.target.value
     });
 
-  const onChangeCategory = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+  const onChangeCategoryForUpdatingPlace = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
     setNewCategory(e.target.value);
+
+  const onChangeCategoryForAddingNewPlace = (e: React.ChangeEvent<HTMLSelectElement>) => infoWindowData &&
+    setInfoWindowData({
+      ...infoWindowData,
+      category: e.target.value
+    });
 
   
   // 사용자 정의 마커 아이콘 생성 함수
@@ -701,7 +707,7 @@ export function PlaceMap({
                 <>
                   <div className="flex items-center">
                     <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">{infoWindowData.custom_label}</h3>
-                    {onPlaceUpdate && (
+                    {onPlaceUpdate && infoWindowData.id !== 'new' && (
                       <button
                         onClick={handleStartEditLabelInInfoWindow}
                         className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'} p-1`}
@@ -777,7 +783,7 @@ export function PlaceMap({
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>카테고리</label>
                     <select
                       value={infoWindowData.category}
-                      onChange={onChangeCategory}
+                      onChange={onChangeCategoryForAddingNewPlace}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
                       <option value="음식점">🍽️ 음식점</option>
@@ -841,7 +847,7 @@ export function PlaceMap({
                     <div className="mb-3">
                       <select
                         value={newCategory}
-                        onChange={onChangeCategory}
+                        onChange={onChangeCategoryForUpdatingPlace}
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
                       >
