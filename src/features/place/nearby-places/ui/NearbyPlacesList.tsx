@@ -81,8 +81,8 @@ export function NearbyPlacesList({ places, userLocation, onPlaceSelect }: Nearby
             )}
           </div>
           
-          {place.memo && (
-            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{place.memo}</p>
+          {place.notes && (
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{place.notes}</p>
           )}
         </div>
       ))}

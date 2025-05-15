@@ -6,7 +6,7 @@ export interface Place {
   latitude: number;
   longitude: number;
   category: string;
-  memo: string | null;
+  notes: string | null;
   rating: number | null;
   is_public: boolean;
   custom_label?: string | null;

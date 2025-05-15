@@ -146,7 +146,7 @@ export function PlaceMap({
           latitude: lat,
           longitude: lng,
           category: '기타', // 기본값
-          memo: '',
+          notes: '',
           rating: 0,
           is_public: false,
           created_at: new Date().toISOString(),
@@ -266,7 +266,7 @@ export function PlaceMap({
           latitude: infoWindowData.latitude,
           longitude: infoWindowData.longitude,
           category: infoWindowData.category || '기타',
-          memo: infoWindowData.memo || '',
+          notes: infoWindowData.notes || '',
           rating: infoWindowData.rating || 0,
           is_public: false,
           custom_label: infoWindowData.custom_label || ''
@@ -341,7 +341,7 @@ export function PlaceMap({
   const handleStartEditMemo = () => {
     if (infoWindowData) {
       setEditingMemo(true);
-      setNewMemo(infoWindowData.memo || '');
+      setNewMemo(infoWindowData.notes || '');
     }
   };
   
@@ -359,6 +359,13 @@ export function PlaceMap({
       
       console.log('메모 업데이트 요청:', updatedPlace);
       await onPlaceUpdate(updatedPlace);
+
+      setInfoWindowData(
+        {
+          ...infoWindowData,
+          notes: newMemo || ''
+        }
+      );
     } catch (error) {
       console.error('메모 업데이트 오류:', error);
       setEditingMemo(true);
@@ -425,7 +432,7 @@ export function PlaceMap({
   const onChangeMemo = (e: React.ChangeEvent<HTMLTextAreaElement>) => infoWindowData &&
     setInfoWindowData({
       ...infoWindowData,
-      memo: e.target.value
+      notes: e.target.value
     });
 
   const onChangeCustomLabel = (e: React.ChangeEvent<HTMLInputElement>) => infoWindowData &&
@@ -798,7 +805,7 @@ export function PlaceMap({
                   <div className="mb-2">
                     <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : ''}`}>메모</label>
                     <textarea
-                      value={infoWindowData.memo || ''}
+                      value={infoWindowData.notes || ''}
                       onChange={onChangeMemo}
                       className={`w-full p-1 border rounded text-sm max-h-[100px] ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       rows={2}
@@ -915,9 +922,9 @@ export function PlaceMap({
                     </div>
                   ) : (
                     <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}`}>
-                      {infoWindowData.memo ? (
+                      {infoWindowData.notes ? (
                         <div className={`markdown-content markdown-inherit-color ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
-                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.memo) }} />
+                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.notes) }} />
                         </div>
                       ) : (
                         <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} italic`}>
