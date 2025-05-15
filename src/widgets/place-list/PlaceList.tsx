@@ -186,6 +186,11 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     try {
       setDeletingId(id);
       await onPlaceDelete(id);
+      
+      // 삭제된 장소가 현재 펼쳐진 장소라면, 펼쳐진 상태 초기화
+      if (expandedPlaceId === id) {
+        setExpandedPlaceId(null);
+      }
     } finally {
       setDeletingId(null);
     }

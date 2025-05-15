@@ -597,6 +597,15 @@ export function PlaceMap({
     }
   }, [infoWindowData]);
   
+  // 현재 열려있는 정보창(infoWindow)의 장소가 삭제되었는지 감지하는 useEffect 추가
+  useEffect(() => {
+    // 정보창이 열려있고, 해당 장소가 places 배열에 더 이상 존재하지 않으면 정보창 닫기
+    if (infoWindowData && !places.some(place => place.id === infoWindowData.id)) {
+      console.log('현재 정보창에 표시된 장소가 삭제되었습니다. 정보창을 닫습니다.');
+      setInfoWindowData(null);
+    }
+  }, [places, infoWindowData]);
+  
   if (loadError) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg text-center h-full flex flex-col items-center justify-center">
