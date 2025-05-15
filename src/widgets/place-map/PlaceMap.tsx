@@ -164,8 +164,9 @@ export function PlaceMap({
 
   // Autocomplete 초기화를 위한 useEffect 추가
   useEffect(() => {
+    let autocompleteInstance: google.maps.places.Autocomplete | null = null;
     if (isLoaded && autocompleteInputRef.current && window.google) {
-      const autocompleteInstance = new window.google.maps.places.Autocomplete(
+      autocompleteInstance = new window.google.maps.places.Autocomplete(
         autocompleteInputRef.current,
         { 
           fields: ['name', 'geometry', 'formatted_address', 'address_components', 'place_id'],
@@ -173,6 +174,12 @@ export function PlaceMap({
         }
       );
       onAutocompleteLoad(autocompleteInstance);
+    }
+
+    return () => {
+      if (autocompleteInstance && google.maps.event) {
+        google.maps.event.clearInstanceListeners(autocompleteInstance);
+      }
     }
   }, [isLoaded, onAutocompleteLoad]);
 
