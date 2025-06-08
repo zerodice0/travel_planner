@@ -219,6 +219,7 @@ export function PlaceMap({
 
   useEffect(() => {
     if (selectedPlace) {
+      setInfoWindowData(selectedPlace);
       centerMapOnPlace(selectedPlace);
     }
   }, [selectedPlace, centerMapOnPlace]);
