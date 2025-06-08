@@ -1,5 +1,5 @@
 // src/entities/place/hooks.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/shared/api/supabase';
 import { Place, CreatePlaceData } from './types';
 
@@ -108,9 +108,9 @@ export function usePlaces() {
     }
   };
 
-  const selectPlace = (place: Place | null) => {
+  const selectPlace = useCallback((place: Place | null) => {
     setSelectedPlace(place);
-  };
+  }, []);
 
   return {
     places,

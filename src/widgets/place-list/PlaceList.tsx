@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Place } from '@/entities/place/types';
 
 interface PlaceListProps {
@@ -33,6 +33,12 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     { value: '유원지', label: '🎢 유원지' },
     { value: '기타', label: '📍 기타' }
   ];
+
+  useEffect(() => {
+    if (places.every(place => place.id !== selectedPlace?.id)) {
+      setExpandedPlaceId(null);
+    }
+  }, [selectedPlace, places]);
 
   const handleToggleExpand = (id: string) => {
     setExpandedPlaceId(expandedPlaceId === id ? null : id);

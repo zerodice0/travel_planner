@@ -11,10 +11,14 @@ export default function PlacesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const filteredPlaces = selectedCategory 
     ? places.filter(place => place.category === selectedCategory)
     : places;
+
+  useEffect(() => {
+    selectPlace(null);
+  }, [selectedCategory, selectPlace]);
 
   // 장소 추가 핸들러
   const handlePlaceAdd = async (placeData: CreatePlaceData): Promise<void> => {
