@@ -71,6 +71,9 @@ export function PlaceMap({
   const [newCategory, setNewCategory] = useState<string>('');
   
   const [clickedLocation, setClickedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<google.maps.places.PlaceResult[]>([]);
+  const [showNearbyPlaces, setShowNearbyPlaces] = useState<boolean>(false);
+  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
   
   // 마지막으로 중심을 이동한 장소 ID를 저장하는 ref
   const lastCenteredPlaceIdRef = useRef<string | null>(null);
@@ -233,6 +236,10 @@ export function PlaceMap({
     console.log('Google Map 인스턴스 로드됨');
     setMap(map);
 
+    // Places Service 초기화
+    const service = new google.maps.places.PlacesService(map);
+    setPlacesService(service);
+
     map.setCenter({
       lat: 37.5665, // 서울 좌표
       lng: 126.9780
@@ -255,8 +262,37 @@ export function PlaceMap({
     );
   };
   
-  // onMapClick 함수 업데이트 - 편집 중인 경우 클릭을 무시
-  const onMapClick = useCallback(() => {
+  // 근처 장소 검색 함수
+  const searchNearbyPlaces = useCallback((location: google.maps.LatLng) => {
+    if (!placesService) return;
+
+    const request: google.maps.places.PlaceSearchRequest = {
+      location: location,
+      radius: 50, // 50미터 반경 내 검색
+      type: 'establishment'
+    };
+
+    placesService.nearbySearch(request, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const filteredResults = results.filter(place => 
+          place.name && 
+          place.geometry?.location &&
+          place.place_id
+        );
+        
+        console.log('근처 장소 검색 결과:', filteredResults);
+        setNearbyPlaces(filteredResults);
+        setShowNearbyPlaces(true);
+      } else {
+        console.log('근처 장소 검색 실패:', status);
+        setNearbyPlaces([]);
+        setShowNearbyPlaces(false);
+      }
+    });
+  }, [placesService]);
+
+  // onMapClick 함수 업데이트 - 편집 중인 경우 클릭을 무시하고 근처 장소 검색 추가
+  const onMapClick = useCallback((event: google.maps.MapMouseEvent) => {
     // 편집 모드일 때는 정보창 닫기를 방지
     if (isInputFocused()) {
       console.log('편집 모드에서 맵 클릭 무시됨');
@@ -265,9 +301,88 @@ export function PlaceMap({
     
     if (infoWindowData) {
       setInfoWindowData(null);
+      setShowNearbyPlaces(false);
+      setNearbyPlaces([]);
+    } else if (event.latLng) {
+      // 클릭한 위치 저장
+      const clickedLat = event.latLng.lat();
+      const clickedLng = event.latLng.lng();
+      
+      setClickedLocation({ lat: clickedLat, lng: clickedLng });
+      
+      // 근처 장소 검색
+      searchNearbyPlaces(event.latLng);
     }
-  }, [infoWindowData]);
+  }, [infoWindowData, searchNearbyPlaces]);
   
+  // 구글 장소를 내 장소로 추가하는 함수
+  const handleAddGooglePlace = async (googlePlace: google.maps.places.PlaceResult) => {
+    if (!onPlaceAdd || !googlePlace.name || !googlePlace.geometry?.location) {
+      return;
+    }
+
+    try {
+      // 이미 관심 장소 목록에 있는지 확인
+      const lat = googlePlace.geometry.location.lat();
+      const lng = googlePlace.geometry.location.lng();
+      
+      const existingPlace = places.find(p => {
+        const nameMatch = p.name === googlePlace.name;
+        const latDiff = Math.abs(p.latitude - lat);
+        const lngDiff = Math.abs(p.longitude - lng);
+        const coordsMatch = latDiff < 0.0001 && lngDiff < 0.0001;
+        
+        return nameMatch && coordsMatch;
+      });
+      
+      if (existingPlace) {
+        alert(`"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`);
+        return;
+      }
+
+      // 주소 정보 가져오기
+      const address = googlePlace.formatted_address || googlePlace.vicinity || '주소 정보 없음';
+      
+      // 카테고리 추정 (구글 place type을 기반으로)
+      let category = '기타';
+      if (googlePlace.types) {
+        if (googlePlace.types.includes('restaurant') || googlePlace.types.includes('food')) {
+          category = '음식점';
+        } else if (googlePlace.types.includes('cafe')) {
+          category = '카페';
+        } else if (googlePlace.types.includes('tourist_attraction') || googlePlace.types.includes('museum')) {
+          category = '관광지';
+        } else if (googlePlace.types.includes('shopping_mall') || googlePlace.types.includes('store')) {
+          category = '쇼핑';
+        } else if (googlePlace.types.includes('lodging')) {
+          category = '숙소';
+        }
+      }
+
+      await onPlaceAdd({
+        name: googlePlace.name,
+        address: address,
+        latitude: lat,
+        longitude: lng,
+        category: category,
+        notes: '',
+        rating: googlePlace.rating || 0,
+        is_public: false,
+        custom_label: ''
+      });
+      
+      // 상태 초기화
+      setShowNearbyPlaces(false);
+      setNearbyPlaces([]);
+      setClickedLocation(null);
+      
+      console.log('구글 장소가 관심 장소로 추가되었습니다:', googlePlace.name);
+    } catch (err) {
+      console.error('구글 장소 추가 오류:', err);
+      alert('장소를 추가하는 중 오류가 발생했습니다.');
+    }
+  };
+
   // 새 장소 추가
   const handleAddPlace = async () => {
     if (onPlaceAdd && infoWindowData && infoWindowData.id === 'new') {
@@ -659,6 +774,69 @@ export function PlaceMap({
                 placeholder="장소명 또는 주소로 검색..."
                 className="w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 근처 장소 목록 표시 */}
+      {showNearbyPlaces && nearbyPlaces.length > 0 && (
+        <div className="absolute top-4 left-0 right-0 z-20 px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-md shadow-lg p-3 transition-colors">
+            <h3 className={`text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
+              📍 근처 장소들
+            </h3>
+            <div className="max-h-48 overflow-y-auto space-y-2">
+              {nearbyPlaces.slice(0, 5).map((place, index) => (
+                <div
+                  key={place.place_id || index}
+                  className={`p-2 rounded border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${theme === 'dark' ? 'border-gray-600' : 'border-gray-200'}`}
+                  onClick={() => handleAddGooglePlace(place)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium text-sm truncate ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                        {place.name}
+                      </p>
+                      {place.vicinity && (
+                        <p className={`text-xs truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {place.vicinity}
+                        </p>
+                      )}
+                      {place.rating && (
+                        <div className="flex items-center mt-1">
+                          <span className="text-yellow-400 text-xs">⭐</span>
+                          <span className={`text-xs ml-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                            {place.rating}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddGooglePlace(place);
+                      }}
+                      className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                      title="관심 장소로 추가"
+                    >
+                      추가
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+              <button
+                onClick={() => {
+                  setShowNearbyPlaces(false);
+                  setNearbyPlaces([]);
+                  setClickedLocation(null);
+                }}
+                className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'} w-full text-center`}
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>
