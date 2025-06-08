@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Place } from '@/entities/place/types';
 
 interface PlaceListProps {
@@ -22,6 +22,19 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   // 카테고리 편집을 위한 상태 추가
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [newCategoryValue, setNewCategoryValue] = useState<string>("");
+  // 삭제 확인 다이얼로그를 위한 상태 추가
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    placeId: string;
+    placeName: string;
+  }>({
+    isOpen: false,
+    placeId: '',
+    placeName: ''
+  });
+  
+  // dialog 요소에 대한 ref
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   // 카테고리 목록 정의
   const categoryOptions = [
@@ -186,17 +199,52 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!onPlaceDelete) return;
+  // 삭제 확인 다이얼로그 열기
+  const openDeleteConfirmDialog = (id: string, placeName: string) => {
+    setDeleteConfirmDialog({
+      isOpen: true,
+      placeId: id,
+      placeName: placeName
+    });
+    
+    // showModal을 사용하여 dialog를 모달로 표시
+    if (dialogRef.current) {
+      dialogRef.current.showModal();
+    }
+  };
+
+  // 삭제 확인 다이얼로그 닫기
+  const closeDeleteConfirmDialog = () => {
+    setDeleteConfirmDialog({
+      isOpen: false,
+      placeId: '',
+      placeName: ''
+    });
+    
+    // close 메서드를 사용하여 dialog 닫기
+    if (dialogRef.current) {
+      dialogRef.current.close();
+    }
+  };
+
+  // 실제 삭제 실행
+  const executeDelete = async () => {
+    if (!onPlaceDelete || !deleteConfirmDialog.placeId) return;
     
     try {
-      setDeletingId(id);
-      await onPlaceDelete(id);
+      setDeletingId(deleteConfirmDialog.placeId);
+      await onPlaceDelete(deleteConfirmDialog.placeId);
       
       // 삭제된 장소가 현재 펼쳐진 장소라면, 펼쳐진 상태 초기화
-      if (expandedPlaceId === id) {
+      if (expandedPlaceId === deleteConfirmDialog.placeId) {
         setExpandedPlaceId(null);
       }
+      
+      // 다이얼로그 닫기
+      closeDeleteConfirmDialog();
+    } catch (error) {
+      console.error('장소 삭제 중 오류 발생:', error);
+      alert('장소 삭제에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setDeletingId(null);
     }
@@ -342,9 +390,10 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                 className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
                 onClick={(e) => {
                   e.stopPropagation(); // 버블링 방지
-                  if (onPlaceDelete) handleDelete(place.id);
+                  if (onPlaceDelete) openDeleteConfirmDialog(place.id, place.custom_label || place.name);
                 }}
                 disabled={deletingId === place.id}
+                title="장소 삭제"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -548,6 +597,48 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
           )}
         </div>
       ))}
+      
+      {/* 삭제 확인 다이얼로그 */}
+      <dialog 
+        ref={dialogRef}
+        className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-[90vw] max-h-[80vh] z-[9999] backdrop:bg-black/50 backdrop:fixed backdrop:inset-0"
+        onClick={(e) => {
+          // 다이얼로그 외부 클릭 시 닫기
+          if (e.target === e.currentTarget) {
+            closeDeleteConfirmDialog();
+          }
+        }}
+      >
+        <div className="text-center">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+            장소 삭제 확인
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            정말로 <strong>&ldquo;{deleteConfirmDialog.placeName}&rdquo;</strong> 장소를 삭제하시겠습니까?
+            <br />
+            <span className="text-sm text-red-500 dark:text-red-400">
+              이 작업은 되돌릴 수 없습니다.
+            </span>
+          </p>
+          
+          <div className="flex justify-center space-x-3">
+            <button
+              onClick={closeDeleteConfirmDialog}
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={executeDelete}
+              disabled={deletingId === deleteConfirmDialog.placeId}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-md transition-colors"
+            >
+              {deletingId === deleteConfirmDialog.placeId ? '삭제 중...' : '삭제'}
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
