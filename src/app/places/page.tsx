@@ -24,10 +24,6 @@ export default function PlacesPage() {
   // 장소 선택 핸들러
   const handlePlaceSelect = (place: Place) => {
     selectPlace(place);
-    // 모바일에서 장소 선택 시 지도로 전환
-    if (window.innerWidth < 768) {
-      setShowMap(true);
-    }
   };
   
   // 장소 업데이트 핸들러 (라벨 변경, 메모 변경 등)
