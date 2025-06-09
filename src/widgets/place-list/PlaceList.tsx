@@ -33,8 +33,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     placeName: ''
   });
   
-  // 장소 삭제 확인 다이얼로그 요소에 대한 ref
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const deleteConfirmDialogRef = useRef<HTMLDialogElement>(null);
 
   // 카테고리 목록 정의
   const categoryOptions = [
@@ -208,8 +207,8 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     });
     
     // showModal을 사용하여 dialog를 모달로 표시
-    if (dialogRef.current) {
-      dialogRef.current.showModal();
+    if (deleteConfirmDialogRef.current) {
+      deleteConfirmDialogRef.current.showModal();
     }
   };
 
@@ -222,8 +221,8 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     });
     
     // close 메서드를 사용하여 dialog 닫기
-    if (dialogRef.current) {
-      dialogRef.current.close();
+    if (deleteConfirmDialogRef.current) {
+      deleteConfirmDialogRef.current.close();
     }
   };
 
@@ -600,7 +599,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       
       {/* 삭제 확인 다이얼로그 */}
       <dialog 
-        ref={dialogRef}
+        ref={deleteConfirmDialogRef}
         className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-[90vw] max-h-[80vh] z-[9999] backdrop:bg-black/50 backdrop:fixed backdrop:inset-0"
         onClick={(e) => {
           // 다이얼로그 외부 클릭 시 닫기
