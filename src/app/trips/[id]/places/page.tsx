@@ -240,12 +240,12 @@ export default function TripPlacesPage() {
                 // notes와 category는 개별 Place가 아닌 TripPlace에서 관리
                 await updatePlace(tripPlace.place_id, {
                   custom_label: updatedPlace.custom_label,
-                  notes: tripPlace.notes,
+                  notes: updatedPlace.notes,
                   category: updatedPlace.category
                 });
                 await updateTripPlace(tripPlace.id, {
                   custom_label: updatedPlace.custom_label,
-                  notes: tripPlace.notes, // TripPlace의 기존 notes 유지
+                  notes: updatedPlace.notes,
                   status: tripPlace.status,
                   priority: tripPlace.priority
                 });
