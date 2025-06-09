@@ -83,6 +83,7 @@ export default function TripPlacesPage() {
         trip_id: tripId,
         place_id: place.id,
         custom_label: place.custom_label || undefined,
+        notes: place.notes || undefined,
         status: 'planned',
         priority: 0
       });

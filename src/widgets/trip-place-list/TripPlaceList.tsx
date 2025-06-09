@@ -239,9 +239,12 @@ export function TripPlaceList({
                 </div>
                 
                 {tripPlace.notes && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mt-1">
-                    메모: {tripPlace.notes}
-                  </p>
+                  <div className="mt-1">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 markdown-content markdown-inherit-color">
+                      <span className="font-medium">메모: </span>
+                      <div className="inline" dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(tripPlace.notes) }} />
+                    </div>
+                  </div>
                 )}
               </div>
               
@@ -338,7 +341,7 @@ export function TripPlaceList({
                         onChange={(e) => setNewNotesValue(e.target.value)}
                         rows={3}
                         className="w-full text-sm p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                        placeholder="메모를 입력하세요..."
+                        placeholder="메모를 입력하세요... (마크다운 지원: **볼드**, *이탤릭*, ```코드```, # 제목, - 목록)"
                       />
                       <div className="flex gap-2">
                         <button
@@ -356,9 +359,15 @@ export function TripPlaceList({
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {tripPlace.notes || '메모가 없습니다.'}
-                    </p>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {tripPlace.notes ? (
+                        <div className="markdown-content markdown-inherit-color">
+                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(tripPlace.notes) }} />
+                        </div>
+                      ) : (
+                        '메모가 없습니다.'
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -453,4 +462,74 @@ export function TripPlaceList({
       </dialog>
     </>
   );
+}
+
+// 마크다운을 HTML로 변환하는 함수
+function parseMarkdownToHTML(markdown: string): string {
+  if (!markdown) return '';
+  
+  // 줄바꿈을 임시로 다른 문자열로 대체
+  let html = markdown.replace(/\r\n|\n\r|\n|\r/g, '\n');
+  
+  // 코드 블록 (```..```) - 이 부분이 다른 정규식에 영향을 주지 않도록 먼저 처리
+  html = html.replace(/```([\s\S]*?)```/gm, function(_, code) {
+    return `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+  });
+  
+  // 인라인 코드 (`..`)
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // 헤더
+  html = html.replace(/^### (.*?)$/gm, '<h3 class="font-medium">$1</h3>');
+  html = html.replace(/^## (.*?)$/gm, '<h2 class="font-semibold">$1</h2>');
+  html = html.replace(/^# (.*?)$/gm, '<h1 class="font-bold">$1</h1>');
+  
+  // 볼드, 이탤릭
+  html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  // 링크
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">$1</a>');
+  
+  // 순서없는 목록
+  // 전체 목록을 찾아서 처리
+  html = html.replace(/((^|\n)- (.*?)(\n|$))+/g, function(match) {
+    return '<ul class="list-disc pl-5">' + match.replace(/^- (.*?)$/gm, '<li>$1</li>') + '</ul>';
+  });
+  
+  // 인용문
+  html = html.replace(/^> (.*?)$/gm, '<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic">$1</blockquote>');
+  
+  // 수평선
+  html = html.replace(/^---+$/gm, '<hr class="my-2 border-t border-gray-300 dark:border-gray-600">');
+  
+  // 일반 텍스트를 p 태그로 감싸기 (다른 태그에 포함되지 않은 텍스트)
+  // 먼저 줄바꿈으로 분리
+  const lines = html.split('\n');
+  html = '';
+  let inSpecialBlock = false;
+  
+  for (const line of lines) {
+    // 이미 태그로 감싸져 있는지 체크
+    if (line.trim() === '') {
+      html += '<br>';
+      continue;
+    }
+    
+    if (line.match(/^<(h1|h2|h3|pre|ul|ol|blockquote|hr)/)) {
+      inSpecialBlock = true;
+      html += line + '\n';
+    } else if (line.match(/^<\/(h1|h2|h3|pre|ul|ol|blockquote)>/)) {
+      inSpecialBlock = false;
+      html += line + '\n';
+    } else if (!inSpecialBlock && !line.match(/^<\w+/)) {
+      // 일반 텍스트이고 태그로 시작하지 않으면 p 태그로 감싼다
+      html += `<p>${line}</p>\n`;
+    } else {
+      html += line + '\n';
+    }
+  }
+  
+  return html;
 } 
