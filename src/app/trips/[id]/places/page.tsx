@@ -282,7 +282,9 @@ export default function TripPlacesPage() {
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium dark:text-white truncate">{place.name}</p>
+                              {place.custom_label && <p className="font-medium dark:text-white truncate">{place.custom_label}</p>}
+                              {place.custom_label && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">원래 이름: {place.name}</p>}
+                              {!place.custom_label && <p className="font-medium dark:text-white truncate">{place.name}</p>}
                               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{place.address}</p>
                               <span className="text-xs px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded dark:text-gray-300">
                                 {place.category}
