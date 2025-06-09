@@ -54,7 +54,7 @@
 }
 
 /* 내부 스타일 설정을 위한 테마 변수 */
-@theme inline {
+:root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
