@@ -30,8 +30,20 @@ export default function TripPlacesPage() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
 
-  // 여행에 추가된 장소들의 Place 객체들
-  const tripPlaceEntities = tripPlaces.map(tp => tp.places_of_interest).filter(Boolean) as Place[];
+  // 여행에 추가된 장소들의 Place 객체들 (TripPlace의 custom_label을 반영)
+  const tripPlaceEntities = tripPlaces
+    .map(tp => tp.places_of_interest)
+    .filter(Boolean)
+    .map(place => {
+      // 해당 place에 대응하는 TripPlace 찾기
+      const tripPlace = tripPlaces.find(tp => tp.place_id === place!.id);
+      
+      // TripPlace의 custom_label이 있으면 Place의 custom_label을 덮어씀
+      return {
+        ...place!,
+        custom_label: tripPlace?.custom_label || place!.custom_label
+      } as Place;
+    });
   
   // 카테고리별 필터링
   const filteredTripPlaces = selectedCategory 
@@ -80,8 +92,6 @@ export default function TripPlacesPage() {
   };
 
   const handlePlaceRemove = async (tripPlaceId: string) => {
-    if (!confirm('이 장소를 여행에서 제거하시겠습니까?')) return;
-    
     try {
       await removePlaceFromTrip(tripPlaceId);
     } catch (err) {
@@ -216,7 +226,20 @@ export default function TripPlacesPage() {
             selectedPlace={selectedPlace}
             onPlaceAdd={handlePlaceAdd}
             onPlaceSelect={setSelectedPlace}
-            // onPlaceUpdate={async () => {}} // 개별 장소 업데이트는 별도 처리
+            onPlaceUpdate={async (updatedPlace: Place) => {
+              // PlaceMap에서 장소 업데이트가 발생하면 해당하는 TripPlace의 custom_label도 업데이트
+              const tripPlace = tripPlaces.find(tp => tp.place_id === updatedPlace.id);
+              if (tripPlace) {
+                // 여행 계획에서는 custom_label만 TripPlace에 반영하고, 
+                // notes와 category는 개별 Place가 아닌 TripPlace에서 관리
+                await updateTripPlace(tripPlace.id, {
+                  custom_label: updatedPlace.custom_label,
+                  notes: tripPlace.notes, // TripPlace의 기존 notes 유지
+                  status: tripPlace.status,
+                  priority: tripPlace.priority
+                });
+              }
+            }}
           />
         </div>
       </div>

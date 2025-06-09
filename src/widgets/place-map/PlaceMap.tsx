@@ -482,7 +482,7 @@ export function PlaceMap({
       
       const updatedPlace = {
         ...infoWindowData,
-        memo: newMemo || ''
+        notes: newMemo || ''
       };
       
       console.log('메모 업데이트 요청:', updatedPlace);
