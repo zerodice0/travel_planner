@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { PlaceMap } from '@/widgets/place-map/PlaceMap';
 import { PlaceList } from '@/widgets/place-list/PlaceList';
 import { usePlaces } from '@/entities/place/hooks';
@@ -86,7 +87,15 @@ export default function PlacesPage() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900 transition-colors">
       <div className="p-4 bg-white dark:bg-gray-800 shadow">
-        <h1 className="text-2xl font-bold dark:text-white">나의 관심 장소</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold dark:text-white">나의 관심 장소</h1>
+          <Link 
+            href="/trips/select"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            여행별 관리하기
+          </Link>
+        </div>
         <div className="mt-2 overflow-x-auto pb-2">
           <div className="flex gap-2 min-w-max">
             <button 

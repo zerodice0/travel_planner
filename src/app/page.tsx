@@ -76,13 +76,13 @@ export default function Home() {
               관심 장소 관리
             </h2>
             <p className="text-gray-600 mb-4">
-              방문하고 싶은 장소를 미리 저장하고 관리하세요. 카테고리별로 정리하고 메모를 추가할 수 있습니다.
+              여행지별로 방문하고 싶은 장소를 미리 저장하고 관리하세요. 카테고리별로 정리하고 메모를 추가할 수 있습니다.
             </p>
             <Link 
-              href="/places" 
+              href="/trips/select" 
               className="text-blue-600 font-medium hover:text-blue-800 flex items-center"
             >
-              관심 장소 보기
+              여행 선택하기
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>

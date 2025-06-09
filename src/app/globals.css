@@ -54,7 +54,7 @@
 }
 
 /* 내부 스타일 설정을 위한 테마 변수 */
-@theme inline {
+:root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -340,4 +340,43 @@ input, textarea, select {
 .markdown-content em strong {
   font-weight: 700;
   font-style: italic;
+}
+
+/* HTML5 Dialog 스타일 */
+dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 90vh;
+  max-width: 90vw; /* 모바일 기본값 */
+  overflow: auto;
+}
+
+/* 태블릿 이상 화면에서 dialog 크기 조정 */
+@media (min-width: 768px) {
+  dialog {
+    max-width: 28rem; /* 448px, Tailwind의 max-w-md와 동일 */
+  }
+}
+
+/* 데스크톱 화면에서 dialog 크기 조정 */
+@media (min-width: 1024px) {
+  dialog {
+    max-width: 32rem; /* 512px, Tailwind의 max-w-lg와 동일 */
+  }
+}
+
+/* Dialog backdrop 스타일 */
+dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* Dialog가 열려있을 때 body 스크롤 방지 */
+body:has(dialog[open]) {
+  overflow: hidden;
 }
