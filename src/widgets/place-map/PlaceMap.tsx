@@ -367,7 +367,7 @@ export function PlaceMap({
         longitude: lng,
         category: category,
         notes: '',
-        rating: googlePlace.rating || 0,
+        rating: googlePlace.rating ? Math.round(Number(googlePlace.rating)) : 0,
         is_public: false,
         custom_label: ''
       });
@@ -395,7 +395,7 @@ export function PlaceMap({
           longitude: infoWindowData.longitude,
           category: infoWindowData.category || '기타',
           notes: infoWindowData.notes || '',
-          rating: infoWindowData.rating || 0,
+          rating: infoWindowData.rating ? Math.round(Number(infoWindowData.rating)) : 0,
           is_public: false,
           custom_label: infoWindowData.custom_label || ''
         });
