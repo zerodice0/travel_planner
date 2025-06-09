@@ -210,6 +210,15 @@ export default function TripPlacesPage() {
               onPlaceSelect={setSelectedPlace}
               onTripPlaceRemove={handlePlaceRemove}
               onTripPlaceUpdate={async (tripPlace: TripPlace) => {
+                // TripPlaceList에서 업데이트 했을 시 PlaceMap에서 선택된 장소도 업데이트
+                if (selectedPlace?.id === tripPlace.place_id) {
+                  setSelectedPlace({
+                    ...selectedPlace,
+                    custom_label: tripPlace.custom_label,
+                    notes: tripPlace.notes || null,
+                  });
+                }
+                
                 await updatePlace(tripPlace.place_id, {
                   custom_label: tripPlace.custom_label,
                   notes: tripPlace.notes,
