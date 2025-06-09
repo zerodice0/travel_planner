@@ -14,7 +14,9 @@ export function CreateTripForm({ onSubmit, loading }: CreateTripFormProps) {
     end_date: '',
     location: '',
     is_public: false,
-    cover_image_url: ''
+    cover_image_url: '',
+    initial_latitude: 0,
+    initial_longitude: 0
   });
   
   const handleChange = (

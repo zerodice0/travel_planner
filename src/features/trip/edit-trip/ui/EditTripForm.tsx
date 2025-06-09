@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Trip } from '@/entities/trip/types';
 import { LocationPicker } from '@/widgets/location-picker/LocationPicker';
 

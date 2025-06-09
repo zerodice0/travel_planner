@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Libraries } from '@react-google-maps/api';
-import { useTheme } from '@/shared/providers/ThemeProvider';
 
 const mapContainerStyle = {
   width: '100%',
@@ -34,7 +33,6 @@ export function LocationPicker({
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [searchAddress, setSearchAddress] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
-  const { theme } = useTheme();
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
 
   // Google Maps 로드 시 geocoder 초기화
@@ -119,7 +117,7 @@ export function LocationPicker({
   }, [geocoder, searchAddress, map, onLocationSelect]);
 
   // Enter 키로 검색
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAddressSearch();
     }
@@ -186,7 +184,7 @@ export function LocationPicker({
             type="text"
             value={searchAddress}
             onChange={(e) => setSearchAddress(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="주소나 장소명으로 검색 (참조용)"
             className="flex-1 px-3 py-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 text-sm"
           />

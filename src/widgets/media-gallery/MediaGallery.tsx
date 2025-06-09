@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 import { useTripMedia } from '@/entities/media/hooks';
 
 interface MediaGalleryProps {
@@ -35,7 +36,7 @@ export function MediaGallery({ tripId }: MediaGalleryProps) {
             onClick={() => setSelectedMediaId(item.id)}
           >
             {item.type === 'image' ? (
-              <img
+              <Image
                 src={item.url}
                 alt={item.caption || '방문 사진'}
                 className="w-full h-full object-cover"
@@ -68,7 +69,7 @@ export function MediaGallery({ tripId }: MediaGalleryProps) {
             
             <div className="bg-black overflow-hidden rounded-lg">
               {selectedMedia.type === 'image' ? (
-                <img
+                <Image
                   src={selectedMedia.url}
                   alt={selectedMedia.caption || '방문 사진'}
                   className="max-h-[80vh] max-w-full"
