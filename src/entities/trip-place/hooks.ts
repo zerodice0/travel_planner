@@ -19,8 +19,8 @@ export function useTripPlaces(tripId: string) {
           .from('trip_places')
           .select(`
             *,
-            place:places_of_interest(*),
-            trip:trips(*)
+            places_of_interest!place_id(*),
+            trips!trip_id(*)
           `)
           .eq('trip_id', tripId)
           .order('priority', { ascending: false })
@@ -54,8 +54,8 @@ export function useTripPlaces(tripId: string) {
         })
         .select(`
           *,
-          place:places_of_interest(*),
-          trip:trips(*)
+          places_of_interest!place_id(*),
+          trips!trip_id(*)
         `)
         .single();
       
@@ -77,8 +77,8 @@ export function useTripPlaces(tripId: string) {
         .eq('id', id)
         .select(`
           *,
-          place:places_of_interest(*),
-          trip:trips(*)
+          places_of_interest!place_id(*),
+          trips!trip_id(*)
         `)
         .single();
       
@@ -148,8 +148,8 @@ export function usePlaceTrips(placeId: string) {
           .from('trip_places')
           .select(`
             *,
-            place:places_of_interest(*),
-            trip:trips(*)
+            places_of_interest!place_id(*),
+            trips!trip_id(*)
           `)
           .eq('place_id', placeId)
           .order('created_at', { ascending: false });
@@ -190,8 +190,8 @@ export function useAllUserTripPlaces() {
           .from('trip_places')
           .select(`
             *,
-            place:places_of_interest(*),
-            trip:trips(*)
+            places_of_interest!place_id(*),
+            trips!trip_id(*)
           `)
           .order('created_at', { ascending: false });
         

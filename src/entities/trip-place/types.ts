@@ -13,8 +13,8 @@ export interface TripPlace {
   updated_at: string;
   
   // 조인된 데이터
-  place?: Place;
-  trip?: Trip;
+  places_of_interest?: Place;
+  trips?: Trip;
 }
 
 export type CreateTripPlaceData = Omit<TripPlace, 'id' | 'created_at' | 'updated_at' | 'place' | 'trip'>;

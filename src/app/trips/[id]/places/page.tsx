@@ -28,11 +28,11 @@ export default function TripPlacesPage() {
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
 
   // 여행에 추가된 장소들의 Place 객체들
-  const tripPlaceEntities = tripPlaces.map(tp => tp.place).filter(Boolean) as Place[];
+  const tripPlaceEntities = tripPlaces.map(tp => tp.places_of_interest).filter(Boolean) as Place[];
   
   // 카테고리별 필터링
   const filteredTripPlaces = selectedCategory 
-    ? tripPlaces.filter(tp => tp.place?.category === selectedCategory)
+    ? tripPlaces.filter(tp => tp.places_of_interest?.category === selectedCategory)
     : tripPlaces;
 
   const handlePlaceAdd = async (placeData: Omit<Place, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => {
@@ -154,7 +154,7 @@ export default function TripPlacesPage() {
             전체 ({tripPlaces.length})
           </button>
           {['음식점', '카페', '관광지', '쇼핑', '숙소', '기타'].map(category => {
-            const count = tripPlaces.filter(tp => tp.place?.category === category).length;
+            const count = tripPlaces.filter(tp => tp.places_of_interest?.category === category).length;
             return (
               <button
                 key={category}
@@ -201,29 +201,29 @@ export default function TripPlacesPage() {
                   <div 
                     key={tripPlace.id}
                     className={`border rounded-lg overflow-hidden shadow-sm ${
-                      selectedPlace?.id === tripPlace.place?.id 
+                      selectedPlace?.id === tripPlace.places_of_interest?.id 
                         ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700' 
                         : 'bg-white dark:bg-gray-800 dark:border-gray-700'
                     } transition-colors`}
                   >
                     <div 
                       className="p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => setSelectedPlace(tripPlace.place || null)}
+                      onClick={() => setSelectedPlace(tripPlace.places_of_interest || null)}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium dark:text-white truncate">
-                            {tripPlace.custom_label || tripPlace.place?.name}
+                            {tripPlace.custom_label || tripPlace.places_of_interest?.name}
                           </h3>
-                          {tripPlace.custom_label && tripPlace.place?.name !== tripPlace.custom_label && (
+                          {tripPlace.custom_label && tripPlace.places_of_interest?.name !== tripPlace.custom_label && (
                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                              {tripPlace.place?.name}
+                              {tripPlace.places_of_interest?.name}
                             </p>
                           )}
                           
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full dark:text-gray-300">
-                              {tripPlace.place?.category}
+                              {tripPlace.places_of_interest?.category}
                             </span>
                             
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
