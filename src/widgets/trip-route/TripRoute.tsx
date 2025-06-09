@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow, Libraries } from '@react-google-maps/api';
 import { Visit } from '@/entities/visit/types';
 
 interface TripRouteProps {
@@ -18,6 +18,8 @@ const defaultCenter = {
   lng: 126.9780
 };
 
+const libraries: Libraries = ['places', 'geocoding'];
+
 // 카테고리별 마커 색상
 const categoryColors = {
   '음식점': 'red',
@@ -29,7 +31,8 @@ const categoryColors = {
 
 export function TripRoute({ visits }: TripRouteProps) {
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: libraries
   });
   
   const [map, setMap] = useState<google.maps.Map | null>(null);
