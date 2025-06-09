@@ -7,7 +7,9 @@ import { useTrip } from '@/entities/trip/hooks';
 import { usePlaces } from '@/entities/place/hooks';
 import { useTripPlaces } from '@/entities/trip-place/hooks';
 import { PlaceMap } from '@/widgets/place-map/PlaceMap';
+import { TripPlaceList } from '@/widgets/trip-place-list/TripPlaceList';
 import { Place } from '@/entities/place/types';
+import { TripPlace } from '@/entities/trip-place/types';
 
 export default function TripPlacesPage() {
   const { id } = useParams();
@@ -19,7 +21,8 @@ export default function TripPlacesPage() {
     tripPlaces, 
     loading: tripPlacesLoading, 
     addPlaceToTrip, 
-    removePlaceFromTrip
+    removePlaceFromTrip,
+    updateTripPlace
   } = useTripPlaces(tripId);
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -189,77 +192,20 @@ export default function TripPlacesPage() {
         {/* 장소 목록 (데스크톱에서는 항상 표시, 모바일에서는 조건부) */}
         <div className={`w-full md:w-1/3 overflow-auto border-r dark:border-gray-700 ${showMap ? 'hidden md:block' : 'block'}`}>
           <div className="p-4">
-            {filteredTripPlaces.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <div className="text-4xl mb-4">📍</div>
-                <p>아직 추가된 장소가 없습니다.</p>
-                <p className="mt-2 text-sm">장소 추가 버튼을 클릭하여 관심 장소를 추가해보세요.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredTripPlaces.map(tripPlace => (
-                  <div 
-                    key={tripPlace.id}
-                    className={`border rounded-lg overflow-hidden shadow-sm ${
-                      selectedPlace?.id === tripPlace.places_of_interest?.id 
-                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700' 
-                        : 'bg-white dark:bg-gray-800 dark:border-gray-700'
-                    } transition-colors`}
-                  >
-                    <div 
-                      className="p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => setSelectedPlace(tripPlace.places_of_interest || null)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium dark:text-white truncate">
-                            {tripPlace.custom_label || tripPlace.places_of_interest?.name}
-                          </h3>
-                          {tripPlace.custom_label && tripPlace.places_of_interest?.name !== tripPlace.custom_label && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                              {tripPlace.places_of_interest?.name}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full dark:text-gray-300">
-                              {tripPlace.places_of_interest?.category}
-                            </span>
-                            
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              tripPlace.status === 'visited' 
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                                : tripPlace.status === 'cancelled'
-                                ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                            }`}>
-                              {tripPlace.status === 'planned' ? '계획' : tripPlace.status === 'visited' ? '방문' : '취소'}
-                            </span>
-                          </div>
-                          
-                          {tripPlace.notes && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1 mt-1">
-                              {tripPlace.notes}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlaceRemove(tripPlace.id);
-                          }}
-                          className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-                          title="여행에서 제거"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <TripPlaceList
+              tripPlaces={filteredTripPlaces}
+              selectedPlace={selectedPlace}
+              onPlaceSelect={setSelectedPlace}
+              onTripPlaceRemove={handlePlaceRemove}
+              onTripPlaceUpdate={async (tripPlace: TripPlace) => {
+                await updateTripPlace(tripPlace.id, {
+                  custom_label: tripPlace.custom_label,
+                  notes: tripPlace.notes,
+                  status: tripPlace.status,
+                  priority: tripPlace.priority
+                });
+              }}
+            />
           </div>
         </div>
         
