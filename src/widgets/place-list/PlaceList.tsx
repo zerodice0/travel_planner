@@ -33,7 +33,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
     placeName: ''
   });
   
-  // dialog 요소에 대한 ref
+  // 장소 삭제 확인 다이얼로그 요소에 대한 ref
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // 카테고리 목록 정의
