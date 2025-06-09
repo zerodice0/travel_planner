@@ -82,6 +82,7 @@ export default function TripPlacesPage() {
       await addPlaceToTrip({
         trip_id: tripId,
         place_id: place.id,
+        custom_label: place.custom_label || undefined,
         status: 'planned',
         priority: 0
       });
@@ -146,7 +147,7 @@ export default function TripPlacesPage() {
               onClick={() => setShowAddPlaceModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
-              장소 추가
+              기존 장소 불러오기
             </button>
             
             <Link
