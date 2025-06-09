@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useVisits } from '@/entities/visit/hooks';
 import { useMedia } from '@/entities/media/hooks';
 import { Place } from '@/entities/place/types';
+import Image from 'next/image';
 
 interface VisitFormProps {
   tripId: string;
@@ -120,7 +121,7 @@ export function VisitForm({ tripId, place, onComplete, onCancel }: VisitFormProp
             {mediaFiles.map((file, index) => (
               <div key={index} className="w-20 h-20 relative">
                 {file.type.startsWith('image/') ? (
-                  <img
+                  <Image
                     src={URL.createObjectURL(file)}
                     alt="미리보기"
                     className="w-full h-full object-cover rounded"
