@@ -30,13 +30,18 @@ export default function TripPlacesPage() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
 
-  // 여행에 추가된 장소들의 Place 객체들 (TripPlace의 custom_label을 반영)
-  const tripPlaceEntities = tripPlaces
+  // 카테고리별 필터링
+  const filteredTripPlaces = selectedCategory 
+  ? tripPlaces.filter(tp => tp.places_of_interest?.category === selectedCategory)
+  : tripPlaces;
+  
+  // 필터링된 여행 장소들의 Place 객체들 (TripPlace의 custom_label을 반영)
+  const filteredTripPlaceEntities = filteredTripPlaces
     .map(tp => tp.places_of_interest)
-    .filter(Boolean)
+    .filter(Boolean) // null값 제거
     .map(place => {
       // 해당 place에 대응하는 TripPlace 찾기
-      const tripPlace = tripPlaces.find(tp => tp.place_id === place!.id);
+      const tripPlace = filteredTripPlaces.find(tp => tp.place_id === place!.id);
       
       // TripPlace의 custom_label이 있으면 Place의 custom_label을 덮어씀
       return {
@@ -44,11 +49,6 @@ export default function TripPlacesPage() {
         custom_label: tripPlace?.custom_label || place!.custom_label
       } as Place;
     });
-  
-  // 카테고리별 필터링
-  const filteredTripPlaces = selectedCategory 
-    ? tripPlaces.filter(tp => tp.places_of_interest?.category === selectedCategory)
-    : tripPlaces;
 
   const handlePlaceAdd = async (placeData: Omit<Place, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => {
     try {
@@ -228,7 +228,7 @@ export default function TripPlacesPage() {
         {/* 지도 (데스크톱에서는 항상 표시, 모바일에서는 조건부) */}
         <div className={`w-full md:w-2/3 relative ${showMap ? 'block' : 'hidden md:block'}`}>
           <PlaceMap 
-            places={tripPlaceEntities}
+            places={filteredTripPlaceEntities}
             selectedPlace={selectedPlace}
             onPlaceAdd={handlePlaceAdd}
             onPlaceSelect={setSelectedPlace}
