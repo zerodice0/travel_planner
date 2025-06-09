@@ -16,7 +16,7 @@ export default function TripPlacesPage() {
   const tripId = id as string;
   
   const { trip, loading: tripLoading } = useTrip(tripId);
-  const { places: allPlaces, createPlace } = usePlaces();
+  const { places: allPlaces, createPlace, updatePlace } = usePlaces();
   const { 
     tripPlaces, 
     loading: tripPlacesLoading, 
@@ -210,6 +210,10 @@ export default function TripPlacesPage() {
               onPlaceSelect={setSelectedPlace}
               onTripPlaceRemove={handlePlaceRemove}
               onTripPlaceUpdate={async (tripPlace: TripPlace) => {
+                await updatePlace(tripPlace.place_id, {
+                  custom_label: tripPlace.custom_label,
+                  notes: tripPlace.notes,
+                });
                 await updateTripPlace(tripPlace.id, {
                   custom_label: tripPlace.custom_label,
                   notes: tripPlace.notes,
@@ -234,6 +238,11 @@ export default function TripPlacesPage() {
               if (tripPlace) {
                 // 여행 계획에서는 custom_label만 TripPlace에 반영하고, 
                 // notes와 category는 개별 Place가 아닌 TripPlace에서 관리
+                await updatePlace(tripPlace.place_id, {
+                  custom_label: updatedPlace.custom_label,
+                  notes: tripPlace.notes,
+                  category: updatedPlace.category
+                });
                 await updateTripPlace(tripPlace.id, {
                   custom_label: updatedPlace.custom_label,
                   notes: tripPlace.notes, // TripPlace의 기존 notes 유지
