@@ -241,6 +241,12 @@ export default function TripPlacesPage() {
             selectedPlace={selectedPlace}
             onPlaceAdd={handlePlaceAdd}
             onPlaceSelect={setSelectedPlace}
+            initialCenter={
+              trip.initial_latitude && trip.initial_longitude ? {
+                lat: trip.initial_latitude,
+                lng: trip.initial_longitude
+              } : undefined
+            }
             onPlaceUpdate={async (updatedPlace: Place) => {
               // PlaceMap에서 장소 업데이트가 발생하면 해당하는 TripPlace의 custom_label도 업데이트
               const tripPlace = tripPlaces.find(tp => tp.place_id === updatedPlace.id);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTrip } from '@/entities/trip/hooks';
 import { useVisits } from '@/entities/visit/hooks';
 import { TripTimeline } from '@/widgets/trip-timeline/TripTimeline';
@@ -9,6 +9,7 @@ import { MediaGallery } from '@/widgets/media-gallery/MediaGallery';
 
 export default function TripDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const { trip, loading: tripLoading } = useTrip(id as string);
   const { visits, loading: visitsLoading } = useVisits(id as string);
   
@@ -39,7 +40,14 @@ export default function TripDetailPage() {
               <h2 className="text-xl font-semibold">여행 경로</h2>
             </div>
             <div className="h-[500px]">
-              <TripRoute visits={visits} />
+              <TripRoute 
+                visits={visits} 
+                initialCenter={
+                  trip.initial_latitude && trip.initial_longitude
+                    ? { lat: trip.initial_latitude, lng: trip.initial_longitude }
+                    : undefined
+                }
+              />
             </div>
           </div>
         </div>
@@ -70,7 +78,10 @@ export default function TripDetailPage() {
           <button className="px-4 py-2 bg-blue-600 text-white rounded mr-2">
             여행 공유
           </button>
-          <button className="px-4 py-2 border rounded hover:bg-gray-50">
+          <button 
+            onClick={() => router.push(`/trips/${id}/edit`)}
+            className="px-4 py-2 border rounded hover:bg-gray-50"
+          >
             편집
           </button>
         </div>

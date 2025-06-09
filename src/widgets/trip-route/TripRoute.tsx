@@ -6,6 +6,7 @@ import { Visit } from '@/entities/visit/types';
 
 interface TripRouteProps {
   visits: Visit[];
+  initialCenter?: { lat: number; lng: number };
 }
 
 const mapContainerStyle = {
@@ -29,7 +30,7 @@ const categoryColors = {
   '기타': 'green'
 };
 
-export function TripRoute({ visits }: TripRouteProps) {
+export function TripRoute({ visits, initialCenter }: TripRouteProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: libraries
@@ -96,13 +97,14 @@ export function TripRoute({ visits }: TripRouteProps) {
     return <div className="p-4">지도를 불러오는 중...</div>;
   }
   
-  // 중심 좌표 계산
-  const centerCoord = visits.length > 0 && visits[0].places_of_interest ? 
-    { 
-      lat: visits[0].places_of_interest.latitude, 
-      lng: visits[0].places_of_interest.longitude 
-    } : 
-    defaultCenter;
+  // 중심 좌표 계산 (initialCenter가 있으면 우선 사용, 없으면 첫 번째 방문지, 마지막에 기본값)
+  const centerCoord = initialCenter || 
+    (visits.length > 0 && visits[0].places_of_interest ? 
+      { 
+        lat: visits[0].places_of_interest.latitude, 
+        lng: visits[0].places_of_interest.longitude 
+      } : 
+      defaultCenter);
 
   return (
     <GoogleMap

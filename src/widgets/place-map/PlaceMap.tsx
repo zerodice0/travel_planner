@@ -25,6 +25,7 @@ interface PlaceMapProps {
   places: Place[];
   userLocation?: { lat: number; lng: number } | null;
   selectedPlace?: Place | null;
+  initialCenter?: { lat: number; lng: number } | null;
   onPlaceAdd?: (placeData: Omit<Place, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => Promise<void>;
   onPlaceSelect?: (place: Place) => void;
   onPlaceUpdate?: (place: Place) => Promise<void>;
@@ -36,6 +37,7 @@ export function PlaceMap({
   places, 
   userLocation, 
   selectedPlace,
+  initialCenter,
   onPlaceAdd,
   onPlaceSelect,
   onPlaceUpdate
@@ -241,14 +243,13 @@ export function PlaceMap({
     const service = new google.maps.places.PlacesService(map);
     setPlacesService(service);
 
-    map.setCenter({
-      lat: 37.5665, // 서울 좌표
-      lng: 126.9780
-    });
+    // 초기 중심점 설정 (initialCenter가 있으면 사용, 없으면 서울 좌표)
+    const center = initialCenter || { lat: 37.5665, lng: 126.9780 };
+    map.setCenter(center);
     
     console.log('맵 중심 좌표:', map.getCenter()?.toJSON());
     console.log('맵 줌 레벨:', map.getZoom());
-  }, []);
+  }, [initialCenter]);
 
   // 편집 모드 중에는 맵 변경을 무시하기 위한 유틸리티 함수
   const isInputFocused = () => {

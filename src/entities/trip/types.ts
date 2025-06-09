@@ -6,6 +6,8 @@ export interface Trip {
   start_date: string | null;
   end_date: string | null;
   location: string | null;
+  initial_latitude: number | null;
+  initial_longitude: number | null;
   is_completed: boolean;
   is_public: boolean;
   cover_image_url: string | null;
