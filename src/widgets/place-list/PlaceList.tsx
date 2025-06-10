@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Place } from '@/entities/place/types';
+import { CATEGORY_OPTIONS, getCategoryEmoji } from '@/shared/constants';
 
 interface PlaceListProps {
   places: Place[];
@@ -35,16 +36,6 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   
   const deleteConfirmDialogRef = useRef<HTMLDialogElement>(null);
 
-  // 카테고리 목록 정의
-  const categoryOptions = [
-    { value: '음식점', label: '🍽️ 음식점' },
-    { value: '카페', label: '☕️ 카페' },
-    { value: '관광지', label: '🏞️ 관광지' },
-    { value: '쇼핑', label: '🛍️ 쇼핑' },
-    { value: '숙소', label: '🏨 숙소' },
-    { value: '유원지', label: '🎢 유원지' },
-    { value: '기타', label: '📍 기타' }
-  ];
 
   useEffect(() => {
     if (places.every(place => place.id !== selectedPlace?.id)) {
@@ -461,7 +452,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                       onClick={(e) => e.stopPropagation()}
                       autoFocus
                     >
-                      {categoryOptions.map(option => (
+                      {CATEGORY_OPTIONS.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -490,18 +481,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
                   <div className="flex items-center">
                     <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center">카테고리: </span>
                     <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center">
-                      {(() => {
-                        // 카테고리에 맞는 이모지 표시
-                        switch(place.category) {
-                          case '음식점': return '🍽️';
-                          case '카페': return '☕️';
-                          case '관광지': return '🏞️';
-                          case '쇼핑': return '🛍️';
-                          case '숙소': return '🏨';
-                          case '유원지': return '🎢';
-                          default: return '📍';
-                        }
-                      })()}
+                      {getCategoryEmoji(place.category)}
                       <span className="ml-1 text-gray-700 dark:text-gray-300">{place.category}</span>
                     </span>
                     <button
