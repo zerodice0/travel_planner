@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { TripPlace } from '@/entities/trip-place/types';
 import { Place } from '@/entities/place/types';
+import { TripPlaceDeleteConfirmDialog, createEmptyDeleteConfirmDialog } from '@/shared/ui/types';
 
 interface TripPlaceListProps {
   tripPlaces: TripPlace[];
@@ -25,15 +26,9 @@ export function TripPlaceList({
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [newNotesValue, setNewNotesValue] = useState<string>("");
   const [copiedAddressId, setCopiedAddressId] = useState<string | null>(null);
-  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
-    isOpen: boolean;
-    tripPlaceId: string;
-    placeName: string;
-  }>({
-    isOpen: false,
-    tripPlaceId: '',
-    placeName: ''
-  });
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<TripPlaceDeleteConfirmDialog>(
+    createEmptyDeleteConfirmDialog()
+  );
   
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -45,8 +40,8 @@ export function TripPlaceList({
   const openDeleteConfirmDialog = (tripPlaceId: string, placeName: string) => {
     setDeleteConfirmDialog({
       isOpen: true,
-      tripPlaceId,
-      placeName
+      itemId: tripPlaceId,
+      itemName: placeName
     });
     if (dialogRef.current) {
       dialogRef.current.showModal();
@@ -55,11 +50,7 @@ export function TripPlaceList({
 
   // 삭제 확인 다이얼로그 닫기
   const closeDeleteConfirmDialog = () => {
-    setDeleteConfirmDialog({
-      isOpen: false,
-      tripPlaceId: '',
-      placeName: ''
-    });
+    setDeleteConfirmDialog(createEmptyDeleteConfirmDialog());
     if (dialogRef.current) {
       dialogRef.current.close();
     }
@@ -67,10 +58,10 @@ export function TripPlaceList({
 
   // 실제 삭제 실행
   const executeDelete = async () => {
-    if (!deleteConfirmDialog.tripPlaceId) return;
+    if (!deleteConfirmDialog.itemId) return;
     
     try {
-      await onTripPlaceRemove(deleteConfirmDialog.tripPlaceId);
+      await onTripPlaceRemove(deleteConfirmDialog.itemId);
       closeDeleteConfirmDialog();
     } catch (error) {
       console.error('삭제 중 오류 발생:', error);
@@ -441,7 +432,7 @@ export function TripPlaceList({
           </div>
           
           <p className="text-gray-700 dark:text-gray-300 mb-6">
-            <strong>{deleteConfirmDialog.placeName}</strong>을(를) 여행에서 제거하시겠습니까?
+            <strong>{deleteConfirmDialog.itemName}</strong>을(를) 여행에서 제거하시겠습니까?
           </p>
           
           <div className="flex gap-3 justify-end">

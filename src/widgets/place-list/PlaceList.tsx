@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Place } from '@/entities/place/types';
 import { CATEGORY_OPTIONS, getCategoryEmoji } from '@/shared/constants';
+import { PlaceDeleteConfirmDialog, createEmptyDeleteConfirmDialog } from '@/shared/ui/types';
 
 interface PlaceListProps {
   places: Place[];
@@ -24,15 +25,9 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [newCategoryValue, setNewCategoryValue] = useState<string>("");
   // 삭제 확인 다이얼로그를 위한 상태 추가
-  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
-    isOpen: boolean;
-    placeId: string;
-    placeName: string;
-  }>({
-    isOpen: false,
-    placeId: '',
-    placeName: ''
-  });
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<PlaceDeleteConfirmDialog>(
+    createEmptyDeleteConfirmDialog()
+  );
   
   const deleteConfirmDialogRef = useRef<HTMLDialogElement>(null);
 
@@ -193,8 +188,8 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
   const openDeleteConfirmDialog = (id: string, placeName: string) => {
     setDeleteConfirmDialog({
       isOpen: true,
-      placeId: id,
-      placeName: placeName
+      itemId: id,
+      itemName: placeName
     });
     
     // showModal을 사용하여 dialog를 모달로 표시
@@ -205,11 +200,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
 
   // 삭제 확인 다이얼로그 닫기
   const closeDeleteConfirmDialog = () => {
-    setDeleteConfirmDialog({
-      isOpen: false,
-      placeId: '',
-      placeName: ''
-    });
+    setDeleteConfirmDialog(createEmptyDeleteConfirmDialog());
     
     // close 메서드를 사용하여 dialog 닫기
     if (deleteConfirmDialogRef.current) {
@@ -219,14 +210,14 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
 
   // 실제 삭제 실행
   const executeDelete = async () => {
-    if (!onPlaceDelete || !deleteConfirmDialog.placeId) return;
+    if (!onPlaceDelete || !deleteConfirmDialog.itemId) return;
     
     try {
-      setDeletingId(deleteConfirmDialog.placeId);
-      await onPlaceDelete(deleteConfirmDialog.placeId);
+      setDeletingId(deleteConfirmDialog.itemId);
+      await onPlaceDelete(deleteConfirmDialog.itemId);
       
       // 삭제된 장소가 현재 펼쳐진 장소라면, 펼쳐진 상태 초기화
-      if (expandedPlaceId === deleteConfirmDialog.placeId) {
+      if (expandedPlaceId === deleteConfirmDialog.itemId) {
         setExpandedPlaceId(null);
       }
       
@@ -594,7 +585,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
             장소 삭제 확인
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            정말로 <strong>&ldquo;{deleteConfirmDialog.placeName}&rdquo;</strong> 장소를 삭제하시겠습니까?
+            정말로 <strong>&ldquo;{deleteConfirmDialog.itemName}&rdquo;</strong> 장소를 삭제하시겠습니까?
             <br />
             <span className="text-sm text-red-500 dark:text-red-400">
               이 작업은 되돌릴 수 없습니다.
@@ -610,10 +601,10 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
             </button>
             <button
               onClick={executeDelete}
-              disabled={deletingId === deleteConfirmDialog.placeId}
+              disabled={deletingId === deleteConfirmDialog.itemId}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-md transition-colors"
             >
-              {deletingId === deleteConfirmDialog.placeId ? '삭제 중...' : '삭제'}
+              {deletingId === deleteConfirmDialog.itemId ? '삭제 중...' : '삭제'}
             </button>
           </div>
         </div>
