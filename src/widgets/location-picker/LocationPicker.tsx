@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Libraries } from '@react-google-maps/api';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 
 const mapContainerStyle = {
   width: '100%',
@@ -34,6 +35,9 @@ export function LocationPicker({
   const [searchAddress, setSearchAddress] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
+  
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
 
   // Google Maps 로드 시 geocoder 초기화
   useEffect(() => {
@@ -111,10 +115,10 @@ export function LocationPicker({
           map.setZoom(15);
         }
       } else {
-        alert('주소를 찾을 수 없습니다. 다른 주소를 입력해주세요.');
+        showAlert('검색 실패', '주소를 찾을 수 없습니다. 다른 주소를 입력해주세요.', '🔍');
       }
     });
-  }, [geocoder, searchAddress, map, onLocationSelect]);
+  }, [geocoder, searchAddress, map, onLocationSelect, showAlert]);
 
   // Enter 키로 검색
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -143,13 +147,13 @@ export function LocationPicker({
         },
         (error) => {
           console.error('위치 정보를 가져올 수 없습니다:', error);
-          alert('위치 정보에 접근할 수 없습니다. 브라우저 설정을 확인해주세요.');
+          showAlert('위치 접근 실패', '위치 정보에 접근할 수 없습니다. 브라우저 설정을 확인해주세요.', '📍');
         }
       );
     } else {
-      alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
+      showAlert('지원되지 않음', '이 브라우저는 위치 정보를 지원하지 않습니다.', '❌');
     }
-  }, [map, onLocationSelect]);
+  }, [map, onLocationSelect, showAlert]);
 
   if (loadError) {
     return (
@@ -269,6 +273,16 @@ export function LocationPicker({
           <strong>선택된 위치:</strong> 위도 {markerPosition.lat.toFixed(6)}, 경도 {markerPosition.lng.toFixed(6)}
         </div>
       )}
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </div>
   );
 }

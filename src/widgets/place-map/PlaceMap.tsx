@@ -7,6 +7,7 @@ import { useTheme } from '@/shared/providers/ThemeProvider';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
 import { CATEGORY_OPTIONS, getCategoryEmoji, getCategoryColor } from '@/shared/constants';
 import { GOOGLE_MAPS_LIBRARIES } from '@/shared/constants/maps';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { PlaceMapProps } from './types';
 import styles from './PlaceMap.module.css';
 
@@ -53,6 +54,9 @@ export function PlaceMap({
   const [nearbyPlaces, setNearbyPlaces] = useState<google.maps.places.PlaceResult[]>([]);
   const [showNearbyPlaces, setShowNearbyPlaces] = useState<boolean>(false);
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
   
   // 마지막으로 중심을 이동한 장소 ID를 저장하는 ref
   const lastCenteredPlaceIdRef = useRef<string | null>(null);
@@ -113,7 +117,11 @@ export function PlaceMap({
         }
         
         // 사용자에게 알림
-        alert(`"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`);
+        showAlert(
+          '이미 등록된 장소',
+          `"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`,
+          'ℹ️'
+        );
         
         return;
       }
@@ -142,7 +150,7 @@ export function PlaceMap({
         autocompleteInputRef.current.value = '';
       }
     });
-  }, [map, onPlaceAdd, places, onPlaceSelect]);
+  }, [map, onPlaceAdd, places, onPlaceSelect, showAlert]);
 
   // Autocomplete 초기화를 위한 useEffect
   useEffect(() => {
@@ -315,7 +323,11 @@ export function PlaceMap({
       });
       
       if (existingPlace) {
-        alert(`"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`);
+        showAlert(
+          '이미 등록된 장소',
+          `"${existingPlace.name}"은(는) 이미 관심 장소 목록에 존재합니다.`,
+          'ℹ️'
+        );
         return;
       }
 
@@ -358,7 +370,7 @@ export function PlaceMap({
       console.log('구글 장소가 관심 장소로 추가되었습니다:', googlePlace.name);
     } catch (err) {
       console.error('구글 장소 추가 오류:', err);
-      alert('장소를 추가하는 중 오류가 발생했습니다.');
+      showAlert('오류 발생', '장소를 추가하는 중 오류가 발생했습니다.', '⚠️');
     }
   };
 
@@ -385,7 +397,7 @@ export function PlaceMap({
         }
       } catch (err) {
         console.error('장소 추가 오류:', err);
-        alert('장소를 추가하는 중 오류가 발생했습니다.');
+        showAlert('오류 발생', '장소를 추가하는 중 오류가 발생했습니다.', '⚠️');
       }
     }
   };
@@ -439,7 +451,7 @@ export function PlaceMap({
     } catch (error) {
       console.error('라벨 업데이트 오류:', error);
       setEditingInfoWindowLabel(true);
-      alert('라벨 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '라벨 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
   
@@ -475,7 +487,7 @@ export function PlaceMap({
     } catch (error) {
       console.error('메모 업데이트 오류:', error);
       setEditingMemo(true);
-      alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '메모 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
   
@@ -511,7 +523,7 @@ export function PlaceMap({
     } catch (error) {
       console.error('카테고리 업데이트 오류:', error);
       setEditingCategory(true);
-      alert('카테고리 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '카테고리 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
   
@@ -1040,6 +1052,16 @@ export function PlaceMap({
             </div>
           </InfoWindow>
         )}
+        
+        {/* AlertDialog */}
+        <AlertDialog
+          isOpen={alertDialog.isOpen}
+          title={alertDialog.title}
+          message={alertDialog.message}
+          icon={alertDialog.icon}
+          buttonText={alertDialog.buttonText}
+          onClose={hideAlert}
+        />
       </GoogleMap>
     </div>
   );

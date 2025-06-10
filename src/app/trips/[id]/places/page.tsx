@@ -8,10 +8,14 @@ import { usePlaces } from '@/entities/place/hooks';
 import { useTripPlaces } from '@/entities/trip-place/hooks';
 import { PlaceMap } from '@/widgets/place-map/PlaceMap';
 import { TripPlaceList } from '@/widgets/trip-place-list/TripPlaceList';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { Place } from '@/entities/place/types';
 import { TripPlace } from '@/entities/trip-place/types';
 
 export default function TripPlacesPage() {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const { id } = useParams();
   const tripId = id as string;
   
@@ -66,7 +70,7 @@ export default function TripPlacesPage() {
       setShowAddPlaceModal(false);
     } catch (err) {
       console.error('장소 추가 오류:', err);
-      alert('장소를 추가하는 중 오류가 발생했습니다.');
+      showAlert('오류 발생', '장소를 추가하는 중 오류가 발생했습니다.', '⚠️');
     }
   };
 
@@ -75,7 +79,7 @@ export default function TripPlacesPage() {
       // 이미 여행에 추가된 장소인지 확인
       const isAlreadyAdded = tripPlaces.some(tp => tp.place_id === place.id);
       if (isAlreadyAdded) {
-        alert('이미 이 여행에 추가된 장소입니다.');
+        showAlert('중복 장소', '이미 이 여행에 추가된 장소입니다.', 'ℹ️');
         return;
       }
 
@@ -89,7 +93,7 @@ export default function TripPlacesPage() {
       });
     } catch (err) {
       console.error('기존 장소 추가 오류:', err);
-      alert('장소를 추가하는 중 오류가 발생했습니다.');
+      showAlert('오류 발생', '장소를 추가하는 중 오류가 발생했습니다.', '⚠️');
     }
   };
 
@@ -98,7 +102,7 @@ export default function TripPlacesPage() {
       await removePlaceFromTrip(tripPlaceId);
     } catch (err) {
       console.error('장소 제거 오류:', err);
-      alert('장소를 제거하는 중 오류가 발생했습니다.');
+      showAlert('오류 발생', '장소를 제거하는 중 오류가 발생했습니다.', '⚠️');
     }
   };
 
@@ -345,6 +349,16 @@ export default function TripPlacesPage() {
           </div>
         </div>
       )}
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </div>
   );
 } 

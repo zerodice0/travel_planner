@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTrip } from '@/entities/trip/hooks';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { supabase } from '@/shared/api/supabase';
 
 export default function TripSharePage() {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const { id } = useParams();
   const { trip, loading: tripLoading } = useTrip(id as string);
   
@@ -92,7 +96,7 @@ export default function TripSharePage() {
   // 공유 링크 복사
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
-    alert('링크가 클립보드에 복사되었습니다.');
+    showAlert('복사 완료', '링크가 클립보드에 복사되었습니다.', '📋');
   };
   
   if (tripLoading) {
@@ -207,6 +211,16 @@ export default function TripSharePage() {
           완료
         </button>
       </div>
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </div>
   );
 }

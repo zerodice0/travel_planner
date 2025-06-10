@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CreateTripData } from '@/entities/trip/types';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 
 interface CreateTripFormProps {
   onSubmit: (tripData: CreateTripData) => Promise<void>;
@@ -7,6 +8,9 @@ interface CreateTripFormProps {
 }
 
 export function CreateTripForm({ onSubmit, loading }: CreateTripFormProps) {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -36,7 +40,7 @@ export function CreateTripForm({ onSubmit, loading }: CreateTripFormProps) {
     e.preventDefault();
     
     if (!formData.title) {
-      alert('여행 제목을 입력해주세요.');
+      showAlert('입력 필수', '여행 제목을 입력해주세요.', '✏️');
       return;
     }
     
@@ -184,6 +188,16 @@ export function CreateTripForm({ onSubmit, loading }: CreateTripFormProps) {
           {loading ? '생성 중...' : '여행 만들기'}
         </button>
       </div>
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </form>
   );
 }

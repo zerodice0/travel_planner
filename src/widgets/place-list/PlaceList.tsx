@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Place } from '@/entities/place/types';
 import { CATEGORY_OPTIONS, getCategoryEmoji } from '@/shared/constants';
 import { PlaceDeleteConfirmDialog, createEmptyDeleteConfirmDialog } from '@/shared/ui/types';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
 
 interface PlaceListProps {
@@ -13,6 +14,9 @@ interface PlaceListProps {
 }
 
 export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete, onPlaceUpdate }: PlaceListProps) {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -68,7 +72,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       console.error("라벨 업데이트 중 오류 발생:", error);
       // 실패 시 편집 모드 유지
       setEditingLabelId(place.id);
-      alert('라벨 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '라벨 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -102,7 +106,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       console.error("메모 업데이트 중 오류 발생:", error);
       // 실패 시 편집 모드 유지
       setEditingNotesId(place.id);
-      alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '메모 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -136,7 +140,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       console.error("카테고리 업데이트 중 오류 발생:", error);
       // 실패 시 편집 모드 유지
       setEditingCategoryId(place.id);
-      alert('카테고리 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '카테고리 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -226,7 +230,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       closeDeleteConfirmDialog();
     } catch (error) {
       console.error('장소 삭제 중 오류 발생:', error);
-      alert('장소 삭제에 실패했습니다. 다시 시도해주세요.');
+      showAlert('삭제 실패', '장소 삭제에 실패했습니다. 다시 시도해주세요.', '⚠️');
     } finally {
       setDeletingId(null);
     }
@@ -247,7 +251,7 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
       })
       .catch(err => {
         console.error('주소 복사 실패:', err);
-        alert('주소 복사에 실패했습니다.');
+        showAlert('복사 실패', '주소 복사에 실패했습니다.', '📋');
       });
   };
 
@@ -610,6 +614,16 @@ export function PlaceList({ places, selectedPlace, onPlaceSelect, onPlaceDelete,
           </div>
         </div>
       </dialog>
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </div>
   );
 }

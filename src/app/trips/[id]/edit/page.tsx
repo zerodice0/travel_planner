@@ -3,9 +3,13 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useTrip, useTrips } from '@/entities/trip/hooks';
 import { EditTripForm } from '@/features/trip/edit-trip/ui/EditTripForm';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { Trip } from '@/entities/trip/types';
 
 export default function EditTripPage() {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const params = useParams();
   const router = useRouter();
   const tripId = params.id as string;
@@ -19,7 +23,7 @@ export default function EditTripPage() {
       router.push(`/trips/${tripId}`);
     } catch (err) {
       console.error('여행 수정 실패:', err);
-      alert('여행 정보 수정에 실패했습니다. 다시 시도해주세요.');
+      showAlert('수정 실패', '여행 정보 수정에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -93,6 +97,16 @@ export default function EditTripPage() {
           onCancel={handleCancel}
         />
       </div>
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </div>
   );
 }

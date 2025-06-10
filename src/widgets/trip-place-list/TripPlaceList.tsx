@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { TripPlace } from '@/entities/trip-place/types';
 import { Place } from '@/entities/place/types';
 import { TripPlaceDeleteConfirmDialog, createEmptyDeleteConfirmDialog } from '@/shared/ui/types';
+import { AlertDialog, useAlertDialog } from '@/shared/ui/AlertDialog';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
 
 interface TripPlaceListProps {
@@ -21,6 +22,9 @@ export function TripPlaceList({
   onTripPlaceRemove,
   onTripPlaceUpdate
 }: TripPlaceListProps) {
+  // AlertDialog 훅 사용
+  const { dialog: alertDialog, showAlert, hideAlert } = useAlertDialog();
+  
   const [expandedTripPlaceId, setExpandedTripPlaceId] = useState<string | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [newLabelValue, setNewLabelValue] = useState<string>("");
@@ -66,7 +70,7 @@ export function TripPlaceList({
       closeDeleteConfirmDialog();
     } catch (error) {
       console.error('삭제 중 오류 발생:', error);
-      alert('삭제에 실패했습니다. 다시 시도해주세요.');
+      showAlert('삭제 실패', '삭제에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -92,7 +96,7 @@ export function TripPlaceList({
     } catch (error) {
       console.error("라벨 업데이트 중 오류 발생:", error);
       setEditingLabelId(tripPlace.id);
-      alert('라벨 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '라벨 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -123,7 +127,7 @@ export function TripPlaceList({
     } catch (error) {
       console.error("메모 업데이트 중 오류 발생:", error);
       setEditingNotesId(tripPlace.id);
-      alert('메모 업데이트에 실패했습니다. 다시 시도해주세요.');
+      showAlert('업데이트 실패', '메모 업데이트에 실패했습니다. 다시 시도해주세요.', '⚠️');
     }
   };
 
@@ -141,7 +145,7 @@ export function TripPlaceList({
       setTimeout(() => setCopiedAddressId(null), 2000);
     }).catch(err => {
       console.error('주소 복사 실패:', err);
-      alert('주소 복사에 실패했습니다.');
+      showAlert('복사 실패', '주소 복사에 실패했습니다.', '📋');
     });
   };
 
@@ -452,6 +456,16 @@ export function TripPlaceList({
           </div>
         </div>
       </dialog>
+      
+      {/* AlertDialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        icon={alertDialog.icon}
+        buttonText={alertDialog.buttonText}
+        onClose={hideAlert}
+      />
     </>
   );
 }
