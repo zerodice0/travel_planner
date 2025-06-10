@@ -18,39 +18,6 @@
   text-overflow: ellipsis;
 }
 
-/* Custom scrollbar styles - Global styles for InfoWindow compatibility */
-:global(.info-window-scrollbar)::-webkit-scrollbar {
-  width: 6px;
-}
-
-:global(.info-window-scrollbar.scrollbar-light)::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-:global(.info-window-scrollbar.scrollbar-light)::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-:global(.info-window-scrollbar.scrollbar-light)::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-:global(.info-window-scrollbar.scrollbar-dark)::-webkit-scrollbar-track {
-  background: #374151;
-  border-radius: 3px;
-}
-
-:global(.info-window-scrollbar.scrollbar-dark)::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 3px;
-}
-
-:global(.info-window-scrollbar.scrollbar-dark)::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
 /* Fallback for legacy styles */
 .customScrollbar::-webkit-scrollbar {
   width: 6px;
