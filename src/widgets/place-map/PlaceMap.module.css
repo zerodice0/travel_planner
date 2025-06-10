@@ -1,0 +1,53 @@
+/* Map container styles */
+.mapContainer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom marker label styles */
+.customMarkerLabel {
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 3px 6px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  text-align: center;
+  transform: translateY(-24px);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* Custom scrollbar styles */
+.customScrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbarLight::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.scrollbarLight::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.scrollbarLight::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.scrollbarDark::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.scrollbarDark::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+
+.scrollbarDark::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}

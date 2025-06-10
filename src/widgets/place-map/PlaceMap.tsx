@@ -6,12 +6,7 @@ import { Place } from '@/entities/place/types';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
 import { CATEGORY_OPTIONS, getCategoryEmoji, getCategoryColor } from '@/shared/constants';
-import './PlaceMapStyles.css';
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '100%'
-};
+import styles from './PlaceMap.module.css';
 
 
 interface PlaceMapProps {
@@ -547,7 +542,7 @@ export function PlaceMap({
       color: 'white',
       fontSize: '14px',
       fontWeight: 'bold',
-      className: 'custom-marker-label'
+      className: styles.customMarkerLabel
     };
   }; 
 
@@ -756,7 +751,7 @@ export function PlaceMap({
       )}
       
       <GoogleMap
-        mapContainerStyle={mapContainerStyle}
+        mapContainerClassName={styles.mapContainer}
         zoom={13}
         onLoad={onMapLoad}
         onClick={onMapClick}
@@ -1037,7 +1032,7 @@ export function PlaceMap({
                       </div>
                     </div>
                   ) : (
-                    <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}`}>
+                    <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto ${styles.customScrollbar} ${theme === 'dark' ? styles.scrollbarDark : styles.scrollbarLight}`}>
                       {infoWindowData.notes ? (
                         <div className={`markdown-content markdown-inherit-color ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
                           <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.notes) }} />
