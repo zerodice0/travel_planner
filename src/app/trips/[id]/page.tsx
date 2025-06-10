@@ -75,6 +75,12 @@ export default function TripDetailPage() {
         </button>
         
         <div>
+          <button 
+            onClick={() => router.push(`/trips/${id}/places`)}
+            className="px-4 py-2 bg-green-600 text-white rounded mr-2 hover:bg-green-700"
+          >
+            관심 장소 관리
+          </button>
           <button className="px-4 py-2 bg-blue-600 text-white rounded mr-2">
             여행 공유
           </button>

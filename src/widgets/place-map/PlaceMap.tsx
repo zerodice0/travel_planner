@@ -220,6 +220,20 @@ export function PlaceMap({
     setEditingCategory(false); // 카테고리 편집 상태 초기화
   }, [infoWindowData]);
   
+  // InfoWindow 스크롤바 다크모드를 위한 CSS 변수 설정
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.style.setProperty('--scrollbar-track-color', '#374151');
+      root.style.setProperty('--scrollbar-thumb-color', '#4b5563');
+      root.style.setProperty('--scrollbar-thumb-hover-color', '#6b7280');
+    } else {
+      root.style.setProperty('--scrollbar-track-color', '#f1f1f1');
+      root.style.setProperty('--scrollbar-thumb-color', '#c1c1c1');
+      root.style.setProperty('--scrollbar-thumb-hover-color', '#a8a8a8');
+    }
+  }, [theme]);
+  
   const onMapLoad = useCallback((map: google.maps.Map) => {
     console.log('Google Map 인스턴스 로드됨');
     setMap(map);
@@ -806,7 +820,7 @@ export function PlaceMap({
               }
             }}
             options={{
-              maxWidth: 500,
+              maxWidth: 350,
               pixelOffset: new window.google.maps.Size(0, -40),
             }}
           >
@@ -1033,7 +1047,13 @@ export function PlaceMap({
                       </div>
                     </div>
                   ) : (
-                    <div className={`text-sm mt-1 max-h-[120px] overflow-y-auto ${styles.customScrollbar} ${theme === 'dark' ? styles.scrollbarDark : styles.scrollbarLight}`}>
+                    <div 
+                      className={`text-sm mt-1 max-h-[120px] overflow-y-auto info-window-scrollbar ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}`}
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: theme === 'dark' ? '#4b5563 #374151' : '#c1c1c1 #f1f1f1'
+                      }}
+                    >
                       {infoWindowData.notes ? (
                         <div className={`markdown-content markdown-inherit-color ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
                           <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(infoWindowData.notes) }} />
