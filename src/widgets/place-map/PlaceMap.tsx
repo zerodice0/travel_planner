@@ -1,25 +1,14 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Libraries } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { Place } from '@/entities/place/types';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
 import { CATEGORY_OPTIONS, getCategoryEmoji, getCategoryColor } from '@/shared/constants';
+import { GOOGLE_MAPS_LIBRARIES } from '@/shared/constants/maps';
+import { PlaceMapProps } from './types';
 import styles from './PlaceMap.module.css';
-
-
-interface PlaceMapProps {
-  places: Place[];
-  userLocation?: { lat: number; lng: number } | null;
-  selectedPlace?: Place | null;
-  initialCenter?: { lat: number; lng: number } | null;
-  onPlaceAdd?: (placeData: Omit<Place, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => Promise<void>;
-  onPlaceSelect?: (place: Place) => void;
-  onPlaceUpdate?: (place: Place) => Promise<void>;
-}
-
-const libraries: Libraries = ['places', 'geocoding'];
 
 export function PlaceMap({ 
   places, 
@@ -32,7 +21,7 @@ export function PlaceMap({
 }: PlaceMapProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-    libraries: libraries
+    libraries: GOOGLE_MAPS_LIBRARIES
   });
   
   // loadError 디버깅을 위한 코드
