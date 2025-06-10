@@ -5,6 +5,7 @@ import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Libraries } from '@react
 import { Place } from '@/entities/place/types';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { parseMarkdownToHTML } from '@/shared/lib/markdown';
+import { CATEGORY_OPTIONS, getCategoryEmoji, getCategoryColor } from '@/shared/constants';
 import './PlaceMapStyles.css';
 
 const mapContainerStyle = {
@@ -12,15 +13,6 @@ const mapContainerStyle = {
   height: '100%'
 };
 
-// 카테고리별 이모지/아이콘 정의
-const categoryIcons = {
-  '음식점': '🍽️',
-  '카페': '☕️',
-  '관광지': '🏞️',
-  '쇼핑': '🛍️',
-  '숙소': '🏨',
-  '기타': '📍'
-};
 
 interface PlaceMapProps {
   places: Place[];
@@ -541,7 +533,7 @@ export function PlaceMap({
   
   // 사용자 정의 마커 레이블 생성 함수
   const createCustomMarkerLabel = (place: Place) => {
-    const categoryIcon = categoryIcons[place.category as keyof typeof categoryIcons] || '📍';
+    const categoryIcon = getCategoryEmoji(place.category);
     const hasCustomLabel = place.custom_label && place.custom_label.trim() !== '';
     
     // 커스텀 라벨이 있는 경우 아이콘+라벨 형태로, 없으면 원본 지명 표시
@@ -584,19 +576,7 @@ export function PlaceMap({
   // 사용자 정의 마커 아이콘 생성 함수
   const createCustomMarkerIcon = (place: Place) => {
     // 카테고리에 따른 이모지 선택
-    const categoryIcon = categoryIcons[place.category as keyof typeof categoryIcons] || '📍';
-    
-    // 카테고리별 배경색 설정 - 이모지가 잘 보이도록 배경 추가
-    const getCategoryColor = (category: string) => {
-      switch(category) {
-        case '음식점': return '#FF5252'; // 빨간색
-        case '카페': return '#448AFF'; // 파란색
-        case '관광지': return '#AB47BC'; // 보라색
-        case '쇼핑': return '#FF9800'; // 주황색
-        case '숙소': return '#4CAF50'; // 초록색
-        default: return '#4CAF50'; // 초록색 (기타)
-      }
-    };
+    const categoryIcon = getCategoryEmoji(place.category);
     
     // 이모지를 표시하는 데이터 URL 생성
     const canvas = document.createElement('canvas');
@@ -899,7 +879,7 @@ export function PlaceMap({
                     onClick={handleStartEditLabelInInfoWindow}
                     className={`text-xs ${theme === 'dark' ? 'text-gray-400 hover:text-gray-300 border-gray-600' : 'text-gray-500 hover:text-gray-700 border-gray-300'} px-2 py-0.5 rounded-full border border-dashed`}
                   >
-                    {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} 라벨 추가
+                    {getCategoryEmoji(infoWindowData.category)} 라벨 추가
                   </button>
                 </div>
               )}
@@ -918,12 +898,11 @@ export function PlaceMap({
                       onChange={onChangeCategoryForAddingNewPlace}
                       className={`w-full p-1 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     >
-                      <option value="음식점">🍽️ 음식점</option>
-                      <option value="카페">☕️ 카페</option>
-                      <option value="관광지">🏞️ 관광지</option>
-                      <option value="쇼핑">🛍️ 쇼핑</option>
-                      <option value="숙소">🏨 숙소</option>
-                      <option value="기타">📍 기타</option>
+                      {CATEGORY_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   
@@ -983,12 +962,11 @@ export function PlaceMap({
                         className={`w-full p-1.5 border rounded text-sm ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                         autoFocus
                       >
-                        <option value="음식점">🍽️ 음식점</option>
-                        <option value="카페">☕️ 카페</option>
-                        <option value="관광지">🏞️ 관광지</option>
-                        <option value="쇼핑">🛍️ 쇼핑</option>
-                        <option value="숙소">🏨 숙소</option>
-                        <option value="기타">📍 기타</option>
+                        {CATEGORY_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                       <div className="flex justify-end mt-1">
                         <button
@@ -1008,7 +986,7 @@ export function PlaceMap({
                   ) : (
                     <div className={`flex items-center mb-3 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'} px-2 py-1 rounded-md`}>
                       <span className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {categoryIcons[infoWindowData.category as keyof typeof categoryIcons]} {infoWindowData.category}
+                        {getCategoryEmoji(infoWindowData.category)} {infoWindowData.category}
                       </span>
                     </div>
                   )}
