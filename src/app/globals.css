@@ -53,6 +53,15 @@
   --hover-bg: #f3f4f6;
 }
 
+/* PlaceMap InfoWindow 스타일 오버라이드 */
+div.gm-style-iw-chr {
+  display: none;
+}
+
+div.gm-style-iw-d {
+  overflow: hidden !important;
+}
+
 /* 내부 스타일 설정을 위한 테마 변수 */
 :root {
   --color-background: var(--background);
