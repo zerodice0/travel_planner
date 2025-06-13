@@ -1,56 +1,68 @@
 @import "tailwindcss";
 
-/* 기본 라이트 모드 변수 */
+/* 기본 라이트 모드 변수 - '방랑자' 테마 */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --panel-bg: #ffffff;
-  --panel-text: #171717;
-  --panel-border: #e5e7eb;
-  --input-bg: #ffffff;
-  --input-text: #171717;
-  --input-border: #d1d5db;
-  --hover-bg: #f3f4f6;
+  --background: #fefdfb; /* wanderer-cream-50 */
+  --foreground: #593624; /* wanderer-sand-900 */
+  --panel-bg: #fdfbf7; /* wanderer-cream-100 */
+  --panel-text: #593624; /* wanderer-sand-900 */
+  --panel-border: #e1c7a3; /* wanderer-cream-500 */
+  --input-bg: #fefdfb; /* wanderer-cream-50 */
+  --input-text: #593624; /* wanderer-sand-900 */
+  --input-border: #d1ab7a; /* wanderer-cream-600 */
+  --hover-bg: #faf6ef; /* wanderer-cream-200 */
+  --accent-primary: #f18f34; /* wanderer-sunset-500 */
+  --accent-secondary: #738661; /* wanderer-sage-500 */
+  --accent-ocean: #0369a1; /* wanderer-ocean-700 */
 }
 
-/* 다크 모드 변수 */
+/* 다크 모드 변수 - '방랑자' 테마 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --panel-bg: #172031;
-    --panel-text: #e5e7eb;
-    --panel-border: #374151;
-    --input-bg: #1f2937;
-    --input-text: #e5e7eb;
-    --input-border: #4b5563;
-    --hover-bg: #1f2937;
+    --background: #323b2b; /* wanderer-sage-900 */
+    --foreground: #f5ede2; /* wanderer-cream-300 */
+    --panel-bg: #3b4632; /* wanderer-sage-800 */
+    --panel-text: #f5ede2; /* wanderer-cream-300 */
+    --panel-border: #5c6d4c; /* wanderer-sage-600 */
+    --input-bg: #49583d; /* wanderer-sage-700 */
+    --input-text: #f5ede2; /* wanderer-cream-300 */
+    --input-border: #738661; /* wanderer-sage-500 */
+    --hover-bg: #49583d; /* wanderer-sage-700 */
+    --accent-primary: #f8c88a; /* wanderer-sunset-300 */
+    --accent-secondary: #94a585; /* wanderer-sage-400 */
+    --accent-ocean: #38bdf8; /* wanderer-ocean-400 */
   }
 }
 
-/* 테마 클래스에 따른 변수 설정 */
+/* 테마 클래스에 따른 변수 설정 - '방랑자' 테마 */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --panel-bg: #172031;
-  --panel-text: #e5e7eb;
-  --panel-border: #374151;
-  --input-bg: #1f2937;
-  --input-text: #e5e7eb;
-  --input-border: #4b5563;
-  --hover-bg: #1f2937;
+  --background: #323b2b; /* wanderer-sage-900 */
+  --foreground: #f5ede2; /* wanderer-cream-300 */
+  --panel-bg: #3b4632; /* wanderer-sage-800 */
+  --panel-text: #f5ede2; /* wanderer-cream-300 */
+  --panel-border: #5c6d4c; /* wanderer-sage-600 */
+  --input-bg: #49583d; /* wanderer-sage-700 */
+  --input-text: #f5ede2; /* wanderer-cream-300 */
+  --input-border: #738661; /* wanderer-sage-500 */
+  --hover-bg: #49583d; /* wanderer-sage-700 */
+  --accent-primary: #f8c88a; /* wanderer-sunset-300 */
+  --accent-secondary: #94a585; /* wanderer-sage-400 */
+  --accent-ocean: #38bdf8; /* wanderer-ocean-400 */
 }
 
 .light {
-  --background: #ffffff;
-  --foreground: #171717;
-  --panel-bg: #ffffff;
-  --panel-text: #171717;
-  --panel-border: #e5e7eb;
-  --input-bg: #ffffff;
-  --input-text: #171717;
-  --input-border: #d1d5db;
-  --hover-bg: #f3f4f6;
+  --background: #fefdfb; /* wanderer-cream-50 */
+  --foreground: #593624; /* wanderer-sand-900 */
+  --panel-bg: #fdfbf7; /* wanderer-cream-100 */
+  --panel-text: #593624; /* wanderer-sand-900 */
+  --panel-border: #e1c7a3; /* wanderer-cream-500 */
+  --input-bg: #fefdfb; /* wanderer-cream-50 */
+  --input-text: #593624; /* wanderer-sand-900 */
+  --input-border: #d1ab7a; /* wanderer-cream-600 */
+  --hover-bg: #faf6ef; /* wanderer-cream-200 */
+  --accent-primary: #f18f34; /* wanderer-sunset-500 */
+  --accent-secondary: #738661; /* wanderer-sage-500 */
+  --accent-ocean: #0369a1; /* wanderer-ocean-700 */
 }
 
 /* PlaceMap InfoWindow 스타일 오버라이드 */
@@ -70,14 +82,155 @@ div.gm-style-iw-d {
 :root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-wanderer-sans);
+  --font-serif: var(--font-wanderer-serif);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-wanderer-sans), system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+/* 헤딩 스타일 - 캐쥬얼한 폰트 사용 */
+h1, h2, h3 {
+  font-family: var(--font-wanderer-serif), var(--font-wanderer-sans), sans-serif;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.75rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.625rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 매력적인 그라데이션 배경 */
+.wanderer-gradient-warm {
+  background: linear-gradient(135deg, #fef9f2 0%, #fef1e0 25%, #fdfbf7 50%, #f6f7f4 100%);
+}
+
+.dark .wanderer-gradient-warm {
+  background: linear-gradient(135deg, #323b2b 0%, #3b4632 25%, #49583d 50%, #5c6d4c 100%);
+}
+
+.wanderer-gradient-sunset {
+  background: linear-gradient(135deg, #f18f34 0%, #e2761a 50%, #bc5d16 100%);
+}
+
+.wanderer-pattern-subtle {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.dark .wanderer-pattern-subtle {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* 매력적인 버튼 스타일 */
+.btn-wanderer {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #f18f34 0%, #e2761a 100%);
+  color: white;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-wanderer:hover {
+  background: linear-gradient(135deg, #e2761a 0%, #bc5d16 100%);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.btn-wanderer:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(241, 143, 52, 0.3);
+}
+
+.btn-wanderer-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #738661 0%, #5c6d4c 100%);
+  color: white;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-wanderer-secondary:hover {
+  background: linear-gradient(135deg, #5c6d4c 0%, #49583d 100%);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.btn-wanderer-secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(115, 134, 97, 0.3);
+}
+
+/* 카드 스타일 */
+.wanderer-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.wanderer-card:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+/* 여행지 카드의 특별한 스타일 */
+.place-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.place-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f18f34, #738661, #0369a1);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.place-card:hover::before {
+  opacity: 1;
 }
 
 /* 패널 스타일 */

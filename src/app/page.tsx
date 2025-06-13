@@ -43,7 +43,7 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-pulse text-xl text-gray-600 dark:text-gray-300">로딩 중...</div>
+        <div className="animate-pulse text-xl text-wanderer-sand-600 dark:text-wanderer-cream-300">로딩 중...</div>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function Home() {
           </div>
           <Link 
             href="/trips/new" 
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            className="px-4 py-2 bg-wanderer-sunset-500 text-white rounded-md hover:bg-wanderer-sunset-600 transition"
           >
             새 여행 만들기
           </Link>
@@ -80,7 +80,7 @@ export default function Home() {
             </p>
             <Link 
               href="/trips/select" 
-              className="text-blue-600 font-medium hover:text-blue-800 flex items-center"
+              className="text-wanderer-sunset-600 font-medium hover:text-wanderer-sunset-700 flex items-center"
             >
               여행 선택하기
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
@@ -144,7 +144,7 @@ export default function Home() {
               <p className="text-gray-600 dark:text-gray-300 mb-4">아직 여행 계획이 없습니다.</p>
               <Link 
                 href="/trips/new" 
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-block"
+                className="px-4 py-2 bg-wanderer-sunset-500 text-white rounded-md hover:bg-wanderer-sunset-600 inline-block"
               >
                 첫 여행 계획 만들기
               </Link>
@@ -157,7 +157,7 @@ export default function Home() {
           <p className="text-gray-600 dark:text-gray-300 mb-4">다른 여행자들의 공개된 여행 계획을 탐색하고 아이디어를 얻어보세요.</p>
           <Link 
             href="/explore" 
-            className="text-blue-600 font-medium hover:text-blue-800 flex items-center"
+            className="text-wanderer-sunset-600 font-medium hover:text-wanderer-sunset-700 flex items-center"
           >
             여행 탐색하기
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
@@ -171,10 +171,10 @@ export default function Home() {
 
   // 로그인하지 않은 사용자에게 보여줄 랜딩 페이지
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <main className="min-h-screen wanderer-gradient-warm">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-blue-800 dark:text-blue-400 mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-wanderer-sunset-700 dark:text-wanderer-sunset-300 mb-6">
             여행을 더 특별하게, 더 쉽게
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-10">
@@ -185,13 +185,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <Link 
               href="/register" 
-              className="px-8 py-3 bg-blue-600 text-white rounded-md text-lg font-medium hover:bg-blue-700 transition shadow-md w-full sm:w-auto"
+              className="px-8 py-3 bg-wanderer-sunset-500 text-white rounded-md text-lg font-medium hover:bg-wanderer-sunset-600 transition shadow-md w-full sm:w-auto"
             >
               무료로 시작하기
             </Link>
             <Link 
               href="/login" 
-              className="px-8 py-3 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-gray-600 rounded-md text-lg font-medium hover:bg-blue-50 dark:hover:bg-gray-700 transition shadow-sm w-full sm:w-auto"
+              className="px-8 py-3 bg-white dark:bg-gray-800 text-wanderer-sunset-600 dark:text-wanderer-sunset-300 border border-blue-200 dark:border-gray-600 rounded-md text-lg font-medium hover:bg-blue-50 dark:hover:bg-gray-700 transition shadow-sm w-full sm:w-auto"
             >
               로그인하기
             </Link>
@@ -200,7 +200,7 @@ export default function Home() {
         
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md dark:shadow-gray-700">
-            <div className="text-blue-500 text-3xl mb-4">📋</div>
+            <div className="text-wanderer-sunset-500 text-3xl mb-4">📋</div>
             <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">체계적인 계획</h3>
             <p className="text-gray-600 dark:text-gray-300">
               음식점, 관광 명소, 숙소 등을 카테고리별로 관리하고 효율적인 동선을 계획하세요.
@@ -208,7 +208,7 @@ export default function Home() {
           </div>
           
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md dark:shadow-gray-700">
-            <div className="text-blue-500 text-3xl mb-4">🗺️</div>
+            <div className="text-wanderer-sunset-500 text-3xl mb-4">🗺️</div>
             <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">지도 기반 관리</h3>
             <p className="text-gray-600 dark:text-gray-300">
               모든 장소를 지도에서 한눈에 확인하고, 위치 기반으로 다음 목적지를 쉽게 결정하세요.
@@ -216,7 +216,7 @@ export default function Home() {
           </div>
           
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md dark:shadow-gray-700">
-            <div className="text-blue-500 text-3xl mb-4">📸</div>
+            <div className="text-wanderer-sunset-500 text-3xl mb-4">📸</div>
             <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">추억 기록</h3>
             <p className="text-gray-600 dark:text-gray-300">
               여행 중 방문한 장소에 사진과 메모를 남기고, 여행이 끝난 후에도 소중한 추억을 간직하세요.
