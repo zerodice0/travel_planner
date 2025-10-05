@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  nickname      String    @db.VarChar(50)
+  profileImage  String?   @map("profile_image") @db.Text
+  authProvider  String    @default("email") @map("auth_provider") @db.VarChar(20)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  places              Place[]
+  lists               List[]
+  categories          Category[]
+  emailVerifications  EmailVerification[]
+  passwordResets      PasswordReset[]
+  refreshTokens       RefreshToken[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Place {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  address        String    @db.Text
+  phone          String?   @db.VarChar(50)
+  latitude       Decimal   @db.Decimal(10, 8)
+  longitude      Decimal   @db.Decimal(11, 8)
+  category       String    @db.VarChar(50)
+  customCategory String?   @map("custom_category") @db.VarChar(50)
+  labels         String[]
+  visited        Boolean   @default(false)
+  visitedAt      DateTime? @map("visited_at")
+  visitNote      String?   @map("visit_note") @db.Text
+  rating         Int?
+  estimatedCost  Int?      @map("estimated_cost")
+  photos         String[]
+  externalUrl    String?   @map("external_url") @db.Text
+  externalId     String?   @map("external_id") @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeLists PlaceList[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([visited])
+  @@map("places")
+}
+
+model List {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(50)
+  description String?  @db.Text
+  iconType    String   @map("icon_type") @db.VarChar(10)
+  iconValue   String   @map("icon_value") @db.Text
+  colorTheme  String?  @map("color_theme") @db.VarChar(7)
+  isPublic    Boolean  @default(false) @map("is_public")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeLists PlaceList[]
+
+  @@index([userId])
+  @@map("lists")
+}
+
+model PlaceList {
+  id      String   @id @default(uuid()) @db.Uuid
+  placeId String   @map("place_id") @db.Uuid
+  listId  String   @map("list_id") @db.Uuid
+  order   Int      @default(0)
+  addedAt DateTime @default(now()) @map("added_at")
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  list  List  @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, listId])
+  @@index([placeId])
+  @@index([listId])
+  @@map("place_lists")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  name      String   @db.VarChar(20)
+  color     String   @db.VarChar(7)
+  icon      String?  @db.VarChar(50)
+  isCustom  Boolean  @default(true) @map("is_custom")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("categories")
+}
+
+model EmailVerification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  token      String    @unique @db.VarChar(255)
+  expiresAt  DateTime  @map("expires_at")
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  used      Boolean   @default(false)
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address") @db.VarChar(45)
+  userAgent String?   @map("user_agent") @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("password_resets")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.Text
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model LoginAttempt {
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String   @db.VarChar(255)
+  ipAddress   String   @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  success     Boolean  @default(false)
+  attemptedAt DateTime @default(now()) @map("attempted_at")
+
+  @@index([email])
+  @@index([ipAddress])
+  @@map("login_attempts")
+}
