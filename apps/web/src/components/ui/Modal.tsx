@@ -57,16 +57,16 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'lg' }: Mod
     >
       <div
         ref={modalRef}
-        className={`relative w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl`}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] overflow-hidden rounded-2xl bg-card shadow-2xl`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 id="modal-title" className="text-xl font-bold text-gray-900">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 id="modal-title" className="text-xl font-bold text-foreground">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="닫기"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -81,7 +81,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'lg' }: Mod
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4">
+        <div className="border-t border-border px-6 py-4">
           <button
             onClick={onClose}
             className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"

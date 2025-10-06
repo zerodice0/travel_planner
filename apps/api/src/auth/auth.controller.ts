@@ -115,4 +115,26 @@ export class AuthController {
   ) {
     return this.authService.completeGoogleSignup(body.email, body.nickname, body.googleId, body.profileImage);
   }
+
+  @Post('request-password-reset')
+  @Throttle({ default: { limit: 3, ttl: 60000 * 60 } }) // 1시간에 3회
+  @HttpCode(200)
+  @ApiOperation({ summary: '비밀번호 재설정 요청' })
+  @ApiResponse({ status: 200, description: '재설정 링크 발송 성공' })
+  @ApiResponse({ status: 429, description: '너무 많은 요청 (1시간 제한)' })
+  async requestPasswordReset(@Body() dto: { email: string }, @Req() req: Request) {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    return this.authService.requestPasswordReset(dto.email, ipAddress, userAgent);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: '비밀번호 재설정' })
+  @ApiResponse({ status: 200, description: '비밀번호 변경 성공' })
+  @ApiResponse({ status: 400, description: '유효하지 않거나 만료된 토큰' })
+  async resetPassword(@Body() dto: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
 }

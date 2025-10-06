@@ -14,11 +14,11 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           ref={ref}
           id={checkboxId}
           type="checkbox"
-          className={`w-5 h-5 rounded border-gray-300 text-[#4A90E2] focus:ring-2 focus:ring-[#4A90E2]/20 focus:ring-offset-0 cursor-pointer transition-colors duration-200 ${className}`.trim()}
+          className={`w-5 h-5 rounded border-input bg-background text-primary-600 focus:ring-2 focus:ring-primary-600/20 focus:ring-offset-0 cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`.trim()}
           {...props}
         />
         {label && (
-          <label htmlFor={checkboxId} className="ml-2 text-sm text-gray-700 cursor-pointer">
+          <label htmlFor={checkboxId} className="ml-2 text-sm text-foreground cursor-pointer">
             {label}
           </label>
         )}

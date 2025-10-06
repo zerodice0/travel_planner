@@ -1,14 +1,14 @@
-export { default as Input } from './Input';
-export type { InputProps } from './Input';
+export { default as Input } from '#components/ui/Input';
+export type { InputProps } from '#components/ui/Input';
 
-export { default as Button } from './Button';
-export type { ButtonProps } from './Button';
+export { default as Button } from '#components/ui/Button';
+export type { ButtonProps } from '#components/ui/Button';
 
-export { default as Checkbox } from './Checkbox';
-export type { CheckboxProps } from './Checkbox';
+export { default as Checkbox } from '#components/ui/Checkbox';
+export type { CheckboxProps } from '#components/ui/Checkbox';
 
-export { Modal } from './Modal';
-export type { ModalProps } from './Modal';
+export { Modal } from '#components/ui/Modal';
+export type { ModalProps } from '#components/ui/Modal';
 
-export { MarkdownContent } from './MarkdownContent';
-export type { MarkdownContentProps } from './MarkdownContent';
+export { MarkdownContent } from '#components/ui/MarkdownContent';
+export type { MarkdownContentProps } from '#components/ui/MarkdownContent';

@@ -24,10 +24,10 @@ export default function AuthCallbackPage() {
   }, [searchParams, navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-        <p className="mt-4 text-gray-600">로그인 처리 중...</p>
+        <p className="mt-4 text-muted-foreground">로그인 처리 중...</p>
       </div>
     </div>
   );

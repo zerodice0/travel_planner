@@ -22,10 +22,17 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitAny": true,
 
-    /* Path mapping */
-    "baseUrl": ".",
+    /* Path mapping for TypeScript to understand Node.js subpath imports */
     "paths": {
-      "@/*": ["./src/*"]
+      "#src/*": ["./src/*"],
+      "#components/*": ["./src/components/*"],
+      "#pages/*": ["./src/pages/*"],
+      "#contexts/*": ["./src/contexts/*"],
+      "#hooks/*": ["./src/hooks/*"],
+      "#lib/*": ["./src/lib/*"],
+      "#types/*": ["./src/types/*"],
+      "#utils/*": ["./src/utils/*"],
+      "#constants/*": ["./src/constants/*"]
     }
   },
   "include": ["src"],

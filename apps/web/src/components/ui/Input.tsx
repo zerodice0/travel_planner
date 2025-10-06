@@ -1,8 +1,8 @@
 import { useState, forwardRef, InputHTMLAttributes } from 'react';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
-  type?: 'text' | 'email' | 'password';
-  label?: string;
+  type?: 'text' | 'email' | 'password' | 'url';
+  label?: React.ReactNode;
   error?: string;
   fullWidth?: boolean;
 }
@@ -16,18 +16,18 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const isPasswordType = type === 'password';
     const inputType = isPasswordType && showPassword ? 'text' : type;
 
-    const baseClasses = 'px-4 py-2 rounded-lg border transition-all duration-200 focus:outline-none';
+    const baseClasses = 'px-4 py-2 rounded-lg border transition-all duration-200 focus:outline-none text-foreground bg-background placeholder:text-muted-foreground autofill:bg-background autofill:text-foreground disabled:opacity-50 disabled:cursor-not-allowed';
     const widthClasses = fullWidth ? 'w-full' : '';
     const stateClasses = error
       ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20'
-      : 'border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
+      : 'border-input focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
 
     const combinedClasses = `${baseClasses} ${widthClasses} ${stateClasses} ${className}`.trim();
 
     return (
       <div className={fullWidth ? 'w-full' : ''}>
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={inputId} className="block text-sm font-medium text-foreground mb-1">
             {label}
           </label>
         )}
@@ -45,7 +45,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus:text-foreground"
               aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
               tabIndex={-1}
             >

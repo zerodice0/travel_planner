@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Button } from '../components/ui';
-import api from '../lib/api';
+import { Button } from '#components/ui';
+import api from '#lib/api';
 
 export default function EmailVerificationPage() {
   const [searchParams] = useSearchParams();
@@ -99,7 +99,7 @@ export default function EmailVerificationPage() {
   // Verifying state
   if (token && isVerifying) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <Link to="/" className="inline-block">
@@ -107,15 +107,15 @@ export default function EmailVerificationPage() {
             </Link>
           </div>
 
-          <div className="rounded-2xl bg-white p-8 shadow-lg">
+          <div className="rounded-2xl bg-card p-8 shadow-lg">
             <div className="mb-6 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center">
                 <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600"></div>
               </div>
             </div>
 
-            <h2 className="mb-4 text-center text-2xl font-bold text-gray-900">이메일 인증 중...</h2>
-            <p className="text-center text-gray-600">잠시만 기다려주세요.</p>
+            <h2 className="mb-4 text-center text-2xl font-bold text-foreground">이메일 인증 중...</h2>
+            <p className="text-center text-muted-foreground">잠시만 기다려주세요.</p>
           </div>
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function EmailVerificationPage() {
   // Verified state
   if (token && isVerified) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <Link to="/" className="inline-block">
@@ -133,7 +133,7 @@ export default function EmailVerificationPage() {
             </Link>
           </div>
 
-          <div className="rounded-2xl bg-white p-8 shadow-lg">
+          <div className="rounded-2xl bg-card p-8 shadow-lg">
             <div className="mb-6 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
                 <svg
@@ -147,8 +147,8 @@ export default function EmailVerificationPage() {
               </div>
             </div>
 
-            <h2 className="mb-4 text-center text-2xl font-bold text-gray-900">인증 완료! 🎉</h2>
-            <p className="mb-6 text-center text-gray-600">
+            <h2 className="mb-4 text-center text-2xl font-bold text-foreground">인증 완료! 🎉</h2>
+            <p className="mb-6 text-center text-muted-foreground">
               이메일 인증이 완료되었습니다.
               <br />
               로그인 페이지로 이동합니다...
@@ -177,7 +177,7 @@ export default function EmailVerificationPage() {
   // Verification error state
   if (token && verificationError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <Link to="/" className="inline-block">
@@ -185,7 +185,7 @@ export default function EmailVerificationPage() {
             </Link>
           </div>
 
-          <div className="rounded-2xl bg-white p-8 shadow-lg">
+          <div className="rounded-2xl bg-card p-8 shadow-lg">
             <div className="mb-6 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                 <svg
@@ -204,8 +204,8 @@ export default function EmailVerificationPage() {
               </div>
             </div>
 
-            <h2 className="mb-4 text-center text-2xl font-bold text-gray-900">인증 실패</h2>
-            <p className="mb-6 text-center text-gray-600">{verificationError}</p>
+            <h2 className="mb-4 text-center text-2xl font-bold text-foreground">인증 실패</h2>
+            <p className="mb-6 text-center text-muted-foreground">{verificationError}</p>
 
             {email && (
               <>
@@ -233,7 +233,7 @@ export default function EmailVerificationPage() {
               </>
             )}
 
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
                 로그인 페이지로 돌아가기
               </Link>
@@ -246,7 +246,7 @@ export default function EmailVerificationPage() {
 
   // Default: Email resend UI (no token)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
         {/* Logo/Title */}
         <div className="mb-8 text-center">
@@ -256,7 +256,7 @@ export default function EmailVerificationPage() {
         </div>
 
         {/* Verification Info */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
+        <div className="rounded-2xl bg-card p-8 shadow-lg">
           {/* Icon */}
           <div className="mb-6 flex justify-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
@@ -276,10 +276,10 @@ export default function EmailVerificationPage() {
             </div>
           </div>
 
-          <h2 className="mb-4 text-center text-2xl font-bold text-gray-900">이메일 인증</h2>
+          <h2 className="mb-4 text-center text-2xl font-bold text-foreground">이메일 인증</h2>
 
-          <p className="mb-6 text-center text-gray-600">
-            <span className="font-medium text-gray-900">{email}</span>
+          <p className="mb-6 text-center text-muted-foreground">
+            <span className="font-medium text-foreground">{email}</span>
             <br />
             으로 인증 메일을 발송했습니다.
             <br />
@@ -313,7 +313,7 @@ export default function EmailVerificationPage() {
           </Button>
 
           {/* Login Link */}
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center text-sm text-muted-foreground">
             이미 인증을 완료하셨나요?{' '}
             <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
               로그인하기

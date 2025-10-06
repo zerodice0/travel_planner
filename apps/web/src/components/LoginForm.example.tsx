@@ -1,5 +1,5 @@
 import React, { useState, FormEvent } from 'react';
-import { Input, Button, Checkbox } from './ui';
+import { Input, Button, Checkbox } from '#components/ui';
 
 /**
  * Example usage of the UI components in a login form
@@ -43,11 +43,11 @@ const LoginFormExample: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="max-w-md w-full space-y-8 bg-card p-8 rounded-xl shadow-lg">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 text-center">로그인</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <h2 className="text-3xl font-bold text-foreground text-center">로그인</h2>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             여행 플래너에 오신 것을 환영합니다
           </p>
         </div>

@@ -402,4 +402,117 @@ export class AuthService {
 
     return token;
   }
+
+  // 비밀번호 재설정 요청
+  async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string) {
+    // 사용자 조회
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    // 보안: 이메일 존재 여부와 관계없이 항상 성공 응답
+    if (!user) {
+      return {
+        message: '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다',
+      };
+    }
+
+    // 기존 미사용 토큰 삭제
+    await this.prisma.passwordReset.deleteMany({
+      where: {
+        userId: user.id,
+        used: false,
+      },
+    });
+
+    // 새 재설정 토큰 생성
+    const resetToken = await this.generateResetToken(user.id, ipAddress, userAgent);
+
+    // 이메일 발송
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, user.nickname, resetToken);
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+      // 이메일 발송 실패 시에도 성공 응답 (보안)
+    }
+
+    return {
+      message: '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다',
+    };
+  }
+
+  // 비밀번호 재설정
+  async resetPassword(token: string, newPassword: string) {
+    // 토큰 검증
+    const resetRequest = await this.prisma.passwordReset.findUnique({
+      where: { token },
+    });
+
+    if (!resetRequest) {
+      throw new BadRequestException('유효하지 않은 재설정 링크입니다');
+    }
+
+    if (resetRequest.used) {
+      throw new BadRequestException('이미 사용된 재설정 링크입니다');
+    }
+
+    if (resetRequest.expiresAt < new Date()) {
+      throw new BadRequestException('만료된 재설정 링크입니다');
+    }
+
+    // 새 비밀번호 해싱
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // 사용자 비밀번호 업데이트 및 토큰 사용 처리
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetRequest.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordReset.update({
+        where: { id: resetRequest.id },
+        data: {
+          used: true,
+          usedAt: new Date(),
+        },
+      }),
+    ]);
+
+    // 사용자 정보 조회
+    const user = await this.prisma.user.findUnique({
+      where: { id: resetRequest.userId },
+    });
+
+    // 비밀번호 변경 알림 이메일 발송
+    try {
+      await this.emailService.sendPasswordChangedEmail(
+        user!.email,
+        user!.nickname,
+        resetRequest.ipAddress ?? undefined,
+        resetRequest.userAgent ?? undefined,
+      );
+    } catch (error) {
+      console.error('Failed to send password changed email:', error);
+    }
+
+    return {
+      message: '비밀번호가 성공적으로 변경되었습니다',
+    };
+  }
+
+  private async generateResetToken(userId: string, ipAddress?: string, userAgent?: string): Promise<string> {
+    const token = randomBytes(32).toString('hex');
+
+    await this.prisma.passwordReset.create({
+      data: {
+        userId,
+        token,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1시간
+        ipAddress,
+        userAgent,
+      },
+    });
+
+    return token;
+  }
 }

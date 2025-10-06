@@ -6,7 +6,7 @@ export interface MarkdownContentProps {
 
 export function MarkdownContent({ content }: MarkdownContentProps) {
   return (
-    <div className="prose prose-sm max-w-none text-gray-700">
+    <div className="prose prose-sm max-w-none text-foreground">
       <ReactMarkdown
         components={{
           h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,

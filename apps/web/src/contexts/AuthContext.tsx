@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import api from '#lib/api';
 
 interface User {
   id: string;
@@ -13,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (accessToken: string, refreshToken: string, user: User) => void;
   logout: () => void;
+  updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,8 +27,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for existing token on mount
     const token = localStorage.getItem('accessToken');
     if (token) {
-      // TODO: Validate token and fetch user profile
-      setIsLoading(false);
+      // Validate token and fetch user profile
+      api
+        .get('users/me')
+        .json<User>()
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          // Token is invalid or expired, clear storage
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          setUser(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     } else {
       setIsLoading(false);
     }
@@ -44,6 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateUser = (userData: User) => {
+    setUser(userData);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -52,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}

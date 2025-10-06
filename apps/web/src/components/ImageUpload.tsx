@@ -60,7 +60,7 @@ export default function ImageUpload({ value, onChange, previewUrl, disabled }: I
     <div className="flex flex-col items-center gap-4">
       {/* 미리보기 */}
       <div
-        className="relative h-32 w-32 cursor-pointer overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition-colors hover:border-primary-500 hover:bg-gray-100"
+        className="relative h-32 w-32 cursor-pointer overflow-hidden rounded-full border-2 border-dashed border-input bg-background transition-colors hover:border-primary-500 hover:bg-muted"
         onClick={disabled ? undefined : handleClick}
       >
         {preview ? (
@@ -73,7 +73,7 @@ export default function ImageUpload({ value, onChange, previewUrl, disabled }: I
             )}
           </>
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-gray-400">
+          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
             <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -99,7 +99,7 @@ export default function ImageUpload({ value, onChange, previewUrl, disabled }: I
 
       {/* 안내 텍스트 */}
       <div className="text-center">
-        <p className="text-xs text-gray-500">JPEG, PNG, WebP (최대 2MB)</p>
+        <p className="text-xs text-muted-foreground">JPEG, PNG, WebP (최대 2MB)</p>
         {value && !disabled && (
           <button
             type="button"

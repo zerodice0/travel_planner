@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Input, Button, Checkbox } from '../components/ui';
-import { loginSchema, type LoginFormData } from '../lib/validations';
-import api from '../lib/api';
+import { Input, Button, Checkbox } from '#components/ui';
+import { loginSchema, type LoginFormData } from '#lib/validations';
+import { useAuth } from '#contexts/AuthContext';
+import api from '#lib/api';
 
 interface LoginResponse {
   accessToken: string;
@@ -18,6 +19,8 @@ interface LoginResponse {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -25,6 +28,9 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // 로그인 전 접근하려던 페이지 경로 가져오기
+  const from = (location.state as { from?: string })?.from || '/';
 
   const validateField = (field: keyof LoginFormData, value: string | boolean) => {
     try {
@@ -78,14 +84,16 @@ export default function LoginPage() {
         })
         .json<LoginResponse>();
 
-      // Store tokens
-      localStorage.setItem('accessToken', response.accessToken);
-      if (formData.rememberMe) {
-        localStorage.setItem('refreshToken', response.refreshToken);
-      }
+      // AuthContext의 login() 함수를 호출하여 user 상태 업데이트
+      login(
+        response.accessToken,
+        formData.rememberMe ? response.refreshToken : '',
+        response.user
+      );
 
       toast.success('로그인 성공!');
-      navigate('/');
+      // 로그인 전 접근하려던 페이지로 이동 (없으면 대시보드로 이동)
+      navigate(from, { replace: true });
     } catch (error) {
       if (error instanceof Error) {
         const errorMessage = (error as { message: string }).message;
@@ -110,16 +118,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         {/* Logo/Title */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-primary-600">Travel Planner</h1>
-          <p className="mt-2 text-gray-600">여행 계획과 장소 관리를 위한 플래너</p>
+          <p className="mt-2 text-muted-foreground">여행 계획과 장소 관리를 위한 플래너</p>
         </div>
 
         {/* Login Form */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
+        <div className="rounded-2xl bg-card p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Input */}
             <Input
@@ -169,7 +177,7 @@ export default function LoginPage() {
             <div className="text-center">
               <Link
                 to="/forgot-password"
-                className="text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary-600 transition-colors"
               >
                 비밀번호를 잊으셨나요?
               </Link>
@@ -178,10 +186,10 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-input" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">또는</span>
+                <span className="bg-card px-2 text-muted-foreground">또는</span>
               </div>
             </div>
 
@@ -190,7 +198,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/auth/google`}
-                className="flex items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                className="flex items-center justify-center gap-3 rounded-lg border border-input bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -216,7 +224,7 @@ export default function LoginPage() {
 
             {/* Sign Up Link */}
             <div className="text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 아직 회원이 아니신가요?{' '}
                 <Link
                   to="/signup"

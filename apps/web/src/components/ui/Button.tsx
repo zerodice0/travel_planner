@@ -28,7 +28,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       primary:
         'bg-[#4A90E2] text-white hover:bg-[#2E5C8A] focus:ring-[#4A90E2] disabled:hover:bg-[#4A90E2]',
       secondary:
-        'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400 disabled:hover:bg-white',
+        'bg-card text-foreground border border-border hover:bg-muted focus:ring-ring disabled:hover:bg-card',
     };
 
     const widthClasses = fullWidth ? 'w-full' : '';

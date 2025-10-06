@@ -1,5 +1,5 @@
-import { Modal, MarkdownContent } from '../ui';
-import { TERMS_OF_SERVICE } from '../../constants/terms';
+import { Modal, MarkdownContent } from '#components/ui';
+import { TERMS_OF_SERVICE } from '#constants/terms';
 
 interface TermsModalProps {
   isOpen: boolean;

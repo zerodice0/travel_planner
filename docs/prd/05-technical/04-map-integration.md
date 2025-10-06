@@ -2,17 +2,47 @@
 
 ## 1. 개요
 
-Kakao Maps API 통합 및 지도 기능 구현
+Kakao Maps 및 Google Maps 다중 Provider 지원을 통한 국내/해외 여행 최적화
 
-## 2. API 선택
+## 2. 다중 Provider 전략
 
-### 2.1 Kakao Maps (1순위)
+### 2.1 지원 정책
+- **동시 지원**: Kakao Maps와 Google Maps 모두 통합
+- **사용자 선택**: 지도 및 검색 Provider를 사용자가 직접 선택
+- **상태 유지**: Provider 전환 시 장소 마커 및 필터 상태 유지
+- **Fallback**: API 로드 실패 시 자동으로 다른 Provider로 전환
+
+### 2.2 사용 시나리오
+
+**국내 여행 (Kakao Maps 권장)**:
+- 한국 내 장소 검색 정확도 우수
+- 한글 주소 및 상호명 검색 최적화
+- 대중교통 정보 연동
+
+**해외 여행 (Google Maps 권장)**:
+- 글로벌 커버리지 및 다국어 지원
+- 해외 장소 데이터베이스 방대
+- Street View, 리뷰 등 부가 기능
+
+### 2.3 Provider 비교
+
+| 항목 | Kakao Maps | Google Maps |
+|------|-----------|-------------|
+| 국내 정확도 | ★★★★★ | ★★★☆☆ |
+| 해외 커버리지 | ★☆☆☆☆ | ★★★★★ |
+| 무료 할당량 | 300K req/월 | $200/월 |
+| 초과 비용 | ₩0.33/req | $7/1K req |
+| 주요 용도 | 국내 여행 | 해외 여행 |
+
+## 3. API 선택 (Legacy)
+
+### 3.1 Kakao Maps
 - 국내 최적화
 - 장소 검색 정확도 높음
 - 무료 할당량: 300,000 req/month
 - 비용: 초과 시 ₩0.33/req
 
-### 2.2 Google Maps (2순위)
+### 3.2 Google Maps
 - 글로벌 커버리지
 - 풍부한 기능
 - 무료 할당량: $200/month
@@ -338,3 +368,304 @@ try {
 - 지도 렌더링: < 1초
 - 마커 100개 표시: < 500ms
 - 장소 검색: < 500ms
+
+## 10. Google Maps 통합
+
+### 10.1 SDK 초기화
+
+```typescript
+// useGoogleMap.ts
+import { Loader } from '@googlemaps/js-api-loader';
+
+function useGoogleMap(containerId: string, options: MapOptions) {
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      version: 'weekly',
+      libraries: ['places']
+    });
+
+    loader.load().then(async () => {
+      const { Map } = await google.maps.importLibrary('maps') as google.maps.MapsLibrary;
+      const container = document.getElementById(containerId);
+
+      const map = new Map(container!, {
+        center: options.center,
+        zoom: options.level || 14,
+        mapTypeControl: true,
+        fullscreenControl: false
+      });
+
+      mapRef.current = map;
+      setIsLoaded(true);
+    });
+  }, []);
+
+  return { map: mapRef.current, isLoaded };
+}
+```
+
+### 10.2 장소 검색
+
+```typescript
+// useGooglePlacesSearch.ts
+function useGooglePlacesSearch() {
+  const [isSearching, setIsSearching] = useState(false);
+
+  const search = async (keyword: string): Promise<SearchResult[]> => {
+    if (!google || !google.maps) {
+      throw new Error('Google Maps SDK not loaded');
+    }
+
+    setIsSearching(true);
+
+    const service = new google.maps.places.PlacesService(
+      document.createElement('div')
+    );
+
+    return new Promise((resolve) => {
+      service.textSearch(
+        {
+          query: keyword,
+          language: 'ko'
+        },
+        (results, status) => {
+          setIsSearching(false);
+
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            const places = results.map(place => ({
+              id: place.place_id!,
+              name: place.name!,
+              address: place.formatted_address!,
+              category: mapGoogleCategory(place.types || []),
+              latitude: place.geometry!.location!.lat(),
+              longitude: place.geometry!.location!.lng(),
+              url: `https://maps.google.com/?q=place_id:${place.place_id}`
+            }));
+            resolve(places);
+          } else {
+            resolve([]);
+          }
+        }
+      );
+    });
+  };
+
+  return { search, isSearching };
+}
+
+function mapGoogleCategory(types: string[]): string {
+  const categoryMap: Record<string, string> = {
+    'restaurant': 'restaurant',
+    'cafe': 'cafe',
+    'tourist_attraction': 'tourist_attraction',
+    'shopping_mall': 'shopping',
+    'museum': 'culture',
+    'park': 'nature',
+    'lodging': 'accommodation'
+  };
+
+  for (const type of types) {
+    if (categoryMap[type]) {
+      return categoryMap[type];
+    }
+  }
+  return 'etc';
+}
+```
+
+### 10.3 마커 관리
+
+```typescript
+// GoogleMarkerManager.ts
+class GoogleMarkerManager {
+  private markers: Map<string, google.maps.Marker> = new Map();
+  private infoWindows: Map<string, google.maps.InfoWindow> = new Map();
+  private map: google.maps.Map;
+
+  constructor(map: google.maps.Map) {
+    this.map = map;
+  }
+
+  addMarker(place: Place): void {
+    const marker = new google.maps.Marker({
+      position: {
+        lat: place.latitude,
+        lng: place.longitude
+      },
+      map: this.map,
+      title: place.name,
+      icon: this.getMarkerIcon(place.visited)
+    });
+
+    this.markers.set(place.id, marker);
+
+    const infoWindow = new google.maps.InfoWindow({
+      content: this.getInfoWindowContent(place)
+    });
+
+    this.infoWindows.set(place.id, infoWindow);
+
+    marker.addListener('click', () => {
+      this.closeAllInfoWindows();
+      infoWindow.open(this.map, marker);
+    });
+  }
+
+  removeMarker(placeId: string): void {
+    const marker = this.markers.get(placeId);
+    if (marker) {
+      marker.setMap(null);
+      this.markers.delete(placeId);
+    }
+
+    const infoWindow = this.infoWindows.get(placeId);
+    if (infoWindow) {
+      infoWindow.close();
+      this.infoWindows.delete(placeId);
+    }
+  }
+
+  clearMarkers(): void {
+    this.markers.forEach(marker => marker.setMap(null));
+    this.markers.clear();
+    this.closeAllInfoWindows();
+    this.infoWindows.clear();
+  }
+
+  private getMarkerIcon(visited: boolean): google.maps.Icon {
+    const color = visited ? 'green' : 'red';
+    return {
+      url: `http://maps.google.com/mapfiles/ms/icons/${color}-dot.png`,
+      scaledSize: new google.maps.Size(32, 32)
+    };
+  }
+
+  private getInfoWindowContent(place: Place): string {
+    return `
+      <div style="padding: 12px; min-width: 200px;">
+        <div style="font-weight: 600; margin-bottom: 8px;">${place.name}</div>
+        <div style="color: #666; font-size: 12px;">${place.address}</div>
+        ${place.visited ? '<div style="color: #10B981; margin-top: 4px;">✓ 방문 완료</div>' : ''}
+      </div>
+    `;
+  }
+
+  private closeAllInfoWindows(): void {
+    this.infoWindows.forEach(infoWindow => infoWindow.close());
+  }
+}
+```
+
+## 11. Provider 선택 UI/UX
+
+### 11.1 지도 Provider 선택
+
+**UI 위치**: MapPage 상단 (검색바 우측)
+
+```tsx
+<div className="flex gap-2">
+  <button
+    onClick={() => setMapProvider('kakao')}
+    className={mapProvider === 'kakao' ? 'active' : ''}
+  >
+    카카오맵
+  </button>
+  <button
+    onClick={() => setMapProvider('google')}
+    className={mapProvider === 'google' ? 'active' : ''}
+  >
+    구글맵
+  </button>
+</div>
+```
+
+**동작**:
+- Provider 변경 시 지도 다시 초기화
+- 사용자가 추가한 장소 마커는 유지
+- 현재 지도 중심점 및 줌 레벨 유지
+
+### 11.2 검색 Provider 선택
+
+**UI 위치**: 검색바 내부 (탭 형태)
+
+```tsx
+<div className="flex border-b">
+  <button
+    onClick={() => setSearchProvider('kakao')}
+    className={searchProvider === 'kakao' ? 'tab-active' : 'tab'}
+  >
+    카카오 검색
+  </button>
+  <button
+    onClick={() => setSearchProvider('google')}
+    className={searchProvider === 'google' ? 'tab-active' : 'tab'}
+  >
+    구글 검색
+  </button>
+</div>
+```
+
+**동작**:
+- 검색 버튼 클릭 시 선택된 Provider로 검색
+- 검색 결과 Provider 레이블 표시
+- 검색 결과 없을 경우 다른 Provider 시도 제안
+
+### 11.3 Context 및 상태 관리
+
+```typescript
+// MapProviderContext.tsx
+interface MapProviderContextType {
+  mapProvider: 'kakao' | 'google';
+  searchProvider: 'kakao' | 'google';
+  setMapProvider: (provider: 'kakao' | 'google') => void;
+  setSearchProvider: (provider: 'kakao' | 'google') => void;
+}
+
+const MapProviderContext = createContext<MapProviderContextType | null>(null);
+
+export function MapProviderProvider({ children }: { children: ReactNode }) {
+  const [mapProvider, setMapProvider] = useState<'kakao' | 'google'>(() => {
+    return (localStorage.getItem('mapProvider') as 'kakao' | 'google') || 'kakao';
+  });
+
+  const [searchProvider, setSearchProvider] = useState<'kakao' | 'google'>(() => {
+    return (localStorage.getItem('searchProvider') as 'kakao' | 'google') || 'kakao';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mapProvider', mapProvider);
+  }, [mapProvider]);
+
+  useEffect(() => {
+    localStorage.setItem('searchProvider', searchProvider);
+  }, [searchProvider]);
+
+  return (
+    <MapProviderContext.Provider
+      value={{ mapProvider, searchProvider, setMapProvider, setSearchProvider }}
+    >
+      {children}
+    </MapProviderContext.Provider>
+  );
+}
+```
+
+## 12. 환경 변수
+
+```bash
+# Kakao Maps
+VITE_KAKAO_MAP_KEY=your_kakao_javascript_key
+
+# Google Maps
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+```
+
+**보안 설정**:
+- Kakao: 도메인 제한 (Kakao Developers Console)
+- Google: API Key 제한 (Google Cloud Console)
+  - HTTP referrer 제한
+  - Maps JavaScript API, Places API 활성화

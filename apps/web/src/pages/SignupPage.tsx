@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Input, Button, Checkbox } from '../components/ui';
-import { signupSchema, type SignupFormData } from '../lib/validations';
-import { useRecaptcha } from '../hooks/useRecaptcha';
-import api from '../lib/api';
-import { TermsModal } from '../components/modals/TermsModal';
-import { PrivacyPolicyModal } from '../components/modals/PrivacyPolicyModal';
+import { Input, Button, Checkbox } from '#components/ui';
+import { signupSchema, type SignupFormData } from '#lib/validations';
+import { useRecaptcha } from '#hooks/useRecaptcha';
+import api from '#lib/api';
+import { TermsModal } from '#components/modals/TermsModal';
+import { PrivacyPolicyModal } from '#components/modals/PrivacyPolicyModal';
 
 interface SignupResponse {
   id: string;
@@ -246,19 +246,19 @@ export default function SignupPage() {
     formData.agreements.termsOfService && formData.agreements.privacyPolicy && formData.agreements.marketing;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
         {/* Logo/Title */}
         <div className="mb-8 text-center">
           <Link to="/" className="inline-block">
             <h1 className="text-4xl font-bold text-primary-600">Travel Planner</h1>
           </Link>
-          <p className="mt-2 text-gray-600">새로운 여행을 시작하세요</p>
+          <p className="mt-2 text-muted-foreground">새로운 여행을 시작하세요</p>
         </div>
 
         {/* Signup Form */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
-          <h2 className="mb-6 text-2xl font-bold text-gray-900">회원가입</h2>
+        <div className="rounded-2xl bg-card p-8 shadow-lg">
+          <h2 className="mb-6 text-2xl font-bold text-foreground">회원가입</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Input */}
@@ -273,7 +273,7 @@ export default function SignupPage() {
                 fullWidth
                 autoComplete="email"
               />
-              {emailChecking && <p className="mt-1 text-sm text-gray-500">확인 중...</p>}
+              {emailChecking && <p className="mt-1 text-sm text-muted-foreground">확인 중...</p>}
               {emailAvailable === true && !errors.email && (
                 <p className="mt-1 text-sm text-green-600">✓ 사용 가능한 이메일입니다</p>
               )}
@@ -294,13 +294,13 @@ export default function SignupPage() {
               {formData.password && (
                 <div className="mt-2">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 rounded-full bg-gray-200">
+                    <div className="h-2 flex-1 rounded-full bg-muted">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${passwordStrengthInfo.color}`}
                         style={{ width: `${passwordStrength}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-gray-600">{passwordStrengthInfo.label}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{passwordStrengthInfo.label}</span>
                   </div>
                 </div>
               )}
@@ -330,7 +330,7 @@ export default function SignupPage() {
                 fullWidth
                 autoComplete="username"
               />
-              {nicknameChecking && <p className="mt-1 text-sm text-gray-500">확인 중...</p>}
+              {nicknameChecking && <p className="mt-1 text-sm text-muted-foreground">확인 중...</p>}
               {nicknameAvailable === true && !errors.nickname && (
                 <p className="mt-1 text-sm text-green-600">✓ 사용 가능한 닉네임입니다</p>
               )}
@@ -413,10 +413,10 @@ export default function SignupPage() {
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-input" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">또는</span>
+                <span className="bg-card px-2 text-muted-foreground">또는</span>
               </div>
             </div>
 
@@ -425,7 +425,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => (window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/auth/google`)}
-                className="flex items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                className="flex items-center justify-center gap-3 rounded-lg border border-input bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -451,7 +451,7 @@ export default function SignupPage() {
 
             {/* Login Link */}
             <div className="text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 이미 계정이 있으신가요?{' '}
                 <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700 transition-colors">
                   로그인

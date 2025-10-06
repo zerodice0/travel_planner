@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Input, Button, Checkbox } from '../components/ui';
-import api from '../lib/api';
-import { TermsModal } from '../components/modals/TermsModal';
-import { PrivacyPolicyModal } from '../components/modals/PrivacyPolicyModal';
+import { Input, Button, Checkbox } from '#components/ui';
+import api from '#lib/api';
+import { TermsModal } from '#components/modals/TermsModal';
+import { PrivacyPolicyModal } from '#components/modals/PrivacyPolicyModal';
 
 export default function GoogleSignupPage() {
   const [searchParams] = useSearchParams();
@@ -146,28 +146,28 @@ export default function GoogleSignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
         {/* Logo/Title */}
         <div className="mb-8 text-center">
           <Link to="/" className="inline-block">
             <h1 className="text-4xl font-bold text-primary-600">Travel Planner</h1>
           </Link>
-          <p className="mt-2 text-gray-600">거의 다 왔어요!</p>
+          <p className="mt-2 text-muted-foreground">거의 다 왔어요!</p>
         </div>
 
         {/* Signup Form */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
-          <h2 className="mb-6 text-2xl font-bold text-gray-900">추가 정보 입력</h2>
+        <div className="rounded-2xl bg-card p-8 shadow-lg">
+          <h2 className="mb-6 text-2xl font-bold text-foreground">추가 정보 입력</h2>
 
           {/* Google Account Info */}
-          <div className="mb-6 rounded-lg bg-gray-50 p-4">
-            <p className="text-sm text-gray-600">Google 계정</p>
+          <div className="mb-6 rounded-lg bg-background p-4">
+            <p className="text-sm text-muted-foreground">Google 계정</p>
             <div className="mt-2 flex items-center gap-3">
               {profileImage && (
                 <img src={profileImage} alt="Profile" className="h-10 w-10 rounded-full" />
               )}
-              <p className="font-medium text-gray-900">{email}</p>
+              <p className="font-medium text-foreground">{email}</p>
             </div>
           </div>
 
@@ -184,7 +184,7 @@ export default function GoogleSignupPage() {
                 fullWidth
                 autoComplete="username"
               />
-              {nicknameChecking && <p className="mt-1 text-sm text-gray-500">확인 중...</p>}
+              {nicknameChecking && <p className="mt-1 text-sm text-muted-foreground">확인 중...</p>}
               {nicknameAvailable === true && !nicknameError && (
                 <p className="mt-1 text-sm text-green-600">✓ 사용 가능한 닉네임입니다</p>
               )}

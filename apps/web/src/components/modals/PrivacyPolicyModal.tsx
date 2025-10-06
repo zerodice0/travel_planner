@@ -1,5 +1,5 @@
-import { Modal, MarkdownContent } from '../ui';
-import { PRIVACY_POLICY } from '../../constants/privacy';
+import { Modal, MarkdownContent } from '#components/ui';
+import { PRIVACY_POLICY } from '#constants/privacy';
 
 interface PrivacyPolicyModalProps {
   isOpen: boolean;
