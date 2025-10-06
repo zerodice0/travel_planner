@@ -33,19 +33,29 @@ export default function MapPage() {
   const markerManagerRef = useRef<BaseMarkerManager | null>(null);
 
   // Kakao Map
-  const kakaoResult = useKakaoMap('map-container', {
+  const kakaoResult = useKakaoMap('kakao-map-container', {
     center: currentLocation || DEFAULT_CENTER,
     level: 3,
   });
 
   // Google Map
-  const googleResult = useGoogleMap('map-container', {
+  const googleResult = useGoogleMap('google-map-container', {
     center: currentLocation || DEFAULT_CENTER,
     level: 14,
   });
 
-  // Select active map
+  // Select active map based on provider
   const { map, isLoaded, error: mapError } = mapProvider === 'kakao' ? kakaoResult : googleResult;
+
+  // Relayout map when switching providers
+  useEffect(() => {
+    if (map && isLoaded) {
+      // Call relayout for Kakao Map to fix tile rendering after switching
+      if (mapProvider === 'kakao' && map.relayout) {
+        map.relayout();
+      }
+    }
+  }, [mapProvider, map, isLoaded]);
 
   // Search hooks
   const kakaoSearch = useKakaoPlacesSearch();
@@ -223,10 +233,65 @@ export default function MapPage() {
   if (mapError) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">{mapError}</p>
-            <p className="text-muted-foreground">지도를 불러오는데 실패했습니다</p>
+        <div className="flex items-center justify-center h-screen bg-background">
+          <div className="max-w-md w-full mx-4">
+            <div className="bg-card rounded-xl shadow-lg p-6 border border-border">
+              {/* Error Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
+                  <MapPin className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+
+              {/* Error Title */}
+              <h2 className="text-xl font-bold text-center mb-2">
+                {mapProvider === 'kakao' ? '카카오맵' : '구글맵'}을 불러올 수 없습니다
+              </h2>
+
+              {/* Error Message */}
+              <p className="text-red-600 text-sm text-center mb-4">{mapError}</p>
+
+              {/* Map Provider Toggle */}
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground text-center mb-3">
+                  다른 지도 서비스로 전환해보세요
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => setMapProvider('kakao')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      mapProvider === 'kakao'
+                        ? 'bg-primary text-white'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    카카오맵
+                  </button>
+                  <button
+                    onClick={() => setMapProvider('google')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      mapProvider === 'google'
+                        ? 'bg-primary text-white'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    구글맵
+                  </button>
+                </div>
+              </div>
+
+              {/* Help Text */}
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  💡 <strong>문제가 계속되면:</strong>
+                  <br />
+                  • 네트워크 연결 상태를 확인하세요
+                  <br />
+                  • API 키 설정이 올바른지 확인하세요
+                  <br />• 브라우저 개발자 도구의 콘솔을 확인하세요
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </AppLayout>
@@ -357,8 +422,17 @@ export default function MapPage() {
           <Navigation className="w-6 h-6 text-primary" />
         </button>
 
-        {/* Map Container */}
-        <div id="map-container" className="w-full h-full" />
+        {/* Map Containers */}
+        <div
+          id="kakao-map-container"
+          className="w-full h-full"
+          style={{ display: mapProvider === 'kakao' ? 'block' : 'none' }}
+        />
+        <div
+          id="google-map-container"
+          className="w-full h-full"
+          style={{ display: mapProvider === 'google' ? 'block' : 'none' }}
+        />
 
         {/* Category Filter Modal */}
         {showCategoryFilter && (

@@ -15,10 +15,21 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
   const mapRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
+    // Reset state when initializing
+    setIsLoaded(false);
+
     // Check if Kakao Maps script is already loaded
     if (window.kakao && window.kakao.maps) {
+      scriptLoadedRef.current = true;
+      initializeMap();
+      return;
+    }
+
+    // Don't reload script if it's already being loaded
+    if (scriptLoadedRef.current) {
       initializeMap();
       return;
     }
@@ -28,7 +39,8 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
     const apiKey = import.meta.env.VITE_KAKAO_MAP_KEY;
 
     if (!apiKey) {
-      setError('Kakao Maps API key is not configured');
+      setError('카카오맵 API 키가 설정되지 않았습니다. .env 파일의 VITE_KAKAO_MAP_KEY를 확인해주세요.');
+      console.error('[Kakao Map] API key is missing. Please check VITE_KAKAO_MAP_KEY in .env file.');
       return;
     }
 
@@ -36,28 +48,43 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
     script.async = true;
 
     script.onload = () => {
+      scriptLoadedRef.current = true;
       window.kakao.maps.load(() => {
         initializeMap();
       });
     };
 
     script.onerror = () => {
-      setError('Failed to load Kakao Maps SDK');
+      const errorMsg = '카카오맵 SDK를 불러올 수 없습니다. 네트워크 연결을 확인하거나 API 키가 유효한지 확인해주세요.';
+      setError(errorMsg);
+      console.error('[Kakao Map] Failed to load SDK. Please check:', {
+        apiKey: apiKey.substring(0, 10) + '...',
+        scriptSrc: script.src,
+        possibleCauses: [
+          'Invalid API key (ensure it is a JavaScript key from Kakao Developers)',
+          'Network connectivity issue',
+          'CORS or security policy blocking the script'
+        ]
+      });
     };
 
     document.head.appendChild(script);
 
     return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
+      // Cleanup map instance
+      if (mapRef.current) {
+        mapRef.current = null;
       }
+      setIsLoaded(false);
     };
   }, [containerId]);
 
   const initializeMap = () => {
     const container = document.getElementById(containerId);
     if (!container) {
-      setError(`Map container with id "${containerId}" not found`);
+      const errorMsg = `지도 컨테이너를 찾을 수 없습니다. (ID: ${containerId})`;
+      setError(errorMsg);
+      console.error(`[Kakao Map] Container not found: ${containerId}`);
       return;
     }
 
@@ -73,8 +100,9 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
       setIsLoaded(true);
       setError(null);
     } catch (err) {
-      setError('Failed to initialize map');
-      console.error('Map initialization error:', err);
+      const errorMsg = '카카오맵 초기화에 실패했습니다.';
+      setError(errorMsg);
+      console.error('[Kakao Map] Initialization error:', err);
     }
   };
 

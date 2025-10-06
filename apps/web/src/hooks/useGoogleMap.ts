@@ -6,8 +6,12 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loaderRef = useRef<Loader | null>(null);
 
   useEffect(() => {
+    // Reset state when initializing
+    setIsLoaded(false);
+
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
@@ -15,13 +19,16 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
       return;
     }
 
-    const loader = new Loader({
-      apiKey,
-      version: 'weekly',
-      libraries: ['places', 'marker'],
-    });
+    // Reuse loader if already created
+    if (!loaderRef.current) {
+      loaderRef.current = new Loader({
+        apiKey,
+        version: 'weekly',
+        libraries: ['places', 'marker'],
+      });
+    }
 
-    loader
+    loaderRef.current
       .load()
       .then(async () => {
         const { Map } = (await google.maps.importLibrary(
@@ -53,7 +60,11 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
       });
 
     return () => {
-      mapRef.current = null;
+      // Cleanup map instance
+      if (mapRef.current) {
+        mapRef.current = null;
+      }
+      setIsLoaded(false);
     };
   }, [containerId]);
 
