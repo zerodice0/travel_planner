@@ -106,5 +106,44 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
     }
   };
 
-  return { map: mapRef.current, isLoaded, error };
+  const getCenter = () => {
+    if (!mapRef.current) return null;
+    const center = mapRef.current.getCenter();
+    return {
+      lat: center.getLat(),
+      lng: center.getLng(),
+    };
+  };
+
+  const getLevel = () => {
+    if (!mapRef.current) return null;
+    return mapRef.current.getLevel();
+  };
+
+  const setCenter = (lat: number, lng: number) => {
+    if (!mapRef.current) return;
+    const position = new window.kakao.maps.LatLng(lat, lng);
+    mapRef.current.setCenter(position);
+  };
+
+  const setLevel = (level: number) => {
+    if (!mapRef.current) return;
+    mapRef.current.setLevel(level);
+  };
+
+  const panBy = (dx: number, dy: number) => {
+    if (!mapRef.current) return;
+    mapRef.current.panBy(dx, dy);
+  };
+
+  return {
+    map: mapRef.current,
+    isLoaded,
+    error,
+    getCenter,
+    getLevel,
+    setCenter,
+    setLevel,
+    panBy,
+  };
 }

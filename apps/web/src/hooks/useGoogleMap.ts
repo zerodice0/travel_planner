@@ -13,10 +13,15 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
     setIsLoaded(false);
 
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const mapId = import.meta.env.VITE_GOOGLE_MAP_ID;
 
     if (!apiKey) {
       setError('Google Maps API key is not configured');
       return;
+    }
+
+    if (!mapId) {
+      console.warn('Google Map ID is not configured. Advanced Markers may not work properly.');
     }
 
     // Reuse loader if already created
@@ -48,6 +53,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
           fullscreenControl: false,
           streetViewControl: false,
           zoomControl: true,
+          ...(mapId && { mapId }), // Add mapId if available
         });
 
         mapRef.current = map;
@@ -68,5 +74,44 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
     };
   }, [containerId]);
 
-  return { map: mapRef.current, isLoaded, error };
+  const getCenter = () => {
+    if (!mapRef.current) return null;
+    const center = mapRef.current.getCenter();
+    if (!center) return null;
+    return {
+      lat: center.lat(),
+      lng: center.lng(),
+    };
+  };
+
+  const getZoom = () => {
+    if (!mapRef.current) return null;
+    return mapRef.current.getZoom();
+  };
+
+  const setCenter = (lat: number, lng: number) => {
+    if (!mapRef.current) return;
+    mapRef.current.setCenter({ lat, lng });
+  };
+
+  const setZoom = (zoom: number) => {
+    if (!mapRef.current) return;
+    mapRef.current.setZoom(zoom);
+  };
+
+  const panBy = (dx: number, dy: number) => {
+    if (!mapRef.current) return;
+    mapRef.current.panBy(dx, dy);
+  };
+
+  return {
+    map: mapRef.current,
+    isLoaded,
+    error,
+    getCenter,
+    getZoom,
+    setCenter,
+    setZoom,
+    panBy,
+  };
 }
