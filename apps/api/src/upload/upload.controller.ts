@@ -10,15 +10,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { StorageService } from '../storage/storage.service';
 import { UsersService } from '../users/users.service';
 
 interface RequestWithUser extends Request {
-  user: {
-    sub: string;
-    email: string;
-  };
+  user: JwtPayload;
 }
 
 @ApiTags('upload')
@@ -66,7 +63,7 @@ export class UploadController {
       throw new BadRequestException('파일 크기는 2MB를 초과할 수 없습니다');
     }
 
-    const userId = req.user.sub;
+    const userId = req.user.userId;
     const images = await this.storageService.uploadProfileImage(file.buffer, userId);
 
     // User 테이블에 프로필 이미지 URL 저장 (medium 사이즈 사용)
@@ -116,7 +113,7 @@ export class UploadController {
       throw new BadRequestException('파일 크기는 5MB를 초과할 수 없습니다');
     }
 
-    const userId = req.user?.sub || '';
+    const userId = req.user?.userId || '';
     const placeId = req.body?.placeId || 'temp';
     const url = await this.storageService.uploadPlacePhoto(file.buffer, userId, placeId);
 

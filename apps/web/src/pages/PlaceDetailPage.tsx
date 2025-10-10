@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
+import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { placesApi, listsApi } from '#lib/api';
 import type { PlaceDetail, PlaceListSummary } from '#types/place';
 import type { List } from '#types/list';
@@ -40,6 +41,7 @@ export default function PlaceDetailPage() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [visitNote, setVisitNote] = useState('');
@@ -197,13 +199,17 @@ export default function PlaceDetailPage() {
   const handleDelete = async () => {
     if (!place) return;
 
+    setIsDeleting(true);
     try {
       await placesApi.delete(place.id);
       toast.success('장소를 삭제했습니다.');
+      setShowDeleteDialog(false);
       navigate(-1);
     } catch (error) {
       console.error('Failed to delete place:', error);
       toast.error('장소 삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -473,6 +479,21 @@ export default function PlaceDetailPage() {
             목록에 추가
           </button>
         </section>
+
+        {/* 위험 영역 섹션 */}
+        <section className="bg-card rounded-xl p-6 shadow-sm border border-red-200">
+          <h3 className="text-lg font-semibold text-foreground mb-3">위험 영역</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            장소를 삭제하면 복구할 수 없습니다. 이 장소가 포함된 모든 목록에서도 제거됩니다.
+          </p>
+          <button
+            onClick={() => setShowDeleteDialog(true)}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            <Trash2 className="w-4 h-4" />
+            장소 삭제하기
+          </button>
+        </section>
       </div>
 
       {/* 카테고리 선택 모달 */}
@@ -539,40 +560,17 @@ export default function PlaceDetailPage() {
       )}
 
       {/* 삭제 확인 다이얼로그 */}
-      {showDeleteDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={() => setShowDeleteDialog(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-card rounded-2xl p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-foreground mb-2">장소 삭제</h3>
-            <p className="text-muted-foreground mb-4">
-              정말 삭제하시겠습니까?
-              <br />이 장소가 포함된 목록에서도 제거됩니다.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteDialog(false)}
-                className="flex-1 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteDialog(false);
-                  handleDelete();
-                }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDelete}
+        title="장소 삭제"
+        message={place ? `"${place.name}"을(를) 삭제하시겠습니까?\n이 장소가 포함된 목록에서도 제거됩니다.` : '장소를 삭제하시겠습니까?'}
+        confirmText="삭제"
+        cancelText="취소"
+        variant="danger"
+        loading={isDeleting}
+      />
     </div>
   );
 }

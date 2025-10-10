@@ -34,11 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((userData) => {
           setUser(userData);
         })
-        .catch(() => {
-          // Token is invalid or expired, clear storage
+        .catch((error) => {
+          // Token is invalid or expired, clear storage silently
+          // This is expected behavior when tokens expire, so we don't log it as an error
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           setUser(null);
+
+          // Only log unexpected errors (not 401 Unauthorized)
+          if (error?.response?.status !== 401) {
+            console.error('Failed to fetch user profile:', error);
+          }
         })
         .finally(() => {
           setIsLoading(false);

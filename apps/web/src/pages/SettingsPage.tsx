@@ -5,7 +5,6 @@ import {
   Moon,
   Sun,
   Monitor,
-  Globe,
   Bell,
   Tag,
   LogOut,

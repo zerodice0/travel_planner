@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { SearchResult } from '#types/map';
 
 export function useGooglePlacesSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = async (keyword: string): Promise<SearchResult[]> => {
+  const search = useCallback(async (keyword: string): Promise<SearchResult[]> => {
     if (!keyword.trim()) {
       return [];
     }
 
-    if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+    if (typeof google === 'undefined' || !google.maps) {
       setError('Google Maps SDK is not loaded');
       return [];
     }
@@ -18,46 +18,47 @@ export function useGooglePlacesSearch() {
     setIsSearching(true);
     setError(null);
 
-    return new Promise((resolve) => {
-      const service = new google.maps.places.PlacesService(
-        document.createElement('div')
-      );
+    try {
+      // Import Places library
+      const { Place } = (await google.maps.importLibrary(
+        'places'
+      )) as google.maps.PlacesLibrary;
 
-      service.textSearch(
-        {
-          query: keyword,
-          language: 'ko',
-        },
-        (results, status) => {
-          setIsSearching(false);
+      // Use new Place.searchByText() API
+      const request = {
+        textQuery: keyword,
+        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id'],
+        language: 'ko',
+        maxResultCount: 20,
+      };
 
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            results &&
-            results.length > 0
-          ) {
-            const places = results.map((place) => ({
-              id: place.place_id!,
-              name: place.name!,
-              address: place.formatted_address || '',
-              category: mapGoogleCategory(place.types || []),
-              latitude: place.geometry!.location!.lat(),
-              longitude: place.geometry!.location!.lng(),
-              url: `https://maps.google.com/?q=place_id:${place.place_id}`,
-            }));
-            resolve(places);
-          } else if (
-            status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS
-          ) {
-            resolve([]);
-          } else {
-            setError('검색 중 오류가 발생했습니다');
-            resolve([]);
-          }
-        }
-      );
-    });
-  };
+      const { places } = await Place.searchByText(request);
+
+      setIsSearching(false);
+
+      if (!places || places.length === 0) {
+        return [];
+      }
+
+      // Map new Place API response to SearchResult format
+      const searchResults = places.map((place) => ({
+        id: place.id,
+        name: place.displayName || '',
+        address: place.formattedAddress || '',
+        category: mapGoogleCategory(place.types || []),
+        latitude: place.location?.lat() ?? 0,
+        longitude: place.location?.lng() ?? 0,
+        url: `https://maps.google.com/?q=place_id:${place.id}`,
+      }));
+
+      return searchResults;
+    } catch (error) {
+      setIsSearching(false);
+      setError('검색 중 오류가 발생했습니다');
+      console.error('Google Places search error:', error);
+      return [];
+    }
+  }, []);
 
   return { search, isSearching, error };
 }
@@ -66,7 +67,7 @@ function mapGoogleCategory(types: string[]): string {
   const categoryMap: Record<string, string> = {
     restaurant: 'restaurant',
     cafe: 'cafe',
-    tourist_attraction: 'tourist_attraction',
+    tourist_attraction: 'attraction',
     shopping_mall: 'shopping',
     store: 'shopping',
     museum: 'culture',

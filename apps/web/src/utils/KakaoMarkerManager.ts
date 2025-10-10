@@ -1,9 +1,11 @@
 import type { Place } from '#types/place';
 import type { BaseMarkerManager } from '#types/map';
+import { createMarkerDataURL } from './categoryIcons';
 
 export class KakaoMarkerManager implements BaseMarkerManager {
   private markers: Map<string, any> = new Map();
   private infowindows: Map<string, any> = new Map();
+  private places: Map<string, Place> = new Map();
   private map: any;
 
   constructor(map: any) {
@@ -22,6 +24,7 @@ export class KakaoMarkerManager implements BaseMarkerManager {
 
     marker.setMap(this.map);
     this.markers.set(place.id, marker);
+    this.places.set(place.id, place);
 
     // Create InfoWindow
     const infowindow = new window.kakao.maps.InfoWindow({
@@ -32,8 +35,13 @@ export class KakaoMarkerManager implements BaseMarkerManager {
 
     // Add click event
     window.kakao.maps.event.addListener(marker, 'click', () => {
+      // Move map to marker location
+      this.panTo(place.latitude, place.longitude);
+
+      // Show InfoWindow
       this.closeAllInfoWindows();
       infowindow.open(this.map, marker);
+
       if (onClick) {
         onClick(place);
       }
@@ -52,6 +60,8 @@ export class KakaoMarkerManager implements BaseMarkerManager {
       infowindow.close();
       this.infowindows.delete(placeId);
     }
+
+    this.places.delete(placeId);
   }
 
   clearMarkers(): void {
@@ -59,6 +69,7 @@ export class KakaoMarkerManager implements BaseMarkerManager {
     this.markers.clear();
     this.closeAllInfoWindows();
     this.infowindows.clear();
+    this.places.clear();
   }
 
   updateMarker(place: Place): void {
@@ -91,14 +102,11 @@ export class KakaoMarkerManager implements BaseMarkerManager {
     this.map.setLevel(level);
   }
 
-  private getMarkerImage(visited: boolean, _: string): any {
-    const color = visited ? 'green' : 'red';
-
-    // Use simple colored markers for now
-    // In production, you would use actual marker image files
-    const imageSrc = `https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_${color}.png`;
-    const imageSize = new window.kakao.maps.Size(32, 32);
-    const imageOption = { offset: new window.kakao.maps.Point(16, 32) };
+  private getMarkerImage(visited: boolean, category: string): any {
+    // Use category-based custom SVG markers
+    const imageSrc = createMarkerDataURL(category, visited);
+    const imageSize = new window.kakao.maps.Size(40, 50);
+    const imageOption = { offset: new window.kakao.maps.Point(20, 50) };
 
     return new window.kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
   }
@@ -151,5 +159,20 @@ export class KakaoMarkerManager implements BaseMarkerManager {
       "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m] || m);
+  }
+
+  showInfoWindow(placeId: string): void {
+    const place = this.places.get(placeId);
+    const marker = this.markers.get(placeId);
+    const infowindow = this.infowindows.get(placeId);
+
+    if (!place || !marker || !infowindow) return;
+
+    // Move map to marker location
+    this.panTo(place.latitude, place.longitude);
+
+    // Close all other InfoWindows and open this one
+    this.closeAllInfoWindows();
+    infowindow.open(this.map, marker);
   }
 }

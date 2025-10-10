@@ -1,22 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { KakaoPlace } from '#types/place';
-
-interface SearchResult {
-  id: string;
-  name: string;
-  address: string;
-  category: string;
-  phone?: string;
-  latitude: number;
-  longitude: number;
-  url?: string;
-}
+import type { SearchResult } from '#types/map';
 
 export function useKakaoPlacesSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = async (keyword: string): Promise<SearchResult[]> => {
+  const search = useCallback(async (keyword: string): Promise<SearchResult[]> => {
     if (!keyword.trim()) {
       return [];
     }
@@ -55,7 +45,7 @@ export function useKakaoPlacesSearch() {
         }
       });
     });
-  };
+  }, []);
 
   return { search, isSearching, error };
 }
@@ -64,7 +54,7 @@ function mapCategory(kakaoCategory: string): string {
   const categoryMap: Record<string, string> = {
     음식점: 'restaurant',
     카페: 'cafe',
-    관광명소: 'tourist_attraction',
+    관광명소: 'attraction',
     쇼핑: 'shopping',
     문화시설: 'culture',
     자연: 'nature',

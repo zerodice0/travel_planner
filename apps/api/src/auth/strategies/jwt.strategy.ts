@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtPayload } from '../guards/jwt-auth.guard';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,7 +18,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
-    return { sub: payload.sub, email: payload.email };
+  async validate(payload: { sub: string; email: string }): Promise<JwtPayload> {
+    // sub는 userId를 의미함 (JWT 표준)
+    return {
+      userId: payload.sub,
+      email: payload.email
+    };
   }
 }

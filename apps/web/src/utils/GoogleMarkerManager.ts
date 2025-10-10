@@ -1,39 +1,65 @@
 import type { Place } from '#types/place';
 import type { BaseMarkerManager } from '#types/map';
+import { createMarkerDataURL } from './categoryIcons';
 
 export class GoogleMarkerManager implements BaseMarkerManager {
-  private markers: Map<string, google.maps.Marker> = new Map();
+  private markers: Map<string, google.maps.marker.AdvancedMarkerElement> = new Map();
   private infoWindows: Map<string, google.maps.InfoWindow> = new Map();
+  private places: Map<string, Place> = new Map();
   private map: google.maps.Map;
 
   constructor(map: google.maps.Map) {
     this.map = map;
   }
 
-  addMarker(place: Place, onClick?: (place: Place) => void): void {
+  async addMarker(place: Place, onClick?: (place: Place) => void): Promise<void> {
     if (!google || !google.maps || !this.map) return;
 
-    const marker = new google.maps.Marker({
+    // Import the marker library
+    const { AdvancedMarkerElement } = (await google.maps.importLibrary(
+      'marker'
+    )) as google.maps.MarkerLibrary;
+
+    // Create custom icon element using category-based SVG
+    const iconUrl = createMarkerDataURL(place.category, place.visited);
+    const iconElement = document.createElement('img');
+    iconElement.src = iconUrl;
+    iconElement.style.width = '40px';
+    iconElement.style.height = '50px';
+    iconElement.style.cursor = 'pointer';
+
+    const marker = new AdvancedMarkerElement({
       position: {
         lat: place.latitude,
         lng: place.longitude,
       },
       map: this.map,
       title: place.name,
-      icon: this.getMarkerIcon(place.visited),
+      content: iconElement,
     });
 
     this.markers.set(place.id, marker);
+    this.places.set(place.id, place);
 
     const infoWindow = new google.maps.InfoWindow({
       content: this.getInfoWindowContent(place),
+      pixelOffset: new google.maps.Size(0, -30),
+      headerDisabled: true,
     });
 
     this.infoWindows.set(place.id, infoWindow);
 
     marker.addListener('click', () => {
+      // Move map to marker location
+      this.panTo(place.latitude, place.longitude);
+
+      // Show InfoWindow
       this.closeAllInfoWindows();
-      infoWindow.open(this.map, marker);
+      infoWindow.open({
+        anchor: marker,
+        map: this.map,
+      });
+
       if (onClick) {
         onClick(place);
       }
@@ -43,7 +69,7 @@ export class GoogleMarkerManager implements BaseMarkerManager {
   removeMarker(placeId: string): void {
     const marker = this.markers.get(placeId);
     if (marker) {
-      marker.setMap(null);
+      marker.map = null;
       this.markers.delete(placeId);
     }
 
@@ -52,18 +78,21 @@ export class GoogleMarkerManager implements BaseMarkerManager {
       infoWindow.close();
       this.infoWindows.delete(placeId);
     }
+
+    this.places.delete(placeId);
   }
 
   clearMarkers(): void {
-    this.markers.forEach((marker) => marker.setMap(null));
+    this.markers.forEach((marker) => (marker.map = null));
     this.markers.clear();
     this.closeAllInfoWindows();
     this.infoWindows.clear();
+    this.places.clear();
   }
 
-  updateMarker(place: Place): void {
+  async updateMarker(place: Place): Promise<void> {
     this.removeMarker(place.id);
-    this.addMarker(place);
+    await this.addMarker(place);
   }
 
   closeAllInfoWindows(): void {
@@ -83,13 +112,6 @@ export class GoogleMarkerManager implements BaseMarkerManager {
     this.map.setZoom(Math.max(1, Math.min(21, zoom)));
   }
 
-  private getMarkerIcon(visited: boolean): google.maps.Icon {
-    const color = visited ? 'green' : 'red';
-    return {
-      url: `http://maps.google.com/mapfiles/ms/icons/${color}-dot.png`,
-      scaledSize: new google.maps.Size(32, 32),
-    };
-  }
 
   private getInfoWindowContent(place: Place): string {
     return `
@@ -139,5 +161,23 @@ export class GoogleMarkerManager implements BaseMarkerManager {
       "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m] || m);
+  }
+
+  showInfoWindow(placeId: string): void {
+    const place = this.places.get(placeId);
+    const marker = this.markers.get(placeId);
+    const infoWindow = this.infoWindows.get(placeId);
+
+    if (!place || !marker || !infoWindow) return;
+
+    // Move map to marker location
+    this.panTo(place.latitude, place.longitude);
+
+    // Close all other InfoWindows and open this one
+    this.closeAllInfoWindows();
+    infoWindow.open({
+      anchor: marker,
+      map: this.map,
+    });
   }
 }

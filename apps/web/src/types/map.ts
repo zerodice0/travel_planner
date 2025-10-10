@@ -17,13 +17,14 @@ export interface SearchResult {
 }
 
 export interface BaseMarkerManager {
-  addMarker(place: any, onClick?: (place: any) => void): void;
+  addMarker(place: any, onClick?: (place: any) => void): void | Promise<void>;
   removeMarker(placeId: string): void;
   clearMarkers(): void;
-  updateMarker(place: any): void;
+  updateMarker(place: any): void | Promise<void>;
   panTo(latitude: number, longitude: number): void;
   setLevel(level: number): void;
   closeAllInfoWindows(): void;
+  showInfoWindow(placeId: string): void;
 }
 
 export interface MapHookResult {
