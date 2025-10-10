@@ -410,51 +410,70 @@ function useGoogleMap(containerId: string, options: MapOptions) {
 
 ### 10.2 장소 검색
 
+**참고**: Google Maps는 2025년 3월부터 새로운 Place API를 권장합니다. 아래는 최신 API를 사용한 구현입니다.
+
 ```typescript
 // useGooglePlacesSearch.ts
+import { useState, useCallback } from 'react';
+
 function useGooglePlacesSearch() {
   const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const search = async (keyword: string): Promise<SearchResult[]> => {
-    if (!google || !google.maps) {
-      throw new Error('Google Maps SDK not loaded');
+  const search = useCallback(async (keyword: string): Promise<SearchResult[]> => {
+    if (!keyword.trim()) {
+      return [];
+    }
+
+    if (!google?.maps) {
+      setError('Google Maps SDK not loaded');
+      return [];
     }
 
     setIsSearching(true);
+    setError(null);
 
-    const service = new google.maps.places.PlacesService(
-      document.createElement('div')
-    );
+    try {
+      // Import Places library (새로운 API)
+      const { Place } = await google.maps.importLibrary('places') as google.maps.PlacesLibrary;
 
-    return new Promise((resolve) => {
-      service.textSearch(
-        {
-          query: keyword,
-          language: 'ko'
-        },
-        (results, status) => {
-          setIsSearching(false);
+      // Place.searchByText() 사용 (PlacesService 대체)
+      const request = {
+        textQuery: keyword,
+        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id'],
+        language: 'ko',
+        maxResultCount: 20
+      };
 
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            const places = results.map(place => ({
-              id: place.place_id!,
-              name: place.name!,
-              address: place.formatted_address!,
-              category: mapGoogleCategory(place.types || []),
-              latitude: place.geometry!.location!.lat(),
-              longitude: place.geometry!.location!.lng(),
-              url: `https://maps.google.com/?q=place_id:${place.place_id}`
-            }));
-            resolve(places);
-          } else {
-            resolve([]);
-          }
-        }
-      );
-    });
-  };
+      const { places } = await Place.searchByText(request);
 
-  return { search, isSearching };
+      setIsSearching(false);
+
+      if (!places || places.length === 0) {
+        return [];
+      }
+
+      // 새로운 Place API 응답 매핑
+      const searchResults = places.map(place => ({
+        id: place.id,
+        name: place.displayName || '',
+        address: place.formattedAddress || '',
+        category: mapGoogleCategory(place.types || []),
+        latitude: place.location?.lat() ?? 0,
+        longitude: place.location?.lng() ?? 0,
+        url: `https://maps.google.com/?q=place_id:${place.id}`
+      }));
+
+      return searchResults;
+    } catch (error) {
+      setIsSearching(false);
+      setError('검색 중 오류가 발생했습니다');
+      console.error('Google Places search error:', error);
+      return [];
+    }
+  }, []);
+
+  return { search, isSearching, error };
 }
 
 function mapGoogleCategory(types: string[]): string {
@@ -463,9 +482,13 @@ function mapGoogleCategory(types: string[]): string {
     'cafe': 'cafe',
     'tourist_attraction': 'tourist_attraction',
     'shopping_mall': 'shopping',
+    'store': 'shopping',
     'museum': 'culture',
+    'art_gallery': 'culture',
     'park': 'nature',
-    'lodging': 'accommodation'
+    'natural_feature': 'nature',
+    'lodging': 'accommodation',
+    'hotel': 'accommodation'
   };
 
   for (const type of types) {
@@ -476,6 +499,13 @@ function mapGoogleCategory(types: string[]): string {
   return 'etc';
 }
 ```
+
+**주요 변경사항 (2025년 3월 마이그레이션)**:
+- `PlacesService.textSearch()` → `Place.searchByText()` (deprecated API 대체)
+- Callback 방식 → Promise/async-await 방식
+- 필드 매핑: `name` → `displayName`, `formatted_address` → `formattedAddress`
+- 필수 필드 명시로 API 비용 최적화
+- 에러 처리 개선 (try-catch)
 
 ### 10.3 마커 관리
 

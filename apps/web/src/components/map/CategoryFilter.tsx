@@ -12,7 +12,7 @@ const CATEGORIES = [
   { value: 'all', label: '전체' },
   { value: 'restaurant', label: '맛집' },
   { value: 'cafe', label: '카페' },
-  { value: 'tourist_attraction', label: '관광' },
+  { value: 'attraction', label: '관광' },
   { value: 'shopping', label: '쇼핑' },
   { value: 'culture', label: '문화' },
   { value: 'nature', label: '자연' },
