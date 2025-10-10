@@ -14,27 +14,42 @@ export class PlacesService {
     userId: string,
     query: PlaceQueryDto,
   ): Promise<PlacesResponseDto> {
-    const places = await this.prisma.place.findMany({
+    const userPlaces = await this.prisma.userPlace.findMany({
       where: { userId },
       take: query.limit,
       orderBy: { [query.sort as string]: 'desc' },
       select: {
         id: true,
-        name: true,
-        category: true,
-        address: true,
         visited: true,
         createdAt: true,
+        place: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            address: true,
+            phone: true,
+            latitude: true,
+            longitude: true,
+            externalUrl: true,
+            externalId: true,
+          },
+        },
       },
     });
 
-    const placeResponses: PlaceResponseDto[] = places.map((place) => ({
-      id: place.id,
-      name: place.name,
-      category: place.category,
-      address: place.address,
-      visited: place.visited,
-      createdAt: place.createdAt,
+    const placeResponses: PlaceResponseDto[] = userPlaces.map((userPlace) => ({
+      id: userPlace.id,
+      name: userPlace.place.name,
+      category: userPlace.place.category,
+      address: userPlace.place.address,
+      phone: userPlace.place.phone ?? undefined,
+      latitude: Number(userPlace.place.latitude),
+      longitude: Number(userPlace.place.longitude),
+      visited: userPlace.visited,
+      externalUrl: userPlace.place.externalUrl ?? undefined,
+      externalId: userPlace.place.externalId ?? undefined,
+      createdAt: userPlace.createdAt,
     }));
 
     return { places: placeResponses };
@@ -42,36 +57,39 @@ export class PlacesService {
 
   async findOne(
     userId: string,
-    placeId: string,
+    userPlaceId: string,
   ): Promise<PlaceDetailResponseDto> {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
+      include: {
+        place: true,
+      },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
     return {
-      id: place.id,
-      name: place.name,
-      address: place.address,
-      phone: place.phone,
-      latitude: Number(place.latitude),
-      longitude: Number(place.longitude),
-      category: place.category,
-      customCategory: place.customCategory,
-      labels: place.labels,
-      visited: place.visited,
-      visitedAt: place.visitedAt,
-      visitNote: place.visitNote,
-      rating: place.rating,
-      estimatedCost: place.estimatedCost,
-      photos: place.photos,
-      externalUrl: place.externalUrl,
-      externalId: place.externalId,
-      createdAt: place.createdAt,
-      updatedAt: place.updatedAt,
+      id: userPlace.id,
+      name: userPlace.place.name,
+      address: userPlace.place.address,
+      phone: userPlace.place.phone,
+      latitude: Number(userPlace.place.latitude),
+      longitude: Number(userPlace.place.longitude),
+      category: userPlace.place.category,
+      customCategory: userPlace.customCategory,
+      labels: userPlace.labels,
+      visited: userPlace.visited,
+      visitedAt: userPlace.visitedAt,
+      visitNote: userPlace.visitNote,
+      rating: userPlace.rating,
+      estimatedCost: userPlace.estimatedCost,
+      photos: userPlace.photos,
+      externalUrl: userPlace.place.externalUrl,
+      externalId: userPlace.place.externalId,
+      createdAt: userPlace.createdAt,
+      updatedAt: userPlace.updatedAt,
     };
   }
 
@@ -79,65 +97,134 @@ export class PlacesService {
     userId: string,
     createPlaceDto: CreatePlaceDto,
   ): Promise<PlaceDetailResponseDto> {
-    const place = await this.prisma.place.create({
-      data: {
-        userId,
-        name: createPlaceDto.name,
-        address: createPlaceDto.address,
-        phone: createPlaceDto.phone,
-        latitude: createPlaceDto.latitude,
-        longitude: createPlaceDto.longitude,
-        category: createPlaceDto.category,
-        customCategory: createPlaceDto.customCategory,
-        labels: createPlaceDto.labels || [],
-        visited: createPlaceDto.visited || false,
-        externalUrl: createPlaceDto.externalUrl,
-        externalId: createPlaceDto.externalId,
-        photos: [],
-      },
-    });
+    try {
+      // 1. Check if place already exists (by externalId if provided)
+      let place;
+      if (createPlaceDto.externalId) {
+        place = await this.prisma.place.findUnique({
+          where: { externalId: createPlaceDto.externalId },
+        });
+      }
 
-    return this.findOne(userId, place.id);
+      // 2. Create place if it doesn't exist
+      if (!place) {
+        place = await this.prisma.place.create({
+          data: {
+            name: createPlaceDto.name,
+            address: createPlaceDto.address,
+            phone: createPlaceDto.phone,
+            latitude: createPlaceDto.latitude,
+            longitude: createPlaceDto.longitude,
+            category: createPlaceDto.category,
+            externalUrl: createPlaceDto.externalUrl,
+            externalId: createPlaceDto.externalId,
+          },
+        });
+      }
+
+      // 3. Create UserPlace
+      const userPlace = await this.prisma.userPlace.create({
+        data: {
+          userId,
+          placeId: place.id,
+          customCategory: createPlaceDto.customCategory,
+          labels: createPlaceDto.labels || [],
+          visited: createPlaceDto.visited || false,
+          photos: [],
+        },
+      });
+
+      return this.findOne(userId, userPlace.id);
+    } catch (error) {
+      // Prisma error handling
+      const prismaError = error as any;
+
+      if (prismaError.code === 'P2002') {
+        throw new Error(
+          'You have already added this place to your collection.',
+        );
+      }
+
+      if (prismaError.code === 'P2003') {
+        throw new Error('Invalid reference. Foreign key constraint failed.');
+      }
+
+      if (prismaError.code === 'P2000') {
+        throw new Error(
+          'Value too long for column. Please check your data length.',
+        );
+      }
+
+      // Decimal conversion error
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('Invalid') && errorMessage.includes('Decimal')) {
+        throw new Error(
+          'Invalid latitude or longitude value. Please provide valid coordinates.',
+        );
+      }
+
+      // Other errors
+      console.error('Place creation error:', error);
+      throw error;
+    }
   }
 
   async update(
     userId: string,
-    placeId: string,
+    userPlaceId: string,
     updatePlaceDto: UpdatePlaceDto,
   ): Promise<PlaceDetailResponseDto> {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
-    await this.prisma.place.update({
-      where: { id: placeId },
-      data: updatePlaceDto,
+    // UserPlace에 속하는 필드만 추출
+    // Place 필드(name, address, phone, latitude, longitude, category)는 제외
+    const {
+      category,
+      name,
+      address,
+      phone,
+      latitude,
+      longitude,
+      ...userPlaceFields
+    } = updatePlaceDto;
+
+    // category를 customCategory로 매핑
+    const updateData = {
+      ...userPlaceFields,
+      ...(category !== undefined && { customCategory: category }),
+    };
+
+    await this.prisma.userPlace.update({
+      where: { id: userPlaceId },
+      data: updateData,
     });
 
-    return this.findOne(userId, placeId);
+    return this.findOne(userId, userPlaceId);
   }
 
-  async delete(userId: string, placeId: string): Promise<void> {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+  async delete(userId: string, userPlaceId: string): Promise<void> {
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
-    await this.prisma.place.delete({
-      where: { id: placeId },
+    await this.prisma.userPlace.delete({
+      where: { id: userPlaceId },
     });
   }
 
-  async findLists(userId: string, placeId: string) {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+  async findLists(userId: string, userPlaceId: string) {
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
       include: {
         placeLists: {
           include: {
@@ -147,12 +234,12 @@ export class PlacesService {
       },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
     return {
-      lists: place.placeLists.map((pl) => ({
+      lists: userPlace.placeLists.map((pl) => ({
         id: pl.list.id,
         name: pl.list.name,
         iconType: pl.list.iconType,
@@ -163,14 +250,14 @@ export class PlacesService {
 
   async addToList(
     userId: string,
-    placeId: string,
+    userPlaceId: string,
     listId: string,
   ): Promise<void> {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
@@ -190,7 +277,7 @@ export class PlacesService {
 
     await this.prisma.placeList.create({
       data: {
-        placeId,
+        userPlaceId,
         listId,
         order: (maxOrder?.order || -1) + 1,
       },
@@ -199,19 +286,19 @@ export class PlacesService {
 
   async removeFromList(
     userId: string,
-    placeId: string,
+    userPlaceId: string,
     listId: string,
   ): Promise<void> {
-    const place = await this.prisma.place.findFirst({
-      where: { id: placeId, userId },
+    const userPlace = await this.prisma.userPlace.findFirst({
+      where: { id: userPlaceId, userId },
     });
 
-    if (!place) {
+    if (!userPlace) {
       throw new NotFoundException('Place not found');
     }
 
     await this.prisma.placeList.deleteMany({
-      where: { placeId, listId },
+      where: { userPlaceId, listId },
     });
   }
 }

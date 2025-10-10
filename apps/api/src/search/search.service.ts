@@ -23,26 +23,42 @@ export class SearchService {
       const whereClause: any = {
         userId,
         OR: [
-          { name: { contains: keyword, mode: 'insensitive' } },
-          { address: { contains: keyword, mode: 'insensitive' } },
+          { place: { name: { contains: keyword, mode: 'insensitive' } } },
+          { place: { address: { contains: keyword, mode: 'insensitive' } } },
           { customCategory: { contains: keyword, mode: 'insensitive' } },
           { labels: { has: keyword } },
         ],
       };
 
       if (category) {
-        whereClause.category = category;
+        whereClause.place = { category };
       }
 
       if (visited !== undefined) {
         whereClause.visited = visited;
       }
 
-      results.places = await this.prisma.place.findMany({
+      const userPlaces = await this.prisma.userPlace.findMany({
         where: whereClause,
         take: 20,
+        include: {
+          place: true,
+        },
         orderBy: { createdAt: 'desc' },
       });
+
+      results.places = userPlaces.map((up) => ({
+        id: up.id,
+        name: up.place.name,
+        address: up.place.address,
+        category: up.place.category,
+        customCategory: up.customCategory,
+        labels: up.labels,
+        visited: up.visited,
+        latitude: Number(up.place.latitude),
+        longitude: Number(up.place.longitude),
+        createdAt: up.createdAt,
+      }));
 
       results.total.places = results.places.length;
     }
@@ -61,7 +77,7 @@ export class SearchService {
         include: {
           placeLists: {
             include: {
-              place: {
+              userPlace: {
                 select: {
                   visited: true,
                 },
@@ -81,7 +97,7 @@ export class SearchService {
         iconValue: list.iconValue,
         colorTheme: list.colorTheme,
         placesCount: list.placeLists.length,
-        visitedCount: list.placeLists.filter((pl: any) => pl.place.visited)
+        visitedCount: list.placeLists.filter((pl: any) => pl.userPlace.visited)
           .length,
         createdAt: list.createdAt,
         updatedAt: list.updatedAt,

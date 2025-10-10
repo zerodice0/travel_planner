@@ -38,7 +38,7 @@ export class ListsService {
       include: {
         placeLists: {
           include: {
-            place: {
+            userPlace: {
               select: {
                 visited: true,
               },
@@ -56,7 +56,7 @@ export class ListsService {
       iconValue: list.iconValue,
       colorTheme: list.colorTheme,
       placesCount: list.placeLists.length,
-      visitedCount: list.placeLists.filter((pl) => pl.place.visited).length,
+      visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited).length,
       createdAt: list.createdAt,
       updatedAt: list.updatedAt,
     }));
@@ -73,7 +73,7 @@ export class ListsService {
       include: {
         placeLists: {
           include: {
-            place: {
+            userPlace: {
               select: {
                 visited: true,
               },
@@ -95,7 +95,7 @@ export class ListsService {
       iconValue: list.iconValue,
       colorTheme: list.colorTheme ?? undefined,
       placesCount: list.placeLists.length,
-      visitedCount: list.placeLists.filter((pl) => pl.place.visited).length,
+      visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited).length,
       createdAt: list.createdAt,
       updatedAt: list.updatedAt,
     };
@@ -185,7 +185,11 @@ export class ListsService {
       include: {
         placeLists: {
           include: {
-            place: true,
+            userPlace: {
+              include: {
+                place: true,
+              },
+            },
           },
           orderBy: {
             [sort]: sort === 'order' ? 'asc' : 'desc',
@@ -200,13 +204,13 @@ export class ListsService {
 
     return {
       places: list.placeLists.map((pl) => ({
-        id: pl.place.id,
-        name: pl.place.name,
-        address: pl.place.address,
-        category: pl.place.category,
-        visited: pl.place.visited,
-        latitude: Number(pl.place.latitude),
-        longitude: Number(pl.place.longitude),
+        id: pl.userPlace.id,
+        name: pl.userPlace.place.name,
+        address: pl.userPlace.place.address,
+        category: pl.userPlace.place.category,
+        visited: pl.userPlace.visited,
+        latitude: Number(pl.userPlace.place.latitude),
+        longitude: Number(pl.userPlace.place.longitude),
         order: pl.order,
       })),
     };
@@ -233,9 +237,21 @@ export class ListsService {
 
     const startOrder = (maxOrder?.order || -1) + 1;
 
+    // Verify that all userPlaceIds belong to the user
+    const userPlaces = await this.prisma.userPlace.findMany({
+      where: {
+        id: { in: addPlacesDto.placeIds },
+        userId,
+      },
+    });
+
+    if (userPlaces.length !== addPlacesDto.placeIds.length) {
+      throw new NotFoundException('One or more places not found');
+    }
+
     await this.prisma.placeList.createMany({
-      data: addPlacesDto.placeIds.map((placeId, index) => ({
-        placeId,
+      data: addPlacesDto.placeIds.map((userPlaceId, index) => ({
+        userPlaceId,
         listId,
         order: startOrder + index,
       })),
@@ -248,7 +264,7 @@ export class ListsService {
   async removePlace(
     userId: string,
     listId: string,
-    placeId: string,
+    userPlaceId: string,
   ): Promise<void> {
     const list = await this.prisma.list.findFirst({
       where: { id: listId, userId },
@@ -259,7 +275,7 @@ export class ListsService {
     }
 
     await this.prisma.placeList.deleteMany({
-      where: { listId, placeId },
+      where: { listId, userPlaceId },
     });
   }
 
@@ -280,7 +296,7 @@ export class ListsService {
       await this.prisma.placeList.updateMany({
         where: {
           listId,
-          placeId: item.placeId,
+          userPlaceId: item.placeId,
         },
         data: {
           order: item.order,
@@ -301,7 +317,11 @@ export class ListsService {
       include: {
         placeLists: {
           include: {
-            place: true,
+            userPlace: {
+              include: {
+                place: true,
+              },
+            },
           },
         },
       },
@@ -312,12 +332,12 @@ export class ListsService {
     }
 
     let places = list.placeLists
-      .filter((pl) => optimizeDto.includeVisited || !pl.place.visited)
+      .filter((pl) => optimizeDto.includeVisited || !pl.userPlace.visited)
       .map((pl) => ({
-        id: pl.place.id,
-        name: pl.place.name,
-        latitude: Number(pl.place.latitude),
-        longitude: Number(pl.place.longitude),
+        id: pl.userPlace.id,
+        name: pl.userPlace.place.name,
+        latitude: Number(pl.userPlace.place.latitude),
+        longitude: Number(pl.userPlace.place.longitude),
       }));
 
     const optimizedRoute = this.calculateOptimalRoute(

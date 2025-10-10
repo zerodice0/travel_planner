@@ -17,7 +17,7 @@ export class CategoriesService {
     // Get places count for each custom category
     const customCategoriesWithCount = await Promise.all(
       customCategories.map(async (category) => {
-        const placesCount = await this.prisma.place.count({
+        const placesCount = await this.prisma.userPlace.count({
           where: {
             userId,
             customCategory: category.name,
@@ -52,10 +52,12 @@ export class CategoriesService {
     // Get places count for each default category
     const defaultCategoriesWithCount = await Promise.all(
       defaultCategories.map(async (category) => {
-        const placesCount = await this.prisma.place.count({
+        const placesCount = await this.prisma.userPlace.count({
           where: {
             userId,
-            category: category.value,
+            place: {
+              category: category.value,
+            },
           },
         });
 
@@ -115,7 +117,7 @@ export class CategoriesService {
       data: updateCategoryDto,
     });
 
-    const placesCount = await this.prisma.place.count({
+    const placesCount = await this.prisma.userPlace.count({
       where: {
         userId,
         customCategory: updated.name,
@@ -148,14 +150,13 @@ export class CategoriesService {
       throw new BadRequestException('Cannot delete default category');
     }
 
-    // Move all places with this custom category to 'etc'
-    await this.prisma.place.updateMany({
+    // Move all user places with this custom category to 'etc'
+    await this.prisma.userPlace.updateMany({
       where: {
         userId,
         customCategory: category.name,
       },
       data: {
-        category: 'etc',
         customCategory: null,
       },
     });

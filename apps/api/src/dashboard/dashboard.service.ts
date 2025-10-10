@@ -8,8 +8,8 @@ export class DashboardService {
 
   async getStats(userId: string): Promise<DashboardStatsDto> {
     const [totalPlaces, visitedPlaces, totalLists] = await Promise.all([
-      this.prisma.place.count({ where: { userId } }),
-      this.prisma.place.count({ where: { userId, visited: true } }),
+      this.prisma.userPlace.count({ where: { userId } }),
+      this.prisma.userPlace.count({ where: { userId, visited: true } }),
       this.prisma.list.count({ where: { userId } }),
     ]);
 

@@ -20,7 +20,7 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   lastLoginAt   DateTime? @map("last_login_at")
 
-  places              Place[]
+  userPlaces          UserPlace[]
   lists               List[]
   categories          Category[]
   emailVerifications  EmailVerification[]
@@ -32,34 +32,49 @@ model User {
 }
 
 model Place {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  address     String   @db.Text
+  phone       String?  @db.VarChar(50)
+  latitude    Decimal  @db.Decimal(10, 8)
+  longitude   Decimal  @db.Decimal(11, 8)
+  category    String   @db.VarChar(50)
+  externalUrl String?  @map("external_url") @db.Text
+  externalId  String?  @unique @map("external_id") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userPlaces UserPlace[]
+
+  @@index([category])
+  @@index([externalId])
+  @@map("places")
+}
+
+model UserPlace {
   id             String    @id @default(uuid()) @db.Uuid
   userId         String    @map("user_id") @db.Uuid
-  name           String    @db.VarChar(255)
-  address        String    @db.Text
-  phone          String?   @db.VarChar(50)
-  latitude       Decimal   @db.Decimal(10, 8)
-  longitude      Decimal   @db.Decimal(11, 8)
-  category       String    @db.VarChar(50)
+  placeId        String    @map("place_id") @db.Uuid
   customCategory String?   @map("custom_category") @db.VarChar(50)
   labels         String[]
   visited        Boolean   @default(false)
   visitedAt      DateTime? @map("visited_at")
   visitNote      String?   @map("visit_note") @db.Text
-  rating         Int?
+  rating         Int?      @db.SmallInt
   estimatedCost  Int?      @map("estimated_cost")
   photos         String[]
-  externalUrl    String?   @map("external_url") @db.Text
-  externalId     String?   @map("external_id") @db.VarChar(255)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place      Place       @relation(fields: [placeId], references: [id], onDelete: Cascade)
   placeLists PlaceList[]
 
+  @@unique([userId, placeId])
   @@index([userId])
-  @@index([category])
+  @@index([placeId])
   @@index([visited])
-  @@map("places")
+  @@map("user_places")
 }
 
 model List {
@@ -83,17 +98,17 @@ model List {
 }
 
 model PlaceList {
-  id      String   @id @default(uuid()) @db.Uuid
-  placeId String   @map("place_id") @db.Uuid
-  listId  String   @map("list_id") @db.Uuid
-  order   Int      @default(0)
-  addedAt DateTime @default(now()) @map("added_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  userPlaceId String   @map("user_place_id") @db.Uuid
+  listId      String   @map("list_id") @db.Uuid
+  order       Int      @default(0)
+  addedAt     DateTime @default(now()) @map("added_at")
 
-  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  list  List  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userPlace UserPlace @relation(fields: [userPlaceId], references: [id], onDelete: Cascade)
+  list      List      @relation(fields: [listId], references: [id], onDelete: Cascade)
 
-  @@unique([placeId, listId])
-  @@index([placeId])
+  @@unique([userPlaceId, listId])
+  @@index([userPlaceId])
   @@index([listId])
   @@map("place_lists")
 }
