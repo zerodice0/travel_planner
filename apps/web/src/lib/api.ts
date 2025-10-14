@@ -18,6 +18,13 @@ import type {
 } from '#types/place';
 import type { SearchResults, SearchFilters } from '#types/search';
 import type { CategoriesResponse, Category, CreateCategoryData, UpdateCategoryData } from '#types/category';
+import type { Review, ReviewsResponse, CreateReviewData, UpdateReviewData } from '#types/review';
+import type {
+  PublicPlaceDetail,
+  PublicPlacesResponse,
+  PublicPlaceQuery,
+  ViewportQuery,
+} from '#types/publicPlace';
 
 const api = ky.create({
   prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -29,6 +36,33 @@ const api = ky.create({
         const token = localStorage.getItem('accessToken');
         if (token) {
           request.headers.set('Authorization', `Bearer ${token}`);
+        }
+      },
+    ],
+  },
+});
+
+// Public API (no authentication required) with enhanced rate limit handling
+const publicApi = ky.create({
+  prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+  timeout: 10000,
+  retry: {
+    limit: 2,
+    methods: ['get', 'post', 'put', 'patch', 'delete'],
+    statusCodes: [408, 413, 429, 500, 502, 503, 504],
+    // Custom backoff function for rate limiting
+    backoffLimit: 5000, // Max 5 seconds
+  },
+  hooks: {
+    beforeRetry: [
+      async ({ error, retryCount }) => {
+        // For 429 (Too Many Requests), use exponential backoff
+        const response = error as any;
+        if (response?.response?.status === 429) {
+          // Exponential backoff: 1s, 2s, 4s...
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          console.log(`Rate limited, retrying after ${delay}ms (attempt ${retryCount + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       },
     ],
@@ -180,6 +214,33 @@ export const categoriesApi = {
   },
 };
 
+// Reviews API
+export const reviewsApi = {
+  create: async (userPlaceId: string, data: CreateReviewData): Promise<Review> => {
+    return api.post(`reviews/user-places/${userPlaceId}`, { json: data }).json<Review>();
+  },
+
+  getMyReviews: async (): Promise<ReviewsResponse> => {
+    return api.get('reviews/my-reviews').json<ReviewsResponse>();
+  },
+
+  getByPlace: async (placeId: string): Promise<ReviewsResponse> => {
+    return api.get(`places/${placeId}/reviews`).json<ReviewsResponse>();
+  },
+
+  update: async (reviewId: string, data: UpdateReviewData): Promise<Review> => {
+    return api.patch(`reviews/${reviewId}`, { json: data }).json<Review>();
+  },
+
+  delete: async (reviewId: string): Promise<void> => {
+    await api.delete(`reviews/${reviewId}`);
+  },
+
+  toggleVisibility: async (reviewId: string): Promise<Review> => {
+    return api.patch(`reviews/${reviewId}/visibility`).json<Review>();
+  },
+};
+
 // Users API
 export interface User {
   id: string;
@@ -220,5 +281,34 @@ export const uploadApi = {
     formData.append('image', file);
 
     return api.post('upload/profile-image', { body: formData }).json();
+  },
+};
+
+// Public Places API (no authentication required)
+export const publicPlacesApi = {
+  getAll: async (params?: PublicPlaceQuery): Promise<PublicPlacesResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.append('category', params.category);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    if (params?.sort) searchParams.append('sort', params.sort);
+
+    return publicApi.get('public/places', { searchParams }).json<PublicPlacesResponse>();
+  },
+
+  getByViewport: async (params: ViewportQuery): Promise<PublicPlacesResponse> => {
+    const searchParams = new URLSearchParams({
+      neLat: params.neLat.toString(),
+      neLng: params.neLng.toString(),
+      swLat: params.swLat.toString(),
+      swLng: params.swLng.toString(),
+    });
+    if (params.category) searchParams.append('category', params.category);
+
+    return publicApi.get('public/places/viewport', { searchParams }).json<PublicPlacesResponse>();
+  },
+
+  getOne: async (placeId: string): Promise<PublicPlaceDetail> => {
+    return publicApi.get(`public/places/${placeId}`).json<PublicPlaceDetail>();
   },
 };

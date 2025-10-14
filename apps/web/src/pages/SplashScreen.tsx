@@ -21,10 +21,10 @@ export default function SplashScreen() {
 
       if (user) {
         // Logged in user → Dashboard
-        navigate('/', { replace: true });
+        navigate('/dashboard', { replace: true });
       } else if (onboardingCompleted === 'true') {
-        // Not logged in but onboarding completed → Login
-        navigate('/login', { replace: true });
+        // Not logged in but onboarding completed → Explore page (public access)
+        navigate('/explore', { replace: true });
       } else {
         // First visit → Onboarding
         navigate('/onboarding', { replace: true });

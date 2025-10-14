@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.8",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -15,7 +15,7 @@ const categoryConfigs: Record<string, CategoryIconConfig> = {
     color: '#F59E0B',
     visitedColor: '#10B981',
   },
-  tourist_attraction: {
+  attraction: {
     icon: '🎭',
     color: '#8B5CF6',
     visitedColor: '#10B981',

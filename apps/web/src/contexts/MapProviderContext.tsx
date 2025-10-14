@@ -13,12 +13,14 @@ const MapProviderContext = createContext<MapProviderContextType | null>(null);
 export function MapProviderProvider({ children }: { children: ReactNode }) {
   const [mapProvider, setMapProviderState] = useState<MapProvider>(() => {
     const stored = localStorage.getItem('mapProvider');
-    return (stored === 'kakao' || stored === 'google') ? stored : 'kakao';
+    // 기본값: google (전 세계 지원, 공개 페이지 호환성)
+    return (stored === 'kakao' || stored === 'google') ? stored : 'google';
   });
 
   const [searchProvider, setSearchProviderState] = useState<MapProvider>(() => {
     const stored = localStorage.getItem('searchProvider');
-    return (stored === 'kakao' || stored === 'google') ? stored : 'kakao';
+    // 기본값: google (전 세계 지원, 공개 페이지 호환성)
+    return (stored === 'kakao' || stored === 'google') ? stored : 'google';
   });
 
   const setMapProvider = (provider: MapProvider) => {

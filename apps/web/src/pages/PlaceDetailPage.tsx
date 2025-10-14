@@ -14,9 +14,12 @@ import {
 import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
-import { placesApi, listsApi } from '#lib/api';
+import { placesApi, listsApi, reviewsApi } from '#lib/api';
 import type { PlaceDetail, PlaceListSummary } from '#types/place';
 import type { List } from '#types/list';
+import type { Review, CreateReviewData, UpdateReviewData } from '#types/review';
+import { ReviewList } from '#components/reviews/ReviewList';
+import { ReviewForm } from '#components/reviews/ReviewForm';
 
 const CATEGORIES = [
   { value: 'restaurant', label: '음식점', emoji: '🍔' },
@@ -45,6 +48,17 @@ export default function PlaceDetailPage() {
   const [newLabel, setNewLabel] = useState('');
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [visitNote, setVisitNote] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [note, setNote] = useState('');
+  const [isEditingCustomName, setIsEditingCustomName] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+
+  // Review states
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReview, setEditingReview] = useState<Review | undefined>();
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -67,11 +81,30 @@ export default function PlaceDetailPage() {
       setIncludedLists(listsData.lists);
       setAllLists(allListsData.lists);
       setVisitNote(placeData.visitNote || '');
+      setCustomName(placeData.customName || '');
+      setNote(placeData.note || '');
+
+      // Fetch reviews
+      await fetchReviews();
     } catch (error) {
       console.error('Failed to fetch place:', error);
       toast.error('장소 정보를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    if (!id) return;
+
+    try {
+      setIsLoadingReviews(true);
+      const reviewsData = await reviewsApi.getByPlace(id);
+      setReviews(reviewsData.reviews);
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
+    } finally {
+      setIsLoadingReviews(false);
     }
   };
 
@@ -196,6 +229,77 @@ export default function PlaceDetailPage() {
     }
   };
 
+  const handleUpdateCustomName = async () => {
+    if (!place) return;
+
+    try {
+      await placesApi.update(place.id, { customName: customName || undefined });
+      setPlace({ ...place, customName: customName || undefined });
+      setIsEditingCustomName(false);
+      toast.success('별칭을 저장했습니다.');
+    } catch (error) {
+      console.error('Failed to update custom name:', error);
+      toast.error('별칭 저장에 실패했습니다.');
+    }
+  };
+
+  const handleUpdateNote = async () => {
+    if (!place) return;
+
+    try {
+      await placesApi.update(place.id, { note: note || undefined });
+      setPlace({ ...place, note: note || undefined });
+      setIsEditingNote(false);
+      toast.success('메모를 저장했습니다.');
+    } catch (error) {
+      console.error('Failed to update note:', error);
+      toast.error('메모 저장에 실패했습니다.');
+    }
+  };
+
+  const handleCreateReview = async (data: CreateReviewData) => {
+    if (!place) return;
+
+    setIsSubmittingReview(true);
+    try {
+      await reviewsApi.create(place.id, data);
+      toast.success('리뷰를 작성했습니다.');
+      setShowReviewForm(false);
+      await fetchReviews();
+    } catch (error) {
+      console.error('Failed to create review:', error);
+      toast.error('리뷰 작성에 실패했습니다.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const handleUpdateReview = async (data: UpdateReviewData) => {
+    if (!editingReview) return;
+
+    setIsSubmittingReview(true);
+    try {
+      await reviewsApi.update(editingReview.id, data);
+      toast.success('리뷰를 수정했습니다.');
+      setEditingReview(undefined);
+      setShowReviewForm(false);
+      await fetchReviews();
+    } catch (error) {
+      console.error('Failed to update review:', error);
+      toast.error('리뷰 수정에 실패했습니다.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const handleReviewSubmit = async (data: CreateReviewData | UpdateReviewData) => {
+    if (editingReview) {
+      await handleUpdateReview(data as UpdateReviewData);
+    } else {
+      await handleCreateReview(data as CreateReviewData);
+    }
+  };
+
   const handleDelete = async () => {
     if (!place) return;
 
@@ -294,6 +398,105 @@ export default function PlaceDetailPage() {
       </header>
 
       <div className="max-w-2xl mx-auto p-4 space-y-6">
+        {/* 별칭 섹션 */}
+        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-foreground">별칭</h3>
+            {!isEditingCustomName && (
+              <button
+                onClick={() => setIsEditingCustomName(true)}
+                className="text-sm text-primary-600 hover:text-primary-700"
+              >
+                {customName ? '수정' : '추가'}
+              </button>
+            )}
+          </div>
+          {isEditingCustomName ? (
+            <div className="space-y-2">
+              <Input
+                type="text"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="예: 우리 단골 카페, 작업하기 좋은 곳"
+                maxLength={100}
+                className="w-full"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUpdateCustomName}
+                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={() => {
+                    setCustomName(place?.customName || '');
+                    setIsEditingCustomName(false);
+                  }}
+                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-foreground">
+              {customName || <span className="text-muted-foreground">별칭을 추가해보세요</span>}
+            </p>
+          )}
+        </section>
+
+        {/* 메모 섹션 */}
+        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-foreground">메모</h3>
+            {!isEditingNote && (
+              <button
+                onClick={() => setIsEditingNote(true)}
+                className="text-sm text-primary-600 hover:text-primary-700"
+              >
+                {note ? '수정' : '추가'}
+              </button>
+            )}
+          </div>
+          {isEditingNote ? (
+            <div className="space-y-2">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="이 장소에 대한 메모를 남겨보세요. (가고싶은 이유, 추천받은 내용 등)"
+                maxLength={2000}
+                rows={4}
+                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-foreground bg-background placeholder:text-muted-foreground"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{note.length}/2000</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleUpdateNote}
+                    className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                  >
+                    저장
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNote(place?.note || '');
+                      setIsEditingNote(false);
+                    }}
+                    className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-foreground whitespace-pre-wrap">
+              {note || <span className="text-muted-foreground">메모를 추가해보세요</span>}
+            </p>
+          )}
+        </section>
+
         {/* 기본 정보 섹션 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="space-y-4">
@@ -478,6 +681,53 @@ export default function PlaceDetailPage() {
             <Plus className="w-4 h-4" />
             목록에 추가
           </button>
+        </section>
+
+        {/* 리뷰 섹션 */}
+        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">
+              공개 리뷰 ({reviews.length})
+            </h3>
+            <button
+              onClick={() => {
+                setEditingReview(undefined);
+                setShowReviewForm(!showReviewForm);
+              }}
+              className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              리뷰 작성
+            </button>
+          </div>
+
+          {showReviewForm && (
+            <div className="mb-6 p-4 bg-background rounded-lg border border-border">
+              <h4 className="text-md font-semibold text-foreground mb-4">
+                {editingReview ? '리뷰 수정' : '새 리뷰 작성'}
+              </h4>
+              <ReviewForm
+                existingReview={editingReview}
+                onSubmit={handleReviewSubmit}
+                onCancel={() => {
+                  setShowReviewForm(false);
+                  setEditingReview(undefined);
+                }}
+                isSubmitting={isSubmittingReview}
+              />
+            </div>
+          )}
+
+          {isLoadingReviews ? (
+            <div className="text-center py-8 text-muted-foreground">
+              로딩 중...
+            </div>
+          ) : (
+            <ReviewList
+              reviews={reviews}
+              isMyReviews={false}
+            />
+          )}
         </section>
 
         {/* 위험 영역 섹션 */}

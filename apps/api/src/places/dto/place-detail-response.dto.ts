@@ -23,10 +23,16 @@ export class PlaceDetailResponseDto {
   category!: string;
 
   @ApiPropertyOptional()
+  customName?: string | null;
+
+  @ApiPropertyOptional()
   customCategory?: string | null;
 
   @ApiProperty({ type: [String] })
   labels!: string[];
+
+  @ApiPropertyOptional()
+  note?: string | null;
 
   @ApiProperty()
   visited!: boolean;

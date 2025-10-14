@@ -13,8 +13,10 @@ export interface Place {
 }
 
 export interface PlaceDetail extends Place {
+  customName?: string;
   customCategory?: string;
   labels: string[];
+  note?: string;
   visitedAt?: string;
   visitNote?: string;
   rating?: number;
@@ -34,8 +36,10 @@ export interface CreatePlaceData {
   latitude: number;
   longitude: number;
   category: string;
+  customName?: string;
   customCategory?: string;
   labels?: string[];
+  note?: string;
   visited?: boolean;
   externalUrl?: string;
   externalId?: string;
@@ -48,8 +52,10 @@ export interface UpdatePlaceData {
   latitude?: number;
   longitude?: number;
   category?: string;
+  customName?: string;
   customCategory?: string;
   labels?: string[];
+  note?: string;
   visited?: boolean;
   visitedAt?: string;
   visitNote?: string;

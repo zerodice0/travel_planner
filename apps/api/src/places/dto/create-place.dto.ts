@@ -38,6 +38,11 @@ export class CreatePlaceDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
+  customName?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(50)
   customCategory?: string;
 
@@ -45,6 +50,11 @@ export class CreatePlaceDto {
   @IsString({ each: true })
   @IsOptional()
   labels?: string[];
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  note?: string;
 
   @IsBoolean()
   @IsOptional()

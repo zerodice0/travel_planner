@@ -1,10 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlaceQueryDto } from './dto/place-query.dto';
+import { PlaceQueryDto, ViewportQueryDto } from './dto/place-query.dto';
 import { PlaceResponseDto, PlacesResponseDto } from './dto/place-response.dto';
 import { CreatePlaceDto } from './dto/create-place.dto';
 import { UpdatePlaceDto } from './dto/update-place.dto';
 import { PlaceDetailResponseDto } from './dto/place-detail-response.dto';
+import {
+  PublicPlaceResponseDto,
+  PublicPlaceDetailResponseDto,
+  PublicPlacesResponseDto,
+  LabelCount,
+} from './dto/public-place-response.dto';
 
 @Injectable()
 export class PlacesService {
@@ -78,8 +84,10 @@ export class PlacesService {
       latitude: Number(userPlace.place.latitude),
       longitude: Number(userPlace.place.longitude),
       category: userPlace.place.category,
+      customName: userPlace.customName,
       customCategory: userPlace.customCategory,
       labels: userPlace.labels,
+      note: userPlace.note,
       visited: userPlace.visited,
       visitedAt: userPlace.visitedAt,
       visitNote: userPlace.visitNote,
@@ -127,8 +135,10 @@ export class PlacesService {
         data: {
           userId,
           placeId: place.id,
+          customName: createPlaceDto.customName,
           customCategory: createPlaceDto.customCategory,
           labels: createPlaceDto.labels || [],
+          note: createPlaceDto.note,
           visited: createPlaceDto.visited || false,
           photos: [],
         },
@@ -300,5 +310,205 @@ export class PlacesService {
     await this.prisma.placeList.deleteMany({
       where: { userPlaceId, listId },
     });
+  }
+
+  // Public methods (no authentication required)
+
+  // Viewport-based place query
+  async findByViewport(query: ViewportQueryDto): Promise<PublicPlacesResponseDto> {
+    const { neLat, neLng, swLat, swLng, category } = query;
+
+    const where = {
+      latitude: { gte: swLat, lte: neLat },
+      longitude: { gte: swLng, lte: neLng },
+      ...(category && { category }),
+    };
+
+    const places = await this.prisma.place.findMany({
+      where,
+      take: 200, // viewport 내 최대 200개
+      include: {
+        userPlaces: {
+          select: {
+            labels: true,
+            photos: true,
+            reviews: {
+              where: { isPublic: true },
+              select: { id: true }, // 리뷰 수만 카운트
+            },
+          },
+        },
+      },
+    });
+
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+      // 리뷰 수 계산 (평점 제거)
+      const reviewCount = place.userPlaces.reduce(
+        (sum, up) => sum + up.reviews.length,
+        0
+      );
+
+      // 커스텀 라벨 집계 (빈도수 계산)
+      const labelCounts = new Map<string, number>();
+      place.userPlaces.forEach((up) => {
+        up.labels.forEach((label) => {
+          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+        });
+      });
+
+      // 상위 10개 라벨만 선택
+      const topLabels: LabelCount[] = Array.from(labelCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // 모든 사진 수집
+      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+
+      return {
+        id: place.id,
+        name: place.name,
+        category: place.category,
+        address: place.address,
+        phone: place.phone,
+        latitude: Number(place.latitude),
+        longitude: Number(place.longitude),
+        photos: allPhotos,
+        reviewCount,
+        topLabels,
+        createdAt: place.createdAt,
+      };
+    });
+
+    return { places: placeResponses, total: placeResponses.length };
+  }
+
+  async findAllPublic(query: PlaceQueryDto): Promise<PublicPlacesResponseDto> {
+    const where = query.category ? { category: query.category } : {};
+
+    const [places, total] = await Promise.all([
+      this.prisma.place.findMany({
+        where,
+        take: query.limit,
+        skip: query.offset,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          userPlaces: {
+            select: {
+              labels: true,
+              photos: true,
+              reviews: {
+                where: { isPublic: true },
+                select: { id: true }, // 리뷰 수만 카운트
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.place.count({ where }),
+    ]);
+
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+      // 리뷰 수 계산 (평점 제거)
+      const reviewCount = place.userPlaces.reduce(
+        (sum, up) => sum + up.reviews.length,
+        0
+      );
+
+      // 커스텀 라벨 집계 (빈도수 계산)
+      const labelCounts = new Map<string, number>();
+      place.userPlaces.forEach((up) => {
+        up.labels.forEach((label) => {
+          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+        });
+      });
+
+      // 상위 10개 라벨만 선택
+      const topLabels: LabelCount[] = Array.from(labelCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // 모든 사진 수집
+      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+
+      return {
+        id: place.id,
+        name: place.name,
+        category: place.category,
+        address: place.address,
+        phone: place.phone,
+        latitude: Number(place.latitude),
+        longitude: Number(place.longitude),
+        photos: allPhotos,
+        reviewCount,
+        topLabels,
+        createdAt: place.createdAt,
+      };
+    });
+
+    return { places: placeResponses, total };
+  }
+
+  async findOnePublic(placeId: string): Promise<PublicPlaceDetailResponseDto> {
+    const place = await this.prisma.place.findUnique({
+      where: { id: placeId },
+      include: {
+        userPlaces: {
+          select: {
+            labels: true,
+            photos: true,
+            reviews: {
+              where: { isPublic: true },
+              select: { id: true }, // 리뷰 수만 카운트
+            },
+          },
+        },
+      },
+    });
+
+    if (!place) {
+      throw new NotFoundException('Place not found');
+    }
+
+    // 리뷰 수 계산 (평점 제거)
+    const reviewCount = place.userPlaces.reduce(
+      (sum, up) => sum + up.reviews.length,
+      0
+    );
+
+    // 커스텀 라벨 집계 (빈도수 계산)
+    const labelCounts = new Map<string, number>();
+    place.userPlaces.forEach((up) => {
+      up.labels.forEach((label) => {
+        labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+      });
+    });
+
+    // 상위 10개 라벨만 선택
+    const topLabels: LabelCount[] = Array.from(labelCounts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // 모든 사진 수집
+    const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+
+    return {
+      id: place.id,
+      name: place.name,
+      category: place.category,
+      address: place.address,
+      phone: place.phone,
+      latitude: Number(place.latitude),
+      longitude: Number(place.longitude),
+      photos: allPhotos,
+      reviewCount,
+      topLabels,
+      externalUrl: place.externalUrl,
+      externalId: place.externalId,
+      createdAt: place.createdAt,
+      updatedAt: place.updatedAt,
+    };
   }
 }
