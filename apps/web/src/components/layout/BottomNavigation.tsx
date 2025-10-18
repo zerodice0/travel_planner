@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Map, ClipboardList, Settings, LucideIcon } from 'lucide-react';
+import { Map, ClipboardList, Settings, LucideIcon } from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -8,7 +8,6 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/', label: '홈', icon: Home },
   { path: '/map', label: '지도', icon: Map },
   { path: '/lists', label: '목록', icon: ClipboardList },
   { path: '/settings', label: '설정', icon: Settings },

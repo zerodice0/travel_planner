@@ -28,6 +28,7 @@ out/
 # IDEs
 .vscode/
 .idea/
+.serena/
 *.swp
 *.swo
 *~

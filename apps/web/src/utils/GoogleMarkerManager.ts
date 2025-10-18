@@ -3,6 +3,7 @@ import type { BaseMarkerManager } from '#types/map';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import { createMarkerDataURL } from './categoryIcons';
 import { getCategoryLabel } from './categoryConfig';
+import { GOOGLE_ZOOM, convertKakaoLevelToGoogleZoom } from '#constants/map';
 
 export class GoogleMarkerManager implements BaseMarkerManager {
   private markers: Map<string, google.maps.marker.AdvancedMarkerElement> = new Map();
@@ -123,8 +124,15 @@ export class GoogleMarkerManager implements BaseMarkerManager {
     if (!this.map) return;
     // Google Maps uses zoom instead of level
     // Convert Kakao level to Google zoom (inverse relationship)
-    const zoom = 21 - level;
-    this.map.setZoom(Math.max(1, Math.min(21, zoom)));
+    const zoom = convertKakaoLevelToGoogleZoom(level);
+    this.map.setZoom(zoom);
+  }
+
+  setZoom(zoom: number): void {
+    if (!this.map) return;
+    // Directly set Google Maps zoom level (1-21)
+    const clampedZoom = Math.max(GOOGLE_ZOOM.MIN, Math.min(GOOGLE_ZOOM.MAX, zoom));
+    this.map.setZoom(clampedZoom);
   }
 
 

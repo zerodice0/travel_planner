@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -9,6 +9,8 @@ import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -204,55 +206,83 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
+    this.logger.log(`이메일 인증 시도 - Token: ${token.substring(0, 8)}...`);
+
     // 인증 토큰 조회
     const verification = await this.prisma.emailVerification.findUnique({
       where: { token },
     });
 
     if (!verification) {
+      this.logger.warn(`유효하지 않은 인증 토큰 - Token: ${token.substring(0, 8)}...`);
       throw new BadRequestException('유효하지 않은 인증 링크입니다');
     }
 
+    // 이미 인증된 경우 - 멱등성 보장을 위해 성공 응답 반환
     if (verification.verifiedAt) {
-      throw new BadRequestException('이미 인증된 이메일입니다');
+      this.logger.log(`이미 인증된 이메일 요청 - UserId: ${verification.userId}`);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: verification.userId },
+      });
+
+      return {
+        message: '이메일 인증이 완료되었습니다',
+        user: {
+          id: user!.id,
+          email: user!.email,
+          emailVerified: user!.emailVerified,
+        },
+      };
     }
 
     if (verification.expiresAt < new Date()) {
+      this.logger.warn(`만료된 인증 토큰 - UserId: ${verification.userId}, ExpiresAt: ${verification.expiresAt}`);
       throw new BadRequestException('만료된 인증 링크입니다');
     }
 
     // 이메일 인증 처리
-    await this.prisma.$transaction([
-      this.prisma.emailVerification.update({
-        where: { id: verification.id },
-        data: { verifiedAt: new Date() },
-      }),
-      this.prisma.user.update({
-        where: { id: verification.userId },
-        data: { emailVerified: true },
-      }),
-    ]);
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: verification.userId },
-    });
-
-    // 웰컴 이메일 발송
     try {
-      await this.emailService.sendWelcomeEmail(user!.email, user!.nickname);
-    } catch (error) {
-      // 이메일 발송 실패 시 로그만 남기고 인증은 완료
-      console.error('Failed to send welcome email:', error);
-    }
+      await this.prisma.$transaction([
+        this.prisma.emailVerification.update({
+          where: { id: verification.id },
+          data: { verifiedAt: new Date() },
+        }),
+        this.prisma.user.update({
+          where: { id: verification.userId },
+          data: { emailVerified: true },
+        }),
+      ]);
 
-    return {
-      message: '이메일 인증이 완료되었습니다',
-      user: {
-        id: user!.id,
-        email: user!.email,
-        emailVerified: user!.emailVerified,
-      },
-    };
+      const user = await this.prisma.user.findUnique({
+        where: { id: verification.userId },
+      });
+
+      this.logger.log(`이메일 인증 성공 - UserId: ${user!.id}, Email: ${user!.email}`);
+
+      // 웰컴 이메일 발송
+      try {
+        await this.emailService.sendWelcomeEmail(user!.email, user!.nickname);
+      } catch (error) {
+        // 이메일 발송 실패 시 로그만 남기고 인증은 완료
+        this.logger.error(`웰컴 이메일 발송 실패 - UserId: ${user!.id}`, error instanceof Error ? error.stack : String(error));
+      }
+
+      return {
+        message: '이메일 인증이 완료되었습니다',
+        user: {
+          id: user!.id,
+          email: user!.email,
+          emailVerified: user!.emailVerified,
+        },
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`이메일 인증 처리 중 오류 - UserId: ${verification.userId}`, error instanceof Error ? error.stack : String(error));
+      throw new BadRequestException('인증 처리 중 오류가 발생했습니다');
+    }
   }
 
   async googleLogin(googleUser: { googleId: string; email: string; firstName: string; lastName: string; profileImage: string; }) {

@@ -20,8 +20,8 @@ export default function SplashScreen() {
       sessionStorage.setItem('travel-planner:splash-shown', 'true');
 
       if (user) {
-        // Logged in user → Dashboard
-        navigate('/dashboard', { replace: true });
+        // Logged in user → Home
+        navigate('/', { replace: true });
       } else if (onboardingCompleted === 'true') {
         // Not logged in but onboarding completed → Explore page (public access)
         navigate('/explore', { replace: true });

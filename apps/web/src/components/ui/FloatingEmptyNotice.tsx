@@ -11,6 +11,7 @@ interface FloatingEmptyNoticeProps {
   isLoadingNearest?: boolean;
   onAddFirstPlace?: () => void;
   onClose?: () => void;
+  isPlaceListVisible?: boolean;
 }
 
 export function FloatingEmptyNotice({
@@ -22,6 +23,7 @@ export function FloatingEmptyNotice({
   isLoadingNearest = false,
   onAddFirstPlace,
   onClose,
+  isPlaceListVisible = false,
 }: FloatingEmptyNoticeProps) {
   const getMessage = () => {
     switch (type) {
@@ -44,13 +46,15 @@ export function FloatingEmptyNotice({
   const showAddFirstPlaceButton = type === 'global' && isAuthenticated && onAddFirstPlace;
 
   return (
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 max-w-md px-4">
-      <div className="bg-white rounded-lg shadow-lg border border-border px-6 py-4 relative">
-        {/* Close Button */}
+    <div className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 max-w-md w-full px-4 transition-all duration-300 ${
+      isPlaceListVisible ? 'left-1/2 md:left-[calc(50%+160px)]' : 'left-1/2'
+    }`}>
+      <div className="bg-white rounded-lg shadow-lg border border-border p-4 relative">
+        {/* Close Button - Top Right */}
         {onClose && (
           <button
             onClick={onClose}
-            className="absolute top-2 right-2 p-1.5 hover:bg-muted rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="absolute top-3 right-3 p-1.5 hover:bg-muted rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             aria-label="닫기"
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -63,7 +67,8 @@ export function FloatingEmptyNotice({
           </button>
         )}
 
-        <div className="flex items-center gap-3">
+        {/* Body: Icon + Message + Actions (with padding-right for close button space) */}
+        <div className="flex items-start gap-3 pr-8">
           <div className="flex-shrink-0">
             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
               <MapPin className="w-5 h-5 text-muted-foreground" />

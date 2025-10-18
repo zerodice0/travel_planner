@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreVertical, ArrowUpDown, Edit2, Trash2, FolderOpen } from 'lucide-react';
+import { Plus, MoreVertical, ArrowUpDown, Edit2, Trash2, FolderOpen, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
 import AppLayout from '#components/layout/AppLayout';
 import { listsApi } from '#lib/api';
 import type { List, CreateListData } from '#types/list';
-import { CATEGORIES, getCategoryIcon } from '#utils/categoryConfig';
+import { LIST_ICONS, getListIcon } from '#utils/listIconConfig';
 
 export default function ListManagementPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export default function ListManagementPage() {
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIconType, setFormIconType] = useState<'category' | 'image'>('category');
-  const [formIconValue, setFormIconValue] = useState('restaurant');
+  const [formIconValue, setFormIconValue] = useState('travel');
 
   useEffect(() => {
     fetchLists();
@@ -49,7 +49,7 @@ export default function ListManagementPage() {
     setFormName('');
     setFormDescription('');
     setFormIconType('category');
-    setFormIconValue('restaurant');
+    setFormIconValue('travel');
     setShowFormModal(true);
   };
 
@@ -265,7 +265,7 @@ export default function ListManagementPage() {
                 <div className="flex justify-center mb-4">
                   {list.iconType === 'category' ? (
                     (() => {
-                      const Icon = getCategoryIcon(list.iconValue);
+                      const Icon = getListIcon(list.iconValue);
                       return <Icon className="w-16 h-16 text-primary-600" />;
                     })()
                   ) : list.iconType === 'emoji' ? (
@@ -342,14 +342,26 @@ export default function ListManagementPage() {
           onClick={() => setShowFormModal(false)}
         >
           <div
-            className="w-full max-w-2xl bg-card rounded-t-2xl md:rounded-2xl p-6"
+            className="w-full max-w-2xl bg-card rounded-t-2xl md:rounded-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              {editingList ? '목록 편집' : '새 목록 만들기'}
-            </h2>
+            {/* 헤더 */}
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-border">
+              <h2 className="text-xl font-bold text-foreground">
+                {editingList ? '목록 편집' : '새 목록 만들기'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowFormModal(false)}
+                className="p-1 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 스크롤 가능한 컨텐츠 영역 */}
+            <div className="overflow-y-auto px-6 py-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
               {/* 이름 입력 */}
               <div>
                 <Input
@@ -357,7 +369,7 @@ export default function ListManagementPage() {
                   label={<>이름 <span className="text-red-500">*</span></>}
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="예: 맛집 탐방"
+                  placeholder="예: 제주도 여행, 맛집 탐방"
                   maxLength={50}
                   fullWidth
                   required
@@ -383,78 +395,52 @@ export default function ListManagementPage() {
 
               {/* 아이콘 선택 */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">아이콘</label>
+                <label className="block text-sm font-medium text-foreground mb-4">아이콘 선택</label>
 
-                {/* 탭 */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setFormIconType('category')}
-                    className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                      formIconType === 'category'
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-muted text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    카테고리
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormIconType('image')}
-                    className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                      formIconType === 'image'
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-muted text-foreground hover:bg-muted'
-                    }`}
-                    disabled
-                  >
-                    이미지 (준비 중)
-                  </button>
+                {/* 목록 아이콘 선택 */}
+                <div className="grid grid-cols-3 gap-3">
+                  {LIST_ICONS.map((listIcon) => {
+                    const Icon = listIcon.icon;
+                    const isSelected = formIconValue === listIcon.value;
+                    return (
+                      <button
+                        key={listIcon.value}
+                        type="button"
+                        onClick={() => setFormIconValue(listIcon.value)}
+                        className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                          isSelected
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-border hover:border-primary-300 hover:bg-muted'
+                        }`}
+                      >
+                        <Icon className="w-8 h-8" />
+                        <span className="text-sm font-medium">{listIcon.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                {/* 카테고리 아이콘 선택 */}
-                {formIconType === 'category' && (
-                  <div className="grid grid-cols-3 gap-3">
-                    {CATEGORIES.filter(c => c.value !== 'all').map((category) => {
-                      const Icon = category.icon;
-                      const isSelected = formIconValue === category.value;
-                      return (
-                        <button
-                          key={category.value}
-                          type="button"
-                          onClick={() => setFormIconValue(category.value)}
-                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                            isSelected
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-border hover:border-primary-300 hover:bg-muted'
-                          }`}
-                        >
-                          <Icon className="w-8 h-8" />
-                          <span className="text-sm font-medium">{category.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
-              {/* 버튼 */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowFormModal(false)}
-                  className="flex-1 px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors font-medium"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
-                >
-                  {editingList ? '수정' : '생성'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+
+            {/* 하단 버튼 (스크롤 영역 밖에 고정) */}
+            <div className="flex gap-3 p-6 pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowFormModal(false)}
+                className="flex-1 px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors font-medium"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+              >
+                {editingList ? '수정' : '생성'}
+              </button>
+            </div>
           </div>
         </div>
       )}

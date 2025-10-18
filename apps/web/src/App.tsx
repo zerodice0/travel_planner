@@ -18,7 +18,7 @@ import ForgotPasswordPage from '#pages/ForgotPasswordPage';
 import ResetPasswordPage from '#pages/ResetPasswordPage';
 import ExplorePage from '#pages/ExplorePage';
 import PublicPlaceDetailPage from '#pages/PublicPlaceDetailPage';
-import DashboardPage from '#pages/DashboardPage';
+import StatsPage from '#pages/StatsPage';
 import MapPage from '#pages/MapPage';
 import PlaceDetailPage from '#pages/PlaceDetailPage';
 import ListManagementPage from '#pages/ListManagementPage';
@@ -43,24 +43,7 @@ function EmailVerificationModalWrapper({ isOpen, onClose }: { isOpen: boolean; o
   );
 }
 
-// Root redirect component based on auth state
-function RootRedirect() {
-  const { isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-          <p className="mt-2 text-muted-foreground">로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect to splash, which will handle further navigation
-  return <Navigate to="/splash" replace />;
-}
+// RootRedirect removed - HomePage now handles both authenticated and unauthenticated users
 
 function App() {
   const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
@@ -100,23 +83,9 @@ function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/explore" element={<ExplorePage />} />
               <Route path="/explore/places/:placeId" element={<PublicPlaceDetailPage />} />
-              <Route path="/" element={<RootRedirect />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/map"
-                element={
-                  <ProtectedRoute>
-                    <MapPage />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/" element={<Navigate to="/map" replace />} />
+              <Route path="/dashboard" element={<Navigate to="/map" replace />} />
+              <Route path="/map" element={<MapPage />} />
               <Route
                 path="/places/:id"
                 element={
@@ -162,6 +131,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/stats"
+                element={
+                  <ProtectedRoute>
+                    <StatsPage />
                   </ProtectedRoute>
                 }
               />

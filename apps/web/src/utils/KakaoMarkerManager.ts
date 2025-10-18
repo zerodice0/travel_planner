@@ -1,6 +1,7 @@
 import type { Place } from '#types/place';
 import type { BaseMarkerManager } from '#types/map';
 import { createMarkerDataURL } from './categoryIcons';
+import { KAKAO_LEVEL, convertGoogleZoomToKakaoLevel } from '#constants/map';
 
 export class KakaoMarkerManager implements BaseMarkerManager {
   private markers: Map<string, kakao.maps.Marker> = new Map();
@@ -99,6 +100,17 @@ export class KakaoMarkerManager implements BaseMarkerManager {
 
   setLevel(level: number): void {
     if (!this.map) return;
+    // Clamp level to valid Kakao Map range
+    const clampedLevel = Math.max(KAKAO_LEVEL.MIN, Math.min(KAKAO_LEVEL.MAX, level));
+    this.map.setLevel(clampedLevel);
+  }
+
+  setZoom(zoom: number): void {
+    if (!this.map) return;
+    // Convert Google Maps zoom (1-21) to Kakao Map level (1-14)
+    // Google zoom: higher = more zoomed in
+    // Kakao level: higher = more zoomed out
+    const level = convertGoogleZoomToKakaoLevel(zoom);
     this.map.setLevel(level);
   }
 

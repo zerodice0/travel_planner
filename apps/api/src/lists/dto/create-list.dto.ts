@@ -8,8 +8,8 @@ import {
 import { Type } from 'class-transformer';
 
 class IconDto {
-  @IsEnum(['emoji', 'image'])
-  type!: 'emoji' | 'image';
+  @IsEnum(['category', 'emoji', 'image'])
+  type!: 'category' | 'emoji' | 'image';
 
   @IsString()
   value!: string;
