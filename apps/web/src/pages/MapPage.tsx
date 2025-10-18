@@ -13,20 +13,23 @@ import { useKakaoPlacesSearch } from '#hooks/useKakaoPlacesSearch';
 import { useGooglePlacesSearch } from '#hooks/useGooglePlacesSearch';
 import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
 import {
-  calculateDistance,
   findNearestPlace,
-  formatDistance,
-  getOptimalZoomLevel
+  formatDistance
 } from '#utils/distanceCalculator';
+import { createCustomMarkerContent, injectMarkerStyles } from '#components/map/CustomMarker';
 import { CategoryFilter } from '#components/map/CategoryFilter';
+import { ListFilter } from '#components/map/ListFilter';
+import { PlaceViewTabs, PlaceViewTab } from '#components/map/PlaceViewTabs';
 import PlaceListSidebar from '#components/map/PlaceListSidebar';
 import { MapZoomControl } from '#components/map/MapZoomControl';
 import { MapTypeControl } from '#components/map/MapTypeControl';
 import AppLayout from '#components/layout/AppLayout';
-import { placesApi } from '#lib/api';
+import { placesApi, publicPlacesApi, listsApi } from '#lib/api';
 import { useMapProvider } from '#contexts/MapProviderContext';
 import type { Place, CreatePlaceData } from '#types/place';
+import type { PublicPlace } from '#types/publicPlace';
 import type { BaseMarkerManager, SearchResult } from '#types/map';
+import type { List, ListPlaceItem } from '#types/list';
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // Seoul City Hall
 
@@ -34,7 +37,17 @@ export default function MapPage() {
   const { searchProvider, setSearchProvider } = useMapProvider();
   const { isAuthenticated, user } = useAuth();
 
-  const [places, setPlaces] = useState<Place[]>([]);
+  // 탭 상태 (탐색/내 장소)
+  const [activeTab, setActiveTab] = useState<PlaceViewTab>('explore');
+
+  // 장소 상태 (탭별로 분리)
+  const [places, setPlaces] = useState<Place[]>([]); // 내 장소
+  const [publicPlaces, setPublicPlaces] = useState<PublicPlace[]>([]); // 공개 장소
+
+  // 목록 상태
+  const [lists, setLists] = useState<List[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>(''); // 단일 선택으로 변경
@@ -62,6 +75,7 @@ export default function MapPage() {
   const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [currentMapType, setCurrentMapType] = useState<string>('roadmap');
   const [showEmptyNotice, setShowEmptyNotice] = useState(true);
+  const [toolbarHeight, setToolbarHeight] = useState(176); // 동적으로 계산될 상단 툴바 높이 (검색바 + 탭 + 카테고리 필터)
 
   const markerManagerRef = useRef<BaseMarkerManager | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -110,24 +124,19 @@ export default function MapPage() {
 
       try {
         // Import marker library
-        const { AdvancedMarkerElement, PinElement } = (await google.maps.importLibrary(
+        const { AdvancedMarkerElement } = (await google.maps.importLibrary(
           'marker',
         )) as google.maps.MarkerLibrary;
 
-        // Create blue pin for search result
-        const pin = new PinElement({
-          background: '#3B82F6', // Primary blue
-          borderColor: '#1E40AF', // Darker blue
-          glyphColor: '#FFFFFF', // White
-          scale: 1.2, // Slightly larger
-        });
+        // Create custom marker content with label
+        const markerContent = createCustomMarkerContent(result.name);
 
         // Create marker
         const marker = new AdvancedMarkerElement({
           position: { lat: result.latitude, lng: result.longitude },
           map: map as google.maps.Map,
           title: result.name,
-          content: pin.element,
+          content: markerContent,
         });
 
         tempMarkerRef.current = marker;
@@ -138,14 +147,12 @@ export default function MapPage() {
     [map, isLoaded, removeTempMarker],
   );
 
-  // Load user's places
-  useEffect(() => {
-    loadPlaces();
-  }, []);
-
   // Initialize marker manager when map loads
   useEffect(() => {
     if (map && isLoaded) {
+      // Inject custom marker styles once
+      injectMarkerStyles();
+
       markerManagerRef.current = new GoogleMarkerManager(map);
       renderPlaceMarkers();
     }
@@ -249,6 +256,37 @@ export default function MapPage() {
     };
   }, [searchResults.length, removeTempMarker]);
 
+  // Measure toolbar height dynamically
+  useEffect(() => {
+    const updateToolbarHeight = () => {
+      if (searchContainerRef.current) {
+        const height = searchContainerRef.current.offsetHeight;
+        setToolbarHeight(height);
+      }
+    };
+
+    // Initial measurement
+    updateToolbarHeight();
+
+    // Update on resize
+    window.addEventListener('resize', updateToolbarHeight);
+
+    // Use MutationObserver to detect DOM changes (e.g., search results opening)
+    const observer = new MutationObserver(updateToolbarHeight);
+    if (searchContainerRef.current) {
+      observer.observe(searchContainerRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateToolbarHeight);
+      observer.disconnect();
+    };
+  }, []);
+
   // Adjust map center when sidebar visibility changes
   useEffect(() => {
     if (!isLoaded || !map) return;
@@ -313,13 +351,65 @@ export default function MapPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isLoaded, map, isPlaceListVisible]);
 
-  const loadPlaces = async () => {
+  const loadPlaces = useCallback(async () => {
     try {
-      const data = await placesApi.getAll();
-      setPlaces(data.places);
+      if (activeTab === 'explore') {
+        // 공개 장소 로드
+        const data = await publicPlacesApi.getAll({
+          limit: 100,
+          category: selectedCategory || undefined
+        });
+        setPublicPlaces(data.places);
+      } else {
+        // 내 목록 탭 - 인증된 사용자만
+        if (isAuthenticated) {
+          if (selectedListId) {
+            // 선택된 목록의 장소만 로드
+            const data = await listsApi.getPlaces(selectedListId);
+            // ListPlaceItem을 Place로 변환
+            const placesData: Place[] = data.places.map((item: ListPlaceItem) => ({
+              id: item.id,
+              name: item.name,
+              address: item.address,
+              category: item.category,
+              latitude: item.latitude,
+              longitude: item.longitude,
+              visited: item.visited,
+              createdAt: new Date().toISOString(), // API에서 제공하지 않으므로 임시값
+            }));
+            setPlaces(placesData);
+          } else {
+            // 전체 장소 로드
+            const data = await placesApi.getAll();
+            setPlaces(data.places);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to load places:', error);
       toast.error('장소 목록을 불러오는데 실패했습니다');
+    }
+  }, [activeTab, selectedCategory, selectedListId, isAuthenticated]);
+
+  // Load places when tab, category, or authentication status changes
+  useEffect(() => {
+    loadPlaces();
+  }, [loadPlaces]);
+
+  // Load lists for authenticated users (needed for both tabs)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadLists();
+    }
+  }, [isAuthenticated]);
+
+  const loadLists = async () => {
+    try {
+      const data = await listsApi.getAll({ sort: 'updatedAt' });
+      setLists(data.lists);
+    } catch (error) {
+      console.error('Failed to load lists:', error);
+      toast.error('목록을 불러오는데 실패했습니다');
     }
   };
 
@@ -468,7 +558,7 @@ export default function MapPage() {
     setSelectedSearchResult(null);
   };
 
-  const handleConfirmAdd = async (data: CreatePlaceData) => {
+  const handleConfirmAdd = async (data: CreatePlaceData, selectedListIds?: string[]) => {
     setIsAddingPlace(true);
     try {
       // 좌표 검증 및 변환
@@ -493,7 +583,17 @@ export default function MapPage() {
       // Create place
       const newPlace = await placesApi.create(data);
 
-      toast.success(`${data.name}이(가) 추가되었습니다`);
+      // Add to selected lists if any
+      if (selectedListIds && selectedListIds.length > 0) {
+        await Promise.all(
+          selectedListIds.map(listId =>
+            listsApi.addPlaces(listId, [newPlace.id])
+          )
+        );
+        toast.success(`${data.name}이(가) ${selectedListIds.length}개 목록에 추가되었습니다`);
+      } else {
+        toast.success(`${data.name}이(가) 추가되었습니다`);
+      }
 
       // Close modal and clear search
       handleCloseAddModal();
@@ -521,7 +621,7 @@ export default function MapPage() {
         }
 
         // Set zoom level for better view
-        markerManagerRef.current.setLevel(17);
+        markerManagerRef.current.setZoom(17);
 
         // Show InfoWindow for the new place
         setTimeout(() => {
@@ -572,6 +672,12 @@ export default function MapPage() {
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
     setShowEmptyNotice(true); // 카테고리 변경 시 다이얼로그 다시 표시
+
+    // 검색 상태 초기화 - 카테고리와 검색 결과 간 혼란 방지
+    setSearchResults([]);
+    setSearchKeyword('');
+    setSelectedSearchResultId(null);
+    removeTempMarker();
   };
 
   const handlePlaceCardClick = (place: Place) => {
@@ -593,7 +699,7 @@ export default function MapPage() {
     }
 
     // Adjust zoom level for closer view (Google Maps zoom 17 for detail)
-    markerManagerRef.current.setLevel(17);
+    markerManagerRef.current.setZoom(17);
 
     // Show InfoWindow for this place
     markerManagerRef.current.showInfoWindow(place.id);
@@ -615,35 +721,11 @@ export default function MapPage() {
       // Add temporary marker for visual feedback
       addTempMarker(result);
 
-      // Get current map center to calculate distance
-      const googleMap = map as google.maps.Map;
-      const center = googleMap.getCenter();
-
-      if (!center) {
-        // Fallback: use fixed zoom level if center is unavailable
-        markerManagerRef.current.panTo(result.latitude, result.longitude);
-        markerManagerRef.current.setLevel(16);
-      } else {
-        const currentCenter = {
-          lat: center.lat(),
-          lng: center.lng(),
-        };
-
-        // Calculate distance from current center to search result
-        const distance = calculateDistance(currentCenter, {
-          lat: result.latitude,
-          lng: result.longitude,
-        });
-
-        // Determine optimal zoom level based on distance
-        const optimalZoom = getOptimalZoomLevel(distance);
-
-        // Move map to search result location
-        markerManagerRef.current.panTo(result.latitude, result.longitude);
-
-        // Set optimal zoom level for better user experience
-        markerManagerRef.current.setLevel(optimalZoom);
-      }
+      // Move map to search result location with fixed zoom level
+      // Fixed zoom level (16) provides consistent detail view for search results
+      // regardless of distance from current position
+      markerManagerRef.current.panTo(result.latitude, result.longitude);
+      markerManagerRef.current.setZoom(16);
 
       // Adjust for sidebar if visible on desktop
       const isDesktop = window.innerWidth >= 768;
@@ -663,7 +745,7 @@ export default function MapPage() {
       console.error('Failed to handle search result click:', error);
       // Fallback to basic behavior
       markerManagerRef.current.panTo(result.latitude, result.longitude);
-      markerManagerRef.current.setLevel(16);
+      markerManagerRef.current.setZoom(16);
     }
   };
 
@@ -705,9 +787,6 @@ export default function MapPage() {
 
       const { place, distance } = result;
 
-      // Calculate optimal zoom level based on distance
-      const optimalZoom = getOptimalZoomLevel(distance);
-
       // Move map to place location
       markerManagerRef.current.panTo(place.latitude, place.longitude);
 
@@ -722,8 +801,8 @@ export default function MapPage() {
         }
       }
 
-      // Set optimal zoom level based on distance
-      markerManagerRef.current.setLevel(optimalZoom);
+      // Set zoom level for detailed view (consistent with other navigation features)
+      markerManagerRef.current.setZoom(17);
 
       // Show InfoWindow for this place
       markerManagerRef.current.showInfoWindow(place.id);
@@ -782,6 +861,27 @@ export default function MapPage() {
     setShowEmptyNotice(false);
   };
 
+  const handleTabChange = (tab: PlaceViewTab) => {
+    setActiveTab(tab);
+    // 탭 변경 시 검색 상태 및 선택 상태 초기화
+    setSearchResults([]);
+    setSearchKeyword('');
+    setSelectedSearchResultId(null);
+    setSelectedCategory(''); // 카테고리도 초기화
+    setSelectedListId(null); // 목록 선택도 초기화
+    setShowEmptyNotice(true); // Empty notice 다시 표시
+    removeTempMarker();
+
+    // 탭별로 장소 다시 로드
+    setTimeout(() => {
+      loadPlaces();
+    }, 0);
+  };
+
+  const handleLoginRequired = () => {
+    window.location.href = '/login';
+  };
+
   const handleOpenSearchBottomSheet = () => {
     // Check email verification before allowing place addition
     if (user && !user.emailVerified) {
@@ -824,12 +924,21 @@ export default function MapPage() {
     setCurrentMapType(mapTypeId); // Sync state for UI
   };
 
+  // Calculate display places based on active tab
+  const displayPlaces = useMemo((): Place[] => {
+    if (activeTab === 'explore') {
+      // PublicPlace를 Place로 변환 (공통 필드만 사용)
+      return publicPlaces.map(p => p as unknown as Place);
+    }
+    return places;
+  }, [activeTab, publicPlaces, places]);
+
   // Calculate filtered places
   const filteredPlaces = useMemo(() => {
     return selectedCategory
-      ? places.filter((p) => p.category === selectedCategory)
-      : places;
-  }, [places, selectedCategory]);
+      ? displayPlaces.filter((p) => p.category === selectedCategory)
+      : displayPlaces;
+  }, [displayPlaces, selectedCategory]);
 
   // Calculate places visible in current viewport
   const visiblePlaces = useMemo(() => {
@@ -937,11 +1046,28 @@ export default function MapPage() {
             </button>
           </div>
 
+          {/* Place View Tabs (탐색/내 장소) */}
+          <PlaceViewTabs
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            isAuthenticated={isAuthenticated}
+            onLoginRequired={handleLoginRequired}
+          />
+
           {/* Category Filter Tabs */}
           <CategoryFilter
             selectedCategory={selectedCategory}
             onCategoryChange={handleCategoryChange}
           />
+
+          {/* List Filter - '내 목록' 탭일 때만 표시 */}
+          {activeTab === 'my-places' && isAuthenticated && (
+            <ListFilter
+              lists={lists}
+              selectedListId={selectedListId}
+              onListChange={setSelectedListId}
+            />
+          )}
 
           {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
@@ -1076,13 +1202,16 @@ export default function MapPage() {
             className={`absolute left-0 bottom-0 z-20 transition-transform duration-300 ${
               isPlaceListVisible ? 'translate-x-0' : '-translate-x-full'
             }`}
-            style={{ top: '120px' }} // Adjust for fixed toolbar height (search bar + category tabs)
+            style={{ top: `${toolbarHeight}px` }} // Dynamically calculated toolbar height
           >
             <PlaceListSidebar
               places={visiblePlaces}
               totalPlaces={filteredPlaces.length}
               selectedPlaceId={selectedPlaceId}
               searchProvider={searchProvider}
+              activeTab={activeTab}
+              selectedListId={selectedListId}
+              lists={lists}
               onPlaceClick={handlePlaceCardClick}
               onPlaceDelete={handleDeletePlace}
               onSearchProviderChange={setSearchProvider}
@@ -1098,17 +1227,18 @@ export default function MapPage() {
           className="w-full h-full"
         />
 
-        {/* Floating Empty Notice */}
+        {/* Floating Empty Notice - 탭별로 다른 메시지 */}
         {filteredPlaces.length === 0 && isLoaded && !mapError && showEmptyNotice && searchResults.length === 0 && (
           <FloatingEmptyNotice
-            type={selectedCategory ? 'category' : 'global'}
+            type={selectedCategory ? 'category' : (activeTab === 'explore' ? 'viewport' : 'global')}
             category={selectedCategory}
             isAuthenticated={isAuthenticated}
             onLoginClick={handleLoginClick}
-            onExploreNearest={handleNavigateToNearest}
+            onExploreNearest={activeTab === 'my-places' ? handleNavigateToNearest : undefined}
             isLoadingNearest={isLoadingNearest}
-            onAddFirstPlace={handleOpenSearchBottomSheet}
+            onAddFirstPlace={activeTab === 'my-places' && isAuthenticated ? handleOpenSearchBottomSheet : undefined}
             onClose={handleCloseEmptyNotice}
+            isPlaceListVisible={isPlaceListVisible}
           />
         )}
 
@@ -1127,7 +1257,7 @@ export default function MapPage() {
 
         {/* Custom Map Controls - 우측 상단 */}
         {isLoaded && (
-          <div className="absolute top-32 right-4 flex flex-col gap-2 z-10">
+          <div className="absolute right-4 flex flex-col gap-2 z-10" style={{ top: `${toolbarHeight + 8}px` }}>
             {/* Map Type Control */}
             <MapTypeControl
               currentMapType={currentMapType}
@@ -1159,14 +1289,16 @@ export default function MapPage() {
           </div>
         ) : null}
 
-        {/* FAB (Floating Action Button) - 우측 하단 */}
-        <button
-          onClick={handleOpenSearchBottomSheet}
-          className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-20 flex items-center justify-center"
-          aria-label="장소 추가"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
+        {/* FAB (Floating Action Button) - 우측 하단 - '내 장소' 탭에서만 표시 */}
+        {activeTab === 'my-places' && isAuthenticated && (
+          <button
+            onClick={handleOpenSearchBottomSheet}
+            className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-20 flex items-center justify-center"
+            aria-label="장소 추가"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        )}
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
@@ -1188,6 +1320,7 @@ export default function MapPage() {
           onClose={handleCloseAddModal}
           onConfirm={handleConfirmAdd}
           isSubmitting={isAddingPlace}
+          lists={lists}
         />
 
         {/* Place Search Bottom Sheet */}

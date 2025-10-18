@@ -8,14 +8,15 @@ import {
   Edit2,
   Trash2,
   MapPin,
-  X,
   Route as RouteIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { listsApi, placesApi } from '#lib/api';
 import type { List, ListPlaceItem } from '#types/list';
-import type { Place } from '#types/place';
+import type { SearchResult } from '#types/map';
+import type { CreatePlaceData } from '#types/place';
 import { getCategoryIcon } from '#utils/categoryConfig';
+import { PlaceSelectionModal } from '#components/list/PlaceSelectionModal';
 
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +24,6 @@ export default function ListDetailPage() {
 
   const [list, setList] = useState<List | null>(null);
   const [places, setPlaces] = useState<ListPlaceItem[]>([]);
-  const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'order' | 'name'>('order');
   const [showMenu, setShowMenu] = useState(false);
@@ -31,7 +31,6 @@ export default function ListDetailPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [contextMenuPlaceId, setContextMenuPlaceId] = useState<string | null>(null);
-  const [selectedPlaces, setSelectedPlaces] = useState<Set<string>>(new Set());
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   useEffect(() => {
@@ -45,15 +44,13 @@ export default function ListDetailPage() {
 
     try {
       setIsLoading(true);
-      const [listData, placesData, allPlacesData] = await Promise.all([
+      const [listData, placesData] = await Promise.all([
         listsApi.getOne(id),
         listsApi.getPlaces(id, sortBy),
-        placesApi.getAll({ limit: 100 }),
       ]);
 
       setList(listData);
       setPlaces(placesData.places);
-      setAllPlaces(allPlacesData.places);
     } catch (error) {
       console.error('Failed to fetch list:', error);
       toast.error('목록 정보를 불러오는데 실패했습니다.');
@@ -107,15 +104,49 @@ export default function ListDetailPage() {
     }
   };
 
-  const handleAddPlaces = async () => {
-    if (!id || selectedPlaces.size === 0) return;
+  /**
+   * 장소 추가 처리
+   * 공개 장소는 먼저 "내 장소"로 저장한 후 목록에 추가
+   */
+  const handleAddPlaces = async (selectedPlaceResults: SearchResult[]) => {
+    if (!id || selectedPlaceResults.length === 0) return;
 
     try {
-      await listsApi.addPlaces(id, Array.from(selectedPlaces));
-      setShowAddModal(false);
-      setSelectedPlaces(new Set());
-      toast.success(`${selectedPlaces.size}개 장소를 추가했습니다.`);
-      fetchData();
+      const placeIds: string[] = [];
+
+      // 공개 장소와 내 장소를 분리
+      const publicPlaces = selectedPlaceResults.filter(p => p.isPublic);
+      const myPlaces = selectedPlaceResults.filter(p => p.isLocal);
+
+      // 내 장소 ID 추가
+      placeIds.push(...myPlaces.map(p => p.id));
+
+      // 공개 장소를 먼저 "내 장소"로 저장
+      for (const publicPlace of publicPlaces) {
+        try {
+          const createData: CreatePlaceData = {
+            name: publicPlace.name,
+            address: publicPlace.address,
+            latitude: publicPlace.latitude,
+            longitude: publicPlace.longitude,
+            category: publicPlace.category,
+            phone: publicPlace.phone,
+          };
+
+          const newPlace = await placesApi.create(createData);
+          placeIds.push(newPlace.id);
+        } catch (error) {
+          console.error(`Failed to create place ${publicPlace.name}:`, error);
+          toast.error(`"${publicPlace.name}" 추가에 실패했습니다.`);
+        }
+      }
+
+      // 모든 장소를 목록에 추가
+      if (placeIds.length > 0) {
+        await listsApi.addPlaces(id, placeIds);
+        toast.success(`${placeIds.length}개 장소를 추가했습니다.`);
+        fetchData();
+      }
     } catch (error) {
       console.error('Failed to add places:', error);
       toast.error('장소 추가에 실패했습니다.');
@@ -192,9 +223,8 @@ export default function ListDetailPage() {
     return Math.round((list.visitedCount / list.placesCount) * 100);
   };
 
-  const availablePlaces = allPlaces.filter(
-    (place) => !places.some((p) => p.id === place.id)
-  );
+  // 이미 목록에 있는 장소 ID 목록
+  const excludePlaceIds = places.map(p => p.id);
 
   if (isLoading) {
     return (
@@ -471,92 +501,12 @@ export default function ListDetailPage() {
       )}
 
       {/* 장소 추가 모달 */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black bg-opacity-50"
-          onClick={() => setShowAddModal(false)}
-        >
-          <div
-            className="w-full max-w-2xl bg-card rounded-t-2xl md:rounded-2xl p-6 max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-foreground">장소 추가</h2>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-muted rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto mb-4">
-              {availablePlaces.length > 0 ? (
-                <div className="space-y-2">
-                  {availablePlaces.map((place) => (
-                    <button
-                      key={place.id}
-                      onClick={() => {
-                        const newSelected = new Set(selectedPlaces);
-                        if (newSelected.has(place.id)) {
-                          newSelected.delete(place.id);
-                        } else {
-                          newSelected.add(place.id);
-                        }
-                        setSelectedPlaces(newSelected);
-                      }}
-                      className={`w-full p-4 text-left rounded-lg border transition-colors ${
-                        selectedPlaces.has(place.id)
-                          ? 'bg-primary-50 border-primary-500'
-                          : 'border-border hover:bg-background'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const Icon = getCategoryIcon(place.category);
-                          return <Icon className="w-8 h-8 text-primary-600" />;
-                        })()}
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground">{place.name}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{place.address}</p>
-                        </div>
-                        {selectedPlaces.has(place.id) && (
-                          <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>추가할 수 있는 장소가 없습니다.</p>
-                  <p className="text-sm mt-2">먼저 지도에서 장소를 검색해보세요.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-border">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors font-medium"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleAddPlaces}
-                disabled={selectedPlaces.size === 0}
-                className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50"
-              >
-                추가 ({selectedPlaces.size})
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PlaceSelectionModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onConfirm={handleAddPlaces}
+        excludePlaceIds={excludePlaceIds}
+      />
 
       {/* 삭제 확인 다이얼로그 */}
       {showDeleteDialog && (

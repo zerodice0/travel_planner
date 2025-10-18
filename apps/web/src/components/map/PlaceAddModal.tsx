@@ -1,18 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, MapPin, ChevronDown } from 'lucide-react';
+import { X, Plus, MapPin, ChevronDown, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import type { SearchResult } from '#types/map';
 import type { CreatePlaceData } from '#types/place';
+import type { List } from '#types/list';
 import { CATEGORIES, getCategoryLabel, getCategoryIcon } from '#utils/categoryConfig';
+import { getListIcon } from '#utils/listIconConfig';
 
 interface PlaceAddModalProps {
   isOpen: boolean;
   searchResult: SearchResult | null;
   onClose: () => void;
-  onConfirm: (data: CreatePlaceData) => Promise<void>;
+  onConfirm: (data: CreatePlaceData, selectedListIds?: string[]) => Promise<void>;
   isSubmitting: boolean;
+  lists?: List[]; // 사용 가능한 목록 (옵션)
 }
 
 export function PlaceAddModal({
@@ -21,6 +24,7 @@ export function PlaceAddModal({
   onClose,
   onConfirm,
   isSubmitting,
+  lists,
 }: PlaceAddModalProps) {
   const [category, setCategory] = useState('');
   const [customName, setCustomName] = useState('');
@@ -31,6 +35,7 @@ export function PlaceAddModal({
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set());
 
   const modalRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -48,6 +53,7 @@ export function PlaceAddModal({
       setShowCategoryDropdown(false);
       setHasUnsavedChanges(false);
       setShowCloseConfirm(false);
+      setSelectedLists(new Set());
     }
   }, [isOpen, searchResult]);
 
@@ -122,6 +128,7 @@ export function PlaceAddModal({
     setNewLabel('');
     setIsAddingLabel(false);
     setHasUnsavedChanges(false);
+    setSelectedLists(new Set());
     onClose();
   };
 
@@ -183,7 +190,7 @@ export function PlaceAddModal({
       externalId: searchResult.id?.substring(0, 255),
     };
 
-    await onConfirm(data);
+    await onConfirm(data, selectedLists.size > 0 ? Array.from(selectedLists) : undefined);
   };
 
   if (!isOpen || !searchResult) return null;
@@ -327,13 +334,7 @@ export function PlaceAddModal({
               ))}
 
               {isAddingLabel ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddLabel();
-                  }}
-                  className="inline-flex items-center gap-1"
-                >
+                <div className="inline-flex items-center gap-1">
                   <Input
                     type="text"
                     value={newLabel}
@@ -354,7 +355,7 @@ export function PlaceAddModal({
                     className="px-3 py-1 rounded-full text-sm w-32"
                     disabled={isSubmitting}
                   />
-                </form>
+                </div>
               ) : (
                 labels.length < 5 && (
                   <button
@@ -401,6 +402,51 @@ export function PlaceAddModal({
               <p className="text-xs text-muted-foreground">{note.length}/2000</p>
             </div>
           </div>
+
+          {/* List Selection */}
+          {lists && lists.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                📋 목록에 추가 (선택)
+              </label>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                {lists.map((list) => {
+                  const Icon = getListIcon(list.iconValue);
+                  const isSelected = selectedLists.has(list.id);
+                  return (
+                    <button
+                      key={list.id}
+                      type="button"
+                      onClick={() => {
+                        const newSet = new Set(selectedLists);
+                        if (isSelected) {
+                          newSet.delete(list.id);
+                        } else {
+                          newSet.add(list.id);
+                        }
+                        setSelectedLists(newSet);
+                      }}
+                      disabled={isSubmitting}
+                      className={`w-full p-3 text-left rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'bg-primary/10 border-primary'
+                          : 'border-border hover:bg-muted'
+                      } disabled:opacity-50`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-5 h-5 flex-shrink-0 text-primary" />
+                        <span className="font-medium flex-1 truncate">{list.name}</span>
+                        {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                이 장소를 추가할 목록을 선택하세요
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-border">

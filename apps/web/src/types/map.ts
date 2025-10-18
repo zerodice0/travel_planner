@@ -15,7 +15,8 @@ export interface SearchResult {
   longitude: number;
   description?: string;
   url?: string;
-  isLocal?: boolean;
+  isLocal?: boolean; // 내 장소
+  isPublic?: boolean; // 공개 장소
 }
 
 export interface MarkerPlace {
@@ -36,6 +37,7 @@ export interface BaseMarkerManager {
   updateMarker(place: MarkerPlace): void | Promise<void>;
   panTo(latitude: number, longitude: number): void;
   setLevel(level: number): void;
+  setZoom(zoom: number): void;
   closeAllInfoWindows(): void;
   showInfoWindow(placeId: string): void;
 }
