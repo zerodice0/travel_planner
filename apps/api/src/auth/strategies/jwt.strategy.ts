@@ -18,11 +18,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }): Promise<JwtPayload> {
+  async validate(payload: { sub: string; email: string; emailVerified: boolean }): Promise<JwtPayload> {
     // sub는 userId를 의미함 (JWT 표준)
     return {
       userId: payload.sub,
-      email: payload.email
+      email: payload.email,
+      emailVerified: payload.emailVerified
     };
   }
 }

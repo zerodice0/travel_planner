@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 export interface JwtPayload {
   userId: string;
   email: string;
+  emailVerified: boolean;
 }
 
 @Injectable()

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { PlacesService } from './places.service';
 import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PlaceQueryDto } from './dto/place-query.dto';
 import { PlacesResponseDto } from './dto/place-response.dto';
 import { CreatePlaceDto } from './dto/create-place.dto';
@@ -49,6 +50,7 @@ export class PlacesController {
   }
 
   @Post()
+  @UseGuards(EmailVerifiedGuard)
   async create(
     @Request() req: RequestWithUser,
     @Body() createPlaceDto: CreatePlaceDto,

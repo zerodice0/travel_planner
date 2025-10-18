@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewResponseDto, ReviewsResponseDto } from './dto/review-response.dto';
@@ -26,6 +27,7 @@ export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   @Post('user-places/:userPlaceId')
+  @UseGuards(EmailVerifiedGuard)
   async create(
     @Request() req: RequestWithUser,
     @Param('userPlaceId') userPlaceId: string,

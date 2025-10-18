@@ -38,7 +38,7 @@ export class AuthService {
     }
 
     // 토큰 생성
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.emailVerified);
 
     // 마지막 로그인 시간 업데이트
     await this.prisma.user.update({
@@ -67,8 +67,8 @@ export class AuthService {
     };
   }
 
-  async generateTokens(userId: string, email: string) {
-    const payload = { sub: userId, email };
+  async generateTokens(userId: string, email: string, emailVerified: boolean = false) {
+    const payload = { sub: userId, email, emailVerified };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -100,8 +100,17 @@ export class AuthService {
         throw new UnauthorizedException('유효하지 않은 Refresh Token입니다');
       }
 
+      // 사용자 정보 조회 (최신 emailVerified 상태 반영)
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('사용자를 찾을 수 없습니다');
+      }
+
       // 새로운 토큰 생성
-      const tokens = await this.generateTokens(payload.sub, payload.email);
+      const tokens = await this.generateTokens(user.id, user.email, user.emailVerified);
 
       // 기존 Refresh Token 삭제 및 새 토큰 저장
       await this.prisma.$transaction([
@@ -261,7 +270,7 @@ export class AuthService {
       }
 
       // 구글 계정으로 로그인
-      const tokens = await this.generateTokens(user.id, user.email);
+      const tokens = await this.generateTokens(user.id, user.email, user.emailVerified);
 
       // 마지막 로그인 시간 업데이트
       await this.prisma.user.update({
@@ -286,6 +295,7 @@ export class AuthService {
           email: user.email,
           nickname: user.nickname,
           profileImage: user.profileImage,
+          emailVerified: user.emailVerified,
         },
       };
     }
@@ -324,8 +334,8 @@ export class AuthService {
       },
     });
 
-    // 토큰 생성
-    const tokens = await this.generateTokens(user.id, user.email);
+    // 토큰 생성 (Google 회원가입 시 이메일은 이미 인증됨)
+    const tokens = await this.generateTokens(user.id, user.email, true);
 
     // Refresh Token 저장
     await this.prisma.refreshToken.create({
@@ -351,6 +361,7 @@ export class AuthService {
         email: user.email,
         nickname: user.nickname,
         profileImage: user.profileImage,
+        emailVerified: user.emailVerified,
       },
     };
   }

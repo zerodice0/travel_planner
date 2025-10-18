@@ -1,9 +1,12 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '#contexts/AuthContext';
 import { MapProviderProvider } from '#contexts/MapProviderContext';
 import { ThemeProvider } from '#contexts/ThemeContext';
 import ProtectedRoute from '#components/ProtectedRoute';
+import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
+import { emailVerificationRequiredEvent } from '#lib/api';
 import SplashScreen from '#pages/SplashScreen';
 import OnboardingScreen from '#pages/OnboardingScreen';
 import LoginPage from '#pages/LoginPage';
@@ -25,6 +28,21 @@ import CategoryManagementPage from '#pages/CategoryManagementPage';
 import SettingsPage from '#pages/SettingsPage';
 import ProfileEditPage from '#pages/ProfileEditPage';
 
+// EmailVerificationModalWrapper to access user from AuthContext
+function EmailVerificationModalWrapper({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { user } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <EmailVerificationRequiredModal
+      isOpen={isOpen}
+      onClose={onClose}
+      userEmail={user.email}
+    />
+  );
+}
+
 // Root redirect component based on auth state
 function RootRedirect() {
   const { isLoading } = useAuth();
@@ -45,12 +63,30 @@ function RootRedirect() {
 }
 
 function App() {
+  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+
+  useEffect(() => {
+    const handleEmailVerificationRequired = () => {
+      setShowEmailVerificationModal(true);
+    };
+
+    emailVerificationRequiredEvent.addEventListener('required', handleEmailVerificationRequired);
+
+    return () => {
+      emailVerificationRequiredEvent.removeEventListener('required', handleEmailVerificationRequired);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
           <MapProviderProvider>
             <Toaster position="top-center" />
+            <EmailVerificationModalWrapper
+              isOpen={showEmailVerificationModal}
+              onClose={() => setShowEmailVerificationModal(false)}
+            />
             <div className="min-h-screen bg-background">
             <Routes>
               <Route path="/splash" element={<SplashScreen />} />

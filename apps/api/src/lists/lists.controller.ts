@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ListsService } from './lists.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ListQueryDto } from './dto/list-query.dto';
 import { ListsResponseDto } from './dto/list-response.dto';
 import { CreateListDto } from './dto/create-list.dto';
@@ -46,6 +47,7 @@ export class ListsController {
 
   @Post()
   @HttpCode(201)
+  @UseGuards(EmailVerifiedGuard)
   async create(
     @Request() req: any,
     @Body() createListDto: CreateListDto,

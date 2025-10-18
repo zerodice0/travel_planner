@@ -6,6 +6,7 @@ interface User {
   email: string;
   nickname: string;
   profileImage?: string;
+  emailVerified: boolean;
 }
 
 interface AuthContextType {

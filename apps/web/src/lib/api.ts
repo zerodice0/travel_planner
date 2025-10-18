@@ -1,5 +1,6 @@
-import ky from 'ky';
+import ky, { HTTPError } from 'ky';
 import type { DashboardStats } from '#types/dashboard';
+import type { ActivitiesResponse } from '#types/activity';
 import type {
   ListsResponse,
   List,
@@ -24,7 +25,13 @@ import type {
   PublicPlacesResponse,
   PublicPlaceQuery,
   ViewportQuery,
+  NearestPlaceQuery,
+  NearestPlace,
 } from '#types/publicPlace';
+import type { Notification, UnreadCountResponse } from '#types/notification';
+
+// Event system for email verification required
+export const emailVerificationRequiredEvent = new EventTarget();
 
 const api = ky.create({
   prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -37,6 +44,23 @@ const api = ky.create({
         if (token) {
           request.headers.set('Authorization', `Bearer ${token}`);
         }
+      },
+    ],
+    afterResponse: [
+      async (_request, _options, response) => {
+        // 403 Forbidden 에러 감지 (이메일 미인증)
+        if (response.status === 403) {
+          try {
+            const errorData = await response.clone().json();
+            if (errorData.requiresEmailVerification) {
+              // 이메일 인증 필요 이벤트 발생
+              emailVerificationRequiredEvent.dispatchEvent(new Event('required'));
+            }
+          } catch {
+            // JSON 파싱 실패 시 무시
+          }
+        }
+        return response;
       },
     ],
   },
@@ -75,6 +99,12 @@ export default api;
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     return api.get('dashboard/stats').json<DashboardStats>();
+  },
+
+  getActivities: async (limit = 10): Promise<ActivitiesResponse> => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('limit', limit.toString());
+    return api.get('dashboard/activities', { searchParams }).json<ActivitiesResponse>();
   },
 };
 
@@ -308,7 +338,44 @@ export const publicPlacesApi = {
     return publicApi.get('public/places/viewport', { searchParams }).json<PublicPlacesResponse>();
   },
 
+  getNearest: async (params: NearestPlaceQuery): Promise<{ places: NearestPlace[]; total: number }> => {
+    const searchParams = new URLSearchParams({
+      lat: params.lat.toString(),
+      lng: params.lng.toString(),
+    });
+    if (params.category) searchParams.append('category', params.category);
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+
+    return publicApi.get('public/places/nearest', { searchParams }).json<{ places: NearestPlace[]; total: number }>();
+  },
+
   getOne: async (placeId: string): Promise<PublicPlaceDetail> => {
     return publicApi.get(`public/places/${placeId}`).json<PublicPlaceDetail>();
+  },
+};
+
+// Notifications API
+export const notificationsApi = {
+  getAll: async (params?: { limit?: number; offset?: number }): Promise<Notification[]> => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    return api.get('notifications', { searchParams }).json<Notification[]>();
+  },
+
+  getUnreadCount: async (): Promise<UnreadCountResponse> => {
+    return api.get('notifications/unread-count').json<UnreadCountResponse>();
+  },
+
+  markAsRead: async (notificationId: string): Promise<Notification> => {
+    return api.patch(`notifications/${notificationId}/read`).json<Notification>();
+  },
+
+  markAllAsRead: async (): Promise<{ count: number }> => {
+    return api.patch('notifications/read-all').json<{ count: number }>();
+  },
+
+  delete: async (notificationId: string): Promise<void> => {
+    return api.delete(`notifications/${notificationId}`).json<void>();
   },
 };

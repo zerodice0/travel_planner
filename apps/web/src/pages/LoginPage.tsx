@@ -14,6 +14,7 @@ interface LoginResponse {
     email: string;
     nickname: string;
     profileImage?: string;
+    emailVerified: boolean;
   };
 }
 
@@ -112,7 +113,8 @@ export default function LoginPage() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault(); // Prevent default form submission to avoid double submit
       handleSubmit(e as unknown as React.FormEvent);
     }
   };
