@@ -55,9 +55,19 @@ export default function ProfileEditPage() {
       updateUser(updatedUser);
       toast.success('프로필을 수정했습니다.');
       navigate('/settings');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update profile:', error);
-      const message = error.response?.data?.message || '프로필 수정에 실패했습니다.';
+
+      // Type-safe error handling
+      let message = '프로필 수정에 실패했습니다.';
+
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          message = apiError.response.data.message;
+        }
+      }
+
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -99,9 +109,19 @@ export default function ProfileEditPage() {
       setProfileImage(result.images.medium);
       updateUser({ ...user!, profileImage: result.images.medium });
       toast.success('이미지가 업로드되었습니다.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to upload image:', error);
-      const message = error.response?.data?.message || '이미지 업로드에 실패했습니다.';
+
+      // Type-safe error handling
+      let message = '이미지 업로드에 실패했습니다.';
+
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          message = apiError.response.data.message;
+        }
+      }
+
       toast.error(message);
     } finally {
       setIsUploading(false);

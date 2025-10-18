@@ -97,9 +97,19 @@ export default function CategoryManagementPage() {
 
       setShowFormModal(false);
       fetchCategories();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save category:', error);
-      const message = error.response?.data?.message || (editingCategory ? '카테고리 수정에 실패했습니다.' : '카테고리 생성에 실패했습니다.');
+
+      // Type-safe error handling
+      let message = editingCategory ? '카테고리 수정에 실패했습니다.' : '카테고리 생성에 실패했습니다.';
+
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          message = apiError.response.data.message;
+        }
+      }
+
       toast.error(message);
     }
   };
@@ -114,9 +124,19 @@ export default function CategoryManagementPage() {
       setDeletingCategoryId(null);
       setContextMenuCategoryId(null);
       fetchCategories();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete category:', error);
-      const message = error.response?.data?.message || '카테고리 삭제에 실패했습니다.';
+
+      // Type-safe error handling
+      let message = '카테고리 삭제에 실패했습니다.';
+
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          message = apiError.response.data.message;
+        }
+      }
+
       toast.error(message);
     }
   };

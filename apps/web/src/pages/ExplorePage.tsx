@@ -11,17 +11,7 @@ import { useAuth } from '#contexts/AuthContext';
 import { createMarkerDataURL } from '#utils/categoryIcons';
 import { useDebounce } from '#hooks/useDebounce';
 
-const CATEGORIES = [
-  { value: '', label: '전체', emoji: '🌍' },
-  { value: 'restaurant', label: '음식점', emoji: '🍔' },
-  { value: 'cafe', label: '카페', emoji: '☕' },
-  { value: 'attraction', label: '관광지', emoji: '🎡' },
-  { value: 'accommodation', label: '숙소', emoji: '🏨' },
-  { value: 'shopping', label: '쇼핑', emoji: '🛍️' },
-  { value: 'culture', label: '문화시설', emoji: '🎭' },
-  { value: 'nature', label: '자연', emoji: '🌲' },
-  { value: 'etc', label: '기타', emoji: '📍' },
-];
+import { CATEGORIES } from '#utils/categoryConfig';
 
 export default function ExplorePage() {
   const navigate = useNavigate();
@@ -33,6 +23,8 @@ export default function ExplorePage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 첫 로드 여부
   const [showEmptyState, setShowEmptyState] = useState(false); // Empty state 표시 여부
   const [emptyStateType, setEmptyStateType] = useState<'viewport' | 'category' | 'global'>('global'); // Empty state 타입
+  const [isLoadingNearest, setIsLoadingNearest] = useState(false); // 가장 가까운 장소 로딩
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null); // 현재 사용자 위치
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
 
@@ -134,14 +126,20 @@ export default function ExplorePage() {
       if (isInitialLoad) {
         setIsInitialLoad(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 취소된 요청은 무시
       if (abortController.signal.aborted) {
         return;
       }
 
+      // Type-safe error handling
+      const is429Error =
+        (typeof error === 'object' && error !== null &&
+         ((error as { response?: { status?: number } }).response?.status === 429)) ||
+        (error instanceof Error && error.message.includes('429'));
+
       // 429 에러는 조용히 처리
-      if (error?.response?.status === 429 || error?.message?.includes('429')) {
+      if (is429Error) {
         console.warn('Rate limited, waiting before next request');
 
         // Rate limit 플래그 설정
@@ -211,11 +209,12 @@ export default function ExplorePage() {
             });
 
             // 사용자 위치로 지도 이동
-            const userLocation = {
+            const userLoc = {
               lat: position.coords.latitude,
               lng: position.coords.longitude,
             };
-            map.setCenter(userLocation);
+            setUserLocation(userLoc);
+            map.setCenter(userLoc);
             
             // 정확도에 따라 줌 레벨 조정
             const accuracy = position.coords.accuracy;
@@ -437,6 +436,51 @@ export default function ExplorePage() {
     }
   };
 
+  // 등록된 장소 중 가장 가까운 곳으로 이동
+  const handleExploreNearest = async () => {
+    if (!userLocation || isLoadingNearest) return;
+
+    setIsLoadingNearest(true);
+
+    try {
+      const response = await publicPlacesApi.getNearest({
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        // 카테고리 필터 제거 - 모든 등록된 장소 중 가장 가까운 곳을 찾음
+        limit: 1,
+      });
+
+      if (response.places.length === 0) {
+        toast.error('아직 등록된 장소가 없습니다. 첫 장소를 추가해보세요!');
+        return;
+      }
+
+      const nearestPlace = response.places[0];
+      if (!nearestPlace) {
+        toast.error('장소를 찾을 수 없습니다');
+        return;
+      }
+
+      const distance = nearestPlace.distance;
+
+      // 지도 이동
+      const targetLocation = { lat: nearestPlace.latitude, lng: nearestPlace.longitude };
+      map?.panTo(targetLocation);
+      map?.setZoom(15); // 더 가까이 보기
+
+      // 선택된 장소 표시 (사이드 패널에서 볼 수 있도록)
+      setSelectedPlace(nearestPlace as PublicPlace);
+
+      // 토스트 알림
+      toast.success(`${distance.toFixed(1)}km 떨어진 장소를 발견했습니다! 🎯`);
+    } catch (error) {
+      console.error('Failed to fetch nearest place:', error);
+      toast.error('장소를 찾을 수 없습니다');
+    } finally {
+      setIsLoadingNearest(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header with CTA */}
@@ -491,27 +535,32 @@ export default function ExplorePage() {
           {/* 탭 스타일 카테고리 (모바일 & 데스크톱 공통) */}
           <div className="relative">
             <div className="flex gap-1 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 -mb-2 border-b border-border">
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category.value}
-                  onClick={() => setSelectedCategory(category.value)}
-                  className={`
-                    relative px-4 py-3 flex items-center gap-2 whitespace-nowrap snap-start flex-shrink-0
-                    transition-all duration-200 font-medium
-                    ${
-                      selectedCategory === category.value
-                        ? 'text-primary-600'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }
-                  `}
-                >
-                  <span className="text-xl">{category.emoji}</span>
-                  <span className="text-sm md:text-base">{category.label}</span>
-                  {selectedCategory === category.value && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500"></div>
-                  )}
-                </button>
-              ))}
+              {CATEGORIES.map((category) => {
+                const Icon = category.icon;
+                // 'all' 카테고리는 빈 문자열로 매핑
+                const categoryValue = category.value === 'all' ? '' : category.value;
+                return (
+                  <button
+                    key={category.value}
+                    onClick={() => setSelectedCategory(categoryValue)}
+                    className={`
+                      relative px-4 py-3 flex items-center gap-2 whitespace-nowrap snap-start flex-shrink-0
+                      transition-all duration-200 font-medium
+                      ${
+                        selectedCategory === categoryValue
+                          ? 'text-primary-600'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-sm md:text-base">{category.label}</span>
+                    {selectedCategory === categoryValue && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500"></div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* 스크롤 힌트 그라디언트 */}
@@ -535,6 +584,8 @@ export default function ExplorePage() {
                   category={selectedCategory}
                   isAuthenticated={isAuthenticated}
                   onLoginClick={handleLoginClick}
+                  onExploreNearest={userLocation ? handleExploreNearest : undefined}
+                  isLoadingNearest={isLoadingNearest}
                 />
               )}
 
@@ -613,9 +664,20 @@ export default function ExplorePage() {
                       <p className="text-sm text-muted-foreground truncate mb-2">
                         {selectedPlace.address}
                       </p>
-                      <span className="inline-block text-xs px-2 py-1 bg-primary-50 text-primary-700 rounded-full">
-                        {CATEGORIES.find((c) => c.value === selectedPlace.category)?.emoji}{' '}
-                        {CATEGORIES.find((c) => c.value === selectedPlace.category)?.label || selectedPlace.category}
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-primary-50 text-primary-700 rounded-full">
+                        {(() => {
+                          const category = CATEGORIES.find((c) => c.value === selectedPlace.category);
+                          if (category) {
+                            const Icon = category.icon;
+                            return (
+                              <>
+                                <Icon className="w-3 h-3" />
+                                {category.label}
+                              </>
+                            );
+                          }
+                          return selectedPlace.category;
+                        })()}
                       </span>
                     </div>
                     <button
@@ -628,6 +690,15 @@ export default function ExplorePage() {
 
                   {/* 스크롤 가능 영역 */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {/* 설명 섹션 */}
+                    {selectedPlace.description && (
+                      <div className="pb-4 border-b border-border">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {selectedPlace.description}
+                        </p>
+                      </div>
+                    )}
+
                     {/* 리뷰 수 */}
                     {selectedPlace.reviewCount > 0 && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
