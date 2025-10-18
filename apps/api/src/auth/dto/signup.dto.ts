@@ -20,7 +20,7 @@ export class SignupDto {
 
   @IsString()
   @MinLength(8, { message: '비밀번호는 최소 8자 이상이어야 합니다' })
-  @Matches(/^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/, {
+  @Matches(/^[a-zA-Z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+$/, {
     message: '영문, 숫자, 특수문자만 사용 가능합니다',
   })
   password!: string;

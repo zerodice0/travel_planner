@@ -38,6 +38,10 @@ export class CreatePlaceDto {
 
   @IsString()
   @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(100)
   customName?: string;
 

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListQueryDto } from './dto/list-query.dto';
 import { ListResponseDto, ListsResponseDto } from './dto/list-response.dto';
@@ -146,7 +147,7 @@ export class ListsService {
       throw new NotFoundException('List not found');
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ListUpdateInput = {};
     if (updateListDto.name) updateData.name = updateListDto.name;
     if (updateListDto.description !== undefined)
       updateData.description = updateListDto.description;

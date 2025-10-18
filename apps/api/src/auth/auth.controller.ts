@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Get, Query, UseGuards, Req, Res } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Get, Query, UseGuards, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, SignupDto } from './dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -87,7 +87,10 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Google 로그인 콜백' })
   async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
-    const result = await this.authService.googleLogin(req.user);
+    if (!req.user) {
+      throw new UnauthorizedException('Google 인증에 실패했습니다');
+    }
+    const result = await this.authService.googleLogin(req.user as { googleId: string; email: string; firstName: string; lastName: string; profileImage: string; });
 
     if ('needsAdditionalInfo' in result && result.needsAdditionalInfo) {
       // 추가 정보 입력 필요 - 프론트엔드로 리다이렉트

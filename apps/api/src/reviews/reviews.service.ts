@@ -3,10 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewResponseDto, ReviewsResponseDto } from './dto/review-response.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(
     userId: string,
@@ -43,6 +47,13 @@ export class ReviewsService {
         },
       },
     });
+
+    // 알림 생성 (비동기, 실패해도 리뷰 생성은 성공)
+    this.notificationsService
+      .notifyNewReviewOnSavedPlace(userPlace.placeId, userId, userPlace.place.name)
+      .catch((error) => {
+        console.error('Failed to create notification:', error);
+      });
 
     return {
       id: review.id,

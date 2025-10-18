@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards, Req, HttpCode } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, UseGuards, Req, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -33,5 +33,15 @@ export class UsersController {
   @ApiResponse({ status: 401, description: '인증 필요' })
   async updateProfile(@Req() req: RequestWithUser, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(req.user.userId, updateUserDto);
+  }
+
+  @Delete('account')
+  @HttpCode(204)
+  @ApiOperation({ summary: '계정 탈퇴' })
+  @ApiResponse({ status: 204, description: '계정 탈퇴 성공 (모든 관련 데이터 삭제됨)' })
+  @ApiResponse({ status: 401, description: '인증 필요' })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async deleteAccount(@Req() req: RequestWithUser) {
+    await this.usersService.deleteAccount(req.user.userId);
   }
 }

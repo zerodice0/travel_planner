@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PlacesService } from './places.service';
-import { PlaceQueryDto, ViewportQueryDto } from './dto/place-query.dto';
+import { PlaceQueryDto, ViewportQueryDto, NearestPlaceQueryDto } from './dto/place-query.dto';
 import {
   PublicPlaceDetailResponseDto,
   PublicPlacesResponseDto,
@@ -21,6 +21,11 @@ export class PublicPlacesController {
   @Get('viewport')
   async findByViewport(@Query() query: ViewportQueryDto): Promise<PublicPlacesResponseDto> {
     return this.placesService.findByViewport(query);
+  }
+
+  @Get('nearest')
+  async findNearest(@Query() query: NearestPlaceQueryDto): Promise<PublicPlacesResponseDto> {
+    return this.placesService.findNearest(query);
   }
 
   @Get(':id')

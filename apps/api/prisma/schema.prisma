@@ -22,6 +22,7 @@ model User {
   categories         Category[]
   emailVerifications EmailVerification[]
   lists              List[]
+  notifications      Notification[]
   passwordResets     PasswordReset[]
   refreshTokens      RefreshToken[]
   reviews            Review[]
@@ -39,6 +40,7 @@ model Place {
   latitude    Decimal     @db.Decimal(10, 8)
   longitude   Decimal     @db.Decimal(11, 8)
   category    String      @db.VarChar(50)
+  description String?     @db.Text
   externalUrl String?     @map("external_url")
   externalId  String?     @unique @map("external_id") @db.VarChar(255)
   createdAt   DateTime    @default(now()) @map("created_at")
@@ -67,7 +69,7 @@ model UserPlace {
   photos         String[]
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
-  place          Place       @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place          Place       @relation(fields: [placeId], references: [id], onDelete: Restrict)
   placeLists     PlaceList[]
   reviews        Review[]
   user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -197,7 +199,7 @@ model Review {
   reportCount Int       @default(0) @map("report_count")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  place       Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place       Place     @relation(fields: [placeId], references: [id], onDelete: Restrict)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userPlace   UserPlace @relation(fields: [userPlaceId], references: [id], onDelete: Cascade)
 
@@ -205,4 +207,20 @@ model Review {
   @@index([userId])
   @@index([userPlaceId])
   @@map("reviews")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  relatedId String?  @map("related_id") @db.Uuid
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }

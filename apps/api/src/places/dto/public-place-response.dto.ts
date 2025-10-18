@@ -30,6 +30,9 @@ export class PublicPlaceResponseDto {
   @ApiProperty()
   longitude!: number;
 
+  @ApiPropertyOptional()
+  description?: string | null;
+
   @ApiProperty({ type: [String] })
   photos!: string[];
 

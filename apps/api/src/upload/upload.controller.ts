@@ -14,8 +14,11 @@ import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { StorageService } from '../storage/storage.service';
 import { UsersService } from '../users/users.service';
 
-interface RequestWithUser extends Request {
+interface RequestWithUser {
   user: JwtPayload;
+  body: {
+    placeId?: string;
+  };
 }
 
 @ApiTags('upload')
@@ -96,7 +99,7 @@ export class UploadController {
     },
   })
   @ApiResponse({ status: 200, description: '업로드 성공' })
-  async uploadPlacePhoto(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+  async uploadPlacePhoto(@UploadedFile() file: Express.Multer.File, @Req() req: RequestWithUser) {
     if (!file) {
       throw new BadRequestException('파일이 업로드되지 않았습니다');
     }

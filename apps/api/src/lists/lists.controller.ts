@@ -13,7 +13,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { ListsService } from './lists.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ListQueryDto } from './dto/list-query.dto';
 import { ListsResponseDto } from './dto/list-response.dto';
@@ -24,6 +24,10 @@ import { AddPlacesDto } from './dto/add-places.dto';
 import { ReorderPlacesDto } from './dto/reorder-places.dto';
 import { OptimizeRouteDto } from './dto/optimize-route.dto';
 
+interface RequestWithUser {
+  user: JwtPayload;
+}
+
 @Controller('lists')
 @UseGuards(JwtAuthGuard)
 export class ListsController {
@@ -31,7 +35,7 @@ export class ListsController {
 
   @Get()
   async findAll(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query() query: ListQueryDto,
   ): Promise<ListsResponseDto> {
     return this.listsService.findAll(req.user.userId, query);
@@ -39,7 +43,7 @@ export class ListsController {
 
   @Get(':id')
   async findOne(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
   ): Promise<ListDetailResponseDto> {
     return this.listsService.findOne(req.user.userId, id);
@@ -49,7 +53,7 @@ export class ListsController {
   @HttpCode(201)
   @UseGuards(EmailVerifiedGuard)
   async create(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() createListDto: CreateListDto,
   ): Promise<ListDetailResponseDto> {
     return this.listsService.create(req.user.userId, createListDto);
@@ -57,7 +61,7 @@ export class ListsController {
 
   @Put(':id')
   async update(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateListDto: UpdateListDto,
   ): Promise<ListDetailResponseDto> {
@@ -66,13 +70,13 @@ export class ListsController {
 
   @Delete(':id')
   @HttpCode(204)
-  async delete(@Request() req: any, @Param('id') id: string): Promise<void> {
+  async delete(@Request() req: RequestWithUser, @Param('id') id: string): Promise<void> {
     return this.listsService.delete(req.user.userId, id);
   }
 
   @Get(':id/places')
   async getPlaces(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Query('sort') sort?: string,
   ) {
@@ -81,7 +85,7 @@ export class ListsController {
 
   @Post(':id/places')
   async addPlaces(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() addPlacesDto: AddPlacesDto,
   ) {
@@ -91,7 +95,7 @@ export class ListsController {
   @Delete(':listId/places/:placeId')
   @HttpCode(204)
   async removePlace(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('listId') listId: string,
     @Param('placeId') placeId: string,
   ): Promise<void> {
@@ -100,7 +104,7 @@ export class ListsController {
 
   @Patch(':id/places/reorder')
   async reorderPlaces(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() reorderDto: ReorderPlacesDto,
   ) {
@@ -109,7 +113,7 @@ export class ListsController {
 
   @Post(':id/optimize-route')
   async optimizeRoute(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() optimizeDto: OptimizeRouteDto,
   ) {

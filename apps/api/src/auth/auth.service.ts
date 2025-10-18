@@ -125,7 +125,7 @@ export class AuthService {
       ]);
 
       return tokens;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Refresh Token이 만료되었습니다');
     }
   }
@@ -255,7 +255,7 @@ export class AuthService {
     };
   }
 
-  async googleLogin(googleUser: any) {
+  async googleLogin(googleUser: { googleId: string; email: string; firstName: string; lastName: string; profileImage: string; }) {
     // Google ID로 기존 사용자 조회
     let user = await this.prisma.user.findFirst({
       where: {

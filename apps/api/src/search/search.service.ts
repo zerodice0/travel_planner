@@ -1,15 +1,51 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchQueryDto } from './dto/search-query.dto';
+
+export interface SearchPlaceResult {
+  id: string;
+  name: string;
+  address: string;
+  category: string;
+  customCategory: string | null;
+  labels: string[];
+  visited: boolean;
+  latitude: number;
+  longitude: number;
+  createdAt: Date;
+}
+
+export interface SearchListResult {
+  id: string;
+  name: string;
+  description: string | null;
+  iconType: string;
+  iconValue: string;
+  colorTheme: string | null;
+  placesCount: number;
+  visitedCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SearchResults {
+  places: SearchPlaceResult[];
+  lists: SearchListResult[];
+  total: {
+    places: number;
+    lists: number;
+  };
+}
 
 @Injectable()
 export class SearchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async search(userId: string, query: SearchQueryDto) {
+  async search(userId: string, query: SearchQueryDto): Promise<SearchResults> {
     const { q: keyword, type = 'all', category, visited } = query;
 
-    const results: any = {
+    const results: SearchResults = {
       places: [],
       lists: [],
       total: {
@@ -20,7 +56,7 @@ export class SearchService {
 
     // Search places
     if (type === 'all' || type === 'place') {
-      const whereClause: any = {
+      const whereClause: Prisma.UserPlaceWhereInput = {
         userId,
         OR: [
           { place: { name: { contains: keyword, mode: 'insensitive' } } },
@@ -65,7 +101,7 @@ export class SearchService {
 
     // Search lists
     if (type === 'all' || type === 'list') {
-      results.lists = await this.prisma.list.findMany({
+      const lists = await this.prisma.list.findMany({
         where: {
           userId,
           OR: [
@@ -89,7 +125,7 @@ export class SearchService {
       });
 
       // Transform lists to include counts
-      results.lists = results.lists.map((list: any) => ({
+      results.lists = lists.map((list) => ({
         id: list.id,
         name: list.name,
         description: list.description,
@@ -97,7 +133,7 @@ export class SearchService {
         iconValue: list.iconValue,
         colorTheme: list.colorTheme,
         placesCount: list.placeLists.length,
-        visitedCount: list.placeLists.filter((pl: any) => pl.userPlace.visited)
+        visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited)
           .length,
         createdAt: list.createdAt,
         updatedAt: list.updatedAt,

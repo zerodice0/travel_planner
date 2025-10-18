@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlaceQueryDto, ViewportQueryDto } from './dto/place-query.dto';
+import { PlaceQueryDto, ViewportQueryDto, NearestPlaceQueryDto } from './dto/place-query.dto';
 import { PlaceResponseDto, PlacesResponseDto } from './dto/place-response.dto';
 import { CreatePlaceDto } from './dto/create-place.dto';
 import { UpdatePlaceDto } from './dto/update-place.dto';
@@ -124,6 +124,7 @@ export class PlacesService {
             latitude: createPlaceDto.latitude,
             longitude: createPlaceDto.longitude,
             category: createPlaceDto.category,
+            description: createPlaceDto.description,
             externalUrl: createPlaceDto.externalUrl,
             externalId: createPlaceDto.externalId,
           },
@@ -147,7 +148,7 @@ export class PlacesService {
       return this.findOne(userId, userPlace.id);
     } catch (error) {
       // Prisma error handling
-      const prismaError = error as any;
+      const prismaError = error as { code?: string };
 
       if (prismaError.code === 'P2002') {
         throw new Error(
@@ -194,13 +195,14 @@ export class PlacesService {
 
     // UserPlace에 속하는 필드만 추출
     // Place 필드(name, address, phone, latitude, longitude, category)는 제외
+     
     const {
       category,
-      name,
-      address,
-      phone,
-      latitude,
-      longitude,
+      name: _name,
+      address: _address,
+      phone: _phone,
+      latitude: _latitude,
+      longitude: _longitude,
       ...userPlaceFields
     } = updatePlaceDto;
 
@@ -315,6 +317,100 @@ export class PlacesService {
   // Public methods (no authentication required)
 
   // Viewport-based place query
+  // Haversine 공식으로 두 점 사이의 거리 계산 (km)
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  async findNearest(query: NearestPlaceQueryDto): Promise<PublicPlacesResponseDto> {
+    const { lat, lng, category, limit = 1 } = query;
+
+    // 반경 100km 내의 모든 장소 조회
+    const where = category ? { category } : {};
+
+    const allPlaces = await this.prisma.place.findMany({
+      where,
+      include: {
+        userPlaces: {
+          select: {
+            labels: true,
+            photos: true,
+            reviews: {
+              where: { isPublic: true },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    // 거리 계산 후 정렬 (모든 등록된 장소 중 가장 가까운 곳 찾기)
+    const placesWithDistance = allPlaces
+      .map((place) => ({
+        ...place,
+        distance: this.calculateDistance(
+          lat,
+          lng,
+          Number(place.latitude),
+          Number(place.longitude)
+        ),
+      }))
+      // 거리 제한 제거 - 전 세계 모든 등록된 장소를 대상으로 검색
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+
+    const placeResponses: (PublicPlaceResponseDto & { distance: number })[] = placesWithDistance.map((place) => {
+      // 리뷰 수 계산
+      const reviewCount = place.userPlaces.reduce(
+        (sum, up) => sum + up.reviews.length,
+        0
+      );
+
+      // 커스텀 라벨 집계
+      const labelCounts = new Map<string, number>();
+      place.userPlaces.forEach((up) => {
+        up.labels.forEach((label) => {
+          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+        });
+      });
+
+      // 상위 10개 라벨만 선택
+      const topLabels: LabelCount[] = Array.from(labelCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // 모든 사진 수집
+      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+
+      return {
+        id: place.id,
+        name: place.name,
+        category: place.category,
+        address: place.address,
+        phone: place.phone,
+        latitude: Number(place.latitude),
+        longitude: Number(place.longitude),
+        description: place.description,
+        photos: allPhotos,
+        reviewCount,
+        topLabels,
+        createdAt: place.createdAt,
+        distance: place.distance,
+      };
+    });
+
+    return { places: placeResponses, total: placeResponses.length };
+  }
+
   async findByViewport(query: ViewportQueryDto): Promise<PublicPlacesResponseDto> {
     const { neLat, neLng, swLat, swLng, category } = query;
 
@@ -373,6 +469,7 @@ export class PlacesService {
         phone: place.phone,
         latitude: Number(place.latitude),
         longitude: Number(place.longitude),
+        description: place.description,
         photos: allPhotos,
         reviewCount,
         topLabels,
@@ -440,6 +537,7 @@ export class PlacesService {
         phone: place.phone,
         latitude: Number(place.latitude),
         longitude: Number(place.longitude),
+        description: place.description,
         photos: allPhotos,
         reviewCount,
         topLabels,
@@ -502,6 +600,7 @@ export class PlacesService {
       phone: place.phone,
       latitude: Number(place.latitude),
       longitude: Number(place.longitude),
+      description: place.description,
       photos: allPhotos,
       reviewCount,
       topLabels,

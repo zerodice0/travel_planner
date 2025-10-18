@@ -57,3 +57,24 @@ export class ViewportQueryDto {
   @IsString()
   category?: string;
 }
+
+export class NearestPlaceQueryDto {
+  @Type(() => Number)
+  @IsNumber()
+  lat!: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  lng!: number;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  limit?: number = 1;
+}

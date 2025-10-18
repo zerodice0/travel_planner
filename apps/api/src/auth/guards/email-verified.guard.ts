@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtPayload } from './jwt-auth.guard';
 
 /**
@@ -15,18 +15,31 @@ export class EmailVerifiedGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
 
+    // 디버깅 로그
+    console.log('[EmailVerifiedGuard] User:', {
+      userId: user?.userId,
+      email: user?.email,
+      emailVerified: user?.emailVerified,
+    });
+
     if (!user) {
       throw new ForbiddenException('인증이 필요합니다');
     }
 
     if (!user.emailVerified) {
-      throw new ForbiddenException({
-        message: '이메일 인증이 필요합니다',
-        errorCode: 'EMAIL_NOT_VERIFIED',
-        requiresEmailVerification: true,
-      });
+      console.log('[EmailVerifiedGuard] 이메일 미인증 → 403 에러 발생');
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.FORBIDDEN,
+          message: '이메일 인증이 필요합니다',
+          errorCode: 'EMAIL_NOT_VERIFIED',
+          requiresEmailVerification: true,
+        },
+        HttpStatus.FORBIDDEN,
+      );
     }
 
+    console.log('[EmailVerifiedGuard] 이메일 인증 완료 → 접근 허용');
     return true;
   }
 }
