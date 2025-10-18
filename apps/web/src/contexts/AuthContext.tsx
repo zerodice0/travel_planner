@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import api from '#lib/api';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import api, { tokenExpiredEvent } from '#lib/api';
 
 interface User {
   id: string;
@@ -21,6 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -54,6 +57,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  // Listen for token expiration events
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      // 계정 삭제 중이면 토스트 메시지를 표시하지 않음
+      const isDeletingAccount = localStorage.getItem('isDeletingAccount') === 'true';
+
+      // Clear user state
+      setUser(null);
+
+      // Show notification (계정 삭제 중이 아닐 때만)
+      if (!isDeletingAccount) {
+        toast.error('세션이 만료되었습니다. 다시 로그인해주세요.', {
+          duration: 5000,
+        });
+      }
+
+      // Redirect to login or explore page
+      const currentPath = window.location.pathname;
+      const isProtectedRoute = !['/login', '/signup', '/explore', '/splash', '/onboarding'].includes(currentPath);
+
+      if (isProtectedRoute) {
+        // Save current path to return after login
+        navigate('/login', { state: { from: currentPath }, replace: true });
+      } else {
+        // Already on public page, just refresh
+        navigate(currentPath, { replace: true });
+      }
+    };
+
+    tokenExpiredEvent.addEventListener('expired', handleTokenExpired);
+
+    return () => {
+      tokenExpiredEvent.removeEventListener('expired', handleTokenExpired);
+    };
+  }, [navigate]);
 
   const login = (accessToken: string, refreshToken: string, userData: User) => {
     localStorage.setItem('accessToken', accessToken);

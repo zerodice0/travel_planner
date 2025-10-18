@@ -8,7 +8,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
  * @param delay - The delay in milliseconds
  * @returns A debounced version of the callback
  */
-export function useDebounce<T extends (...args: any[]) => any>(
+export function useDebounce<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
 ): (...args: Parameters<T>) => void {

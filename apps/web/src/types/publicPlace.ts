@@ -13,6 +13,7 @@ export interface PublicPlace {
   phone?: string;
   latitude: number;
   longitude: number;
+  description?: string;
   photos: string[];
   reviewCount: number;
   topLabels: LabelCount[];
@@ -43,4 +44,15 @@ export interface ViewportQuery {
   swLat: number;
   swLng: number;
   category?: string;
+}
+
+export interface NearestPlaceQuery {
+  lat: number;
+  lng: number;
+  category?: string;
+  limit?: number;
+}
+
+export interface NearestPlace extends PublicPlace {
+  distance: number; // km 단위
 }

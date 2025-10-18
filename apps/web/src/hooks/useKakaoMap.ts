@@ -7,12 +7,12 @@ interface MapOptions {
 
 declare global {
   interface Window {
-    kakao: any;
+    kakao: typeof kakao;
   }
 }
 
 export function useKakaoMap(containerId: string, options: MapOptions) {
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scriptLoadedRef = useRef(false);

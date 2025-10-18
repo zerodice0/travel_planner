@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import type { Place } from '#types/place';
+import { getCategoryIcon, getCategoryLabel } from '#utils/categoryConfig';
 
 interface PlaceCardProps {
   place: Place;
@@ -8,31 +9,9 @@ interface PlaceCardProps {
   onDelete?: (place: Place) => void;
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  restaurant: '🍕',
-  cafe: '☕',
-  tourist_attraction: '🏛️',
-  shopping: '🛍️',
-  culture: '🎭',
-  nature: '🌳',
-  accommodation: '🏨',
-  etc: '📍',
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  restaurant: '맛집',
-  cafe: '카페',
-  tourist_attraction: '관광',
-  shopping: '쇼핑',
-  culture: '문화',
-  nature: '자연',
-  accommodation: '숙박',
-  etc: '기타',
-};
-
 export default function PlaceCard({ place, isSelected = false, onClick, onDelete }: PlaceCardProps) {
-  const categoryIcon = CATEGORY_ICONS[place.category] || CATEGORY_ICONS.etc;
-  const categoryLabel = CATEGORY_LABELS[place.category] || '기타';
+  const CategoryIcon = getCategoryIcon(place.category);
+  const categoryLabel = getCategoryLabel(place.category);
 
   return (
     <div
@@ -75,9 +54,7 @@ export default function PlaceCard({ place, isSelected = false, onClick, onDelete
         <h3 className="font-semibold text-foreground text-sm leading-tight flex-1 pr-2">
           {place.name}
         </h3>
-        <span className="text-xl flex-shrink-0" aria-label={categoryLabel}>
-          {categoryIcon}
-        </span>
+        <CategoryIcon className="w-5 h-5 flex-shrink-0 text-muted-foreground" aria-label={categoryLabel} />
       </div>
 
       {/* Category */}
@@ -88,13 +65,20 @@ export default function PlaceCard({ place, isSelected = false, onClick, onDelete
       {/* Address */}
       <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{place.address}</p>
 
+      {/* Description */}
+      {place.description ? (
+        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
+          {place.description}
+        </p>
+      ) : null}
+
       {/* Visited Badge */}
-      {place.visited && (
+      {place.visited ? (
         <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium">
           <span>✓</span>
           <span>방문 완료</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

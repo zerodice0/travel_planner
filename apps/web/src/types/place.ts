@@ -6,6 +6,7 @@ export interface Place {
   phone?: string;
   latitude: number;
   longitude: number;
+  description?: string;
   visited: boolean;
   externalUrl?: string;
   externalId?: string;
@@ -40,6 +41,7 @@ export interface CreatePlaceData {
   customCategory?: string;
   labels?: string[];
   note?: string;
+  description?: string;
   visited?: boolean;
   externalUrl?: string;
   externalId?: string;

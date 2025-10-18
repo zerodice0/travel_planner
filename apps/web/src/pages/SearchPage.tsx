@@ -5,22 +5,12 @@ import Input from '#components/ui/Input';
 import { searchApi, placesApi } from '#lib/api';
 import type { SearchResults, SearchHistory } from '#types/search';
 import toast from 'react-hot-toast';
+import { getCategoryIcon } from '#utils/categoryConfig';
 
 const STORAGE_KEY = 'travel-planner:search-history';
 const MAX_HISTORY = 5;
 
-const CATEGORIES = [
-  { value: 'restaurant', label: '음식점', emoji: '🍔' },
-  { value: 'cafe', label: '카페', emoji: '☕' },
-  { value: 'attraction', label: '관광지', emoji: '🎡' },
-  { value: 'accommodation', label: '숙소', emoji: '🏨' },
-  { value: 'shopping', label: '쇼핑', emoji: '🛍️' },
-  { value: 'culture', label: '문화시설', emoji: '🎭' },
-  { value: 'nature', label: '자연', emoji: '🌲' },
-  { value: 'etc', label: '기타', emoji: '📍' },
-];
-
-function debounce<T extends (...args: any[]) => void>(
+function debounce<T extends (...args: never[]) => void>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -135,10 +125,6 @@ export default function SearchPage() {
     }
   };
 
-  const getCategoryEmoji = (category: string) => {
-    const found = CATEGORIES.find((c) => c.value === category);
-    return found?.emoji || '📍';
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -258,7 +244,10 @@ export default function SearchPage() {
                           onClick={() => navigate(`/places/${place.id}`)}
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xl">{getCategoryEmoji(place.category)}</span>
+                            {(() => {
+                              const Icon = getCategoryIcon(place.category);
+                              return <Icon className="w-5 h-5 text-muted-foreground" />;
+                            })()}
                             <h3
                               className={`font-semibold ${
                                 place.visited ? 'text-muted-foreground line-through' : 'text-foreground'
@@ -293,7 +282,12 @@ export default function SearchPage() {
                       className="w-full bg-card rounded-lg p-4 border border-border hover:shadow-md transition-shadow text-left"
                     >
                       <div className="flex items-center gap-3">
-                        {list.iconType === 'emoji' ? (
+                        {list.iconType === 'category' ? (
+                          (() => {
+                            const Icon = getCategoryIcon(list.iconValue);
+                            return <Icon className="w-12 h-12 text-primary-600" />;
+                          })()
+                        ) : list.iconType === 'emoji' ? (
                           <span className="text-3xl">{list.iconValue}</span>
                         ) : (
                           <img

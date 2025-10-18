@@ -27,14 +27,19 @@ export default function BottomNavigation() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-all ${
                 isActive
-                  ? 'text-primary-600'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50/50 dark:bg-primary-950/20'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <Icon className="w-6 h-6 mb-1" />
-              <span className={`text-xs font-medium ${isActive ? 'font-semibold' : ''}`}>
+              {/* Top indicator bar for active state */}
+              {isActive && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary-600 dark:bg-primary-400 rounded-b-full" />
+              )}
+              <Icon className={`w-6 h-6 mb-1 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>
                 {item.label}
               </span>
             </Link>

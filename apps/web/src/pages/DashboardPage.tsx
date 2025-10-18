@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { FolderOpen, MapPin, AlertCircle } from 'lucide-react';
+import { FolderOpen, AlertCircle, Activity as ActivityIcon } from 'lucide-react';
 import AppLayout from '#components/layout/AppLayout';
 import SearchBar from '#components/dashboard/SearchBar';
 import StatsCard from '#components/dashboard/StatsCard';
 import ListCard from '#components/dashboard/ListCard';
-import PlaceListItem from '#components/dashboard/PlaceListItem';
+import ActivityCard from '#components/dashboard/ActivityCard';
 import { useDashboardData } from '#hooks/useDashboardData';
 
 // Skeleton 로딩 컴포넌트들
@@ -81,7 +81,7 @@ function ErrorMessage({ message, onRetry }: { message: string; onRetry: () => vo
 }
 
 export default function DashboardPage() {
-  const { stats, lists, recentPlaces, isLoading, error, refetch } = useDashboardData();
+  const { stats, lists, activities, isLoading, error, refetch } = useDashboardData();
 
   return (
     <AppLayout title="Travel Planner">
@@ -136,27 +136,27 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* 최근 추가한 장소 섹션 */}
+        {/* 최근 활동 섹션 */}
         <section>
-          <h2 className="text-lg font-bold text-foreground mb-3">최근 추가한 장소</h2>
+          <h2 className="text-lg font-bold text-foreground mb-3">최근 활동</h2>
 
           {isLoading ? (
             <PlaceListItemSkeleton />
-          ) : recentPlaces.length > 0 ? (
-            <div className="space-y-3">
-              {recentPlaces.map((place) => (
-                <PlaceListItem key={place.id} place={place} />
+          ) : activities.length > 0 ? (
+            <div className="space-y-2">
+              {activities.map((activity) => (
+                <ActivityCard key={activity.id} activity={activity} />
               ))}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <MapPin className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm">아직 추가된 장소가 없습니다.</p>
+              <ActivityIcon className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm">아직 활동 내역이 없습니다.</p>
               <Link
                 to="/map"
                 className="inline-block mt-3 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm"
               >
-                장소 찾아보기
+                장소 추가하기
               </Link>
             </div>
           )}

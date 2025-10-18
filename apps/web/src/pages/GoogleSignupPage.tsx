@@ -51,7 +51,7 @@ export default function GoogleSignupPage() {
         .get(`auth/check-nickname?nickname=${encodeURIComponent(nicknameValue)}`)
         .json<{ available: boolean }>();
       setNicknameAvailable(response.available);
-    } catch (error) {
+    } catch {
       setNicknameAvailable(null);
     } finally {
       setNicknameChecking(false);

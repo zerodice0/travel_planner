@@ -6,7 +6,8 @@ export interface ConfirmDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message?: string;
+  children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info' | 'success';
@@ -50,6 +51,7 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
+  children,
   confirmText = '확인',
   cancelText = '취소',
   variant = 'info',
@@ -129,13 +131,13 @@ export function ConfirmDialog({
             {title}
           </h2>
 
-          {/* Message */}
-          <p
+          {/* Message or Custom Content */}
+          <div
             id="confirm-dialog-message"
             className="text-muted-foreground text-center mb-6 leading-relaxed"
           >
-            {message}
-          </p>
+            {children || <p>{message}</p>}
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3">

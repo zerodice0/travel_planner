@@ -6,13 +6,7 @@ import Input from '#components/ui/Input';
 import AppLayout from '#components/layout/AppLayout';
 import { listsApi } from '#lib/api';
 import type { List, CreateListData } from '#types/list';
-
-const EMOJI_CATEGORIES = {
-  food: ['🍔', '🍕', '🍜', '🍱', '🍰', '🍺', '☕', '🍷'],
-  travel: ['✈️', '🏖️', '🗺️', '🏨', '🎒', '🚗', '⛰️', '🏝️'],
-  activity: ['⚽', '🎨', '🎬', '🎭', '🎪', '🎸', '🎮', '📚'],
-  other: ['💡', '⭐', '🎉', '❤️', '🔥', '✨', '🌈', '🎯'],
-};
+import { CATEGORIES, getCategoryIcon } from '#utils/categoryConfig';
 
 export default function ListManagementPage() {
   const navigate = useNavigate();
@@ -30,9 +24,8 @@ export default function ListManagementPage() {
   // Form state
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formIconType, setFormIconType] = useState<'emoji' | 'image'>('emoji');
-  const [formIconValue, setFormIconValue] = useState('🍔');
-  const [selectedEmojiCategory, setSelectedEmojiCategory] = useState<keyof typeof EMOJI_CATEGORIES>('food');
+  const [formIconType, setFormIconType] = useState<'category' | 'image'>('category');
+  const [formIconValue, setFormIconValue] = useState('restaurant');
 
   useEffect(() => {
     fetchLists();
@@ -55,9 +48,8 @@ export default function ListManagementPage() {
     setEditingList(null);
     setFormName('');
     setFormDescription('');
-    setFormIconType('emoji');
-    setFormIconValue('🍔');
-    setSelectedEmojiCategory('food');
+    setFormIconType('category');
+    setFormIconValue('restaurant');
     setShowFormModal(true);
   };
 
@@ -65,7 +57,7 @@ export default function ListManagementPage() {
     setEditingList(list);
     setFormName(list.name);
     setFormDescription(list.description || '');
-    setFormIconType(list.iconType as 'emoji' | 'image');
+    setFormIconType(list.iconType as 'category' | 'image');
     setFormIconValue(list.iconValue);
     setShowFormModal(true);
     setContextMenuListId(null);
@@ -271,7 +263,12 @@ export default function ListManagementPage() {
 
                 {/* 아이콘 */}
                 <div className="flex justify-center mb-4">
-                  {list.iconType === 'emoji' ? (
+                  {list.iconType === 'category' ? (
+                    (() => {
+                      const Icon = getCategoryIcon(list.iconValue);
+                      return <Icon className="w-16 h-16 text-primary-600" />;
+                    })()
+                  ) : list.iconType === 'emoji' ? (
                     <span className="text-5xl">{list.iconValue}</span>
                   ) : (
                     <img
@@ -392,14 +389,14 @@ export default function ListManagementPage() {
                 <div className="flex gap-2 mb-4">
                   <button
                     type="button"
-                    onClick={() => setFormIconType('emoji')}
+                    onClick={() => setFormIconType('category')}
                     className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                      formIconType === 'emoji'
+                      formIconType === 'category'
                         ? 'bg-primary-500 text-white'
                         : 'bg-muted text-foreground hover:bg-muted'
                     }`}
                   >
-                    이모지
+                    카테고리
                   </button>
                   <button
                     type="button"
@@ -415,72 +412,28 @@ export default function ListManagementPage() {
                   </button>
                 </div>
 
-                {/* 이모지 선택 */}
-                {formIconType === 'emoji' && (
-                  <div>
-                    {/* 카테고리 */}
-                    <div className="flex gap-2 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedEmojiCategory('food')}
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          selectedEmojiCategory === 'food'
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-muted text-foreground'
-                        }`}
-                      >
-                        음식
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedEmojiCategory('travel')}
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          selectedEmojiCategory === 'travel'
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-muted text-foreground'
-                        }`}
-                      >
-                        여행
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedEmojiCategory('activity')}
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          selectedEmojiCategory === 'activity'
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-muted text-foreground'
-                        }`}
-                      >
-                        활동
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedEmojiCategory('other')}
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          selectedEmojiCategory === 'other'
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-muted text-foreground'
-                        }`}
-                      >
-                        기타
-                      </button>
-                    </div>
-
-                    {/* 이모지 그리드 */}
-                    <div className="grid grid-cols-8 gap-2">
-                      {EMOJI_CATEGORIES[selectedEmojiCategory].map((emoji) => (
+                {/* 카테고리 아이콘 선택 */}
+                {formIconType === 'category' && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {CATEGORIES.filter(c => c.value !== 'all').map((category) => {
+                      const Icon = category.icon;
+                      const isSelected = formIconValue === category.value;
+                      return (
                         <button
-                          key={emoji}
+                          key={category.value}
                           type="button"
-                          onClick={() => setFormIconValue(emoji)}
-                          className={`p-3 text-3xl rounded-lg hover:bg-muted transition-colors ${
-                            formIconValue === emoji ? 'bg-primary-50 ring-2 ring-primary-500' : ''
+                          onClick={() => setFormIconValue(category.value)}
+                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                            isSelected
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-border hover:border-primary-300 hover:bg-muted'
                           }`}
                         >
-                          {emoji}
+                          <Icon className="w-8 h-8" />
+                          <span className="text-sm font-medium">{category.label}</span>
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

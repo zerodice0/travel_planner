@@ -19,7 +19,7 @@ export interface CreateListData {
   name: string;
   description?: string;
   icon: {
-    type: 'emoji' | 'image';
+    type: 'category' | 'emoji' | 'image';
     value: string;
   };
   colorTheme?: string;
@@ -29,7 +29,7 @@ export interface UpdateListData {
   name?: string;
   description?: string;
   icon?: {
-    type: 'emoji' | 'image';
+    type: 'category' | 'emoji' | 'image';
     value: string;
   };
   colorTheme?: string;

@@ -1,6 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Settings, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { useAuth } from '#contexts/AuthContext';
+import NotificationDropdown from '#components/notification/NotificationDropdown';
+import { notificationsApi } from '#lib/api';
 
 interface HeaderProps {
   title?: string;
@@ -16,6 +19,35 @@ export default function Header({
   showSettings = true,
 }: HeaderProps) {
   const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // 초기 안읽은 알림 개수 로드
+  useEffect(() => {
+    if (showNotification) {
+      loadUnreadCount();
+    }
+  }, [showNotification]);
+
+  // 30초마다 안읽은 알림 개수 폴링
+  useEffect(() => {
+    if (!showNotification) return;
+
+    const interval = setInterval(() => {
+      loadUnreadCount();
+    }, 30000); // 30초
+
+    return () => clearInterval(interval);
+  }, [showNotification]);
+
+  const loadUnreadCount = async () => {
+    try {
+      const { count } = await notificationsApi.getUnreadCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Failed to load unread count:', error);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-10 bg-card border-b border-border">
       <div className="flex items-center justify-between h-16 px-4 max-w-screen-lg mx-auto">
@@ -27,15 +59,10 @@ export default function Header({
         {/* Right side - Actions */}
         <div className="flex items-center gap-3">
           {showNotification && (
-            <button
-              type="button"
-              className="relative p-2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="알림"
-            >
-              <Bell className="w-6 h-6" />
-              {/* Notification badge */}
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationDropdown
+              unreadCount={unreadCount}
+              onUnreadCountChange={setUnreadCount}
+            />
           )}
 
           {showSettings && (

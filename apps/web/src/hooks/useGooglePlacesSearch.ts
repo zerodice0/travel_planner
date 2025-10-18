@@ -27,7 +27,7 @@ export function useGooglePlacesSearch() {
       // Use new Place.searchByText() API
       const request = {
         textQuery: keyword,
-        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id'],
+        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id', 'editorialSummary'],
         language: 'ko',
         maxResultCount: 20,
       };
@@ -48,6 +48,7 @@ export function useGooglePlacesSearch() {
         category: mapGoogleCategory(place.types || []),
         latitude: place.location?.lat() ?? 0,
         longitude: place.location?.lng() ?? 0,
+        description: place.editorialSummary || undefined,
         url: `https://maps.google.com/?q=place_id:${place.id}`,
       }));
 

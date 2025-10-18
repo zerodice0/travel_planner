@@ -1,15 +1,24 @@
 import type { Place } from '#types/place';
 import type { BaseMarkerManager } from '#types/map';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import { createMarkerDataURL } from './categoryIcons';
+import { getCategoryLabel } from './categoryConfig';
 
 export class GoogleMarkerManager implements BaseMarkerManager {
   private markers: Map<string, google.maps.marker.AdvancedMarkerElement> = new Map();
   private infoWindows: Map<string, google.maps.InfoWindow> = new Map();
   private places: Map<string, Place> = new Map();
   private map: google.maps.Map;
+  private clusterer: MarkerClusterer | null = null;
 
   constructor(map: google.maps.Map) {
     this.map = map;
+    // Initialize marker clusterer with SuperCluster algorithm
+    this.clusterer = new MarkerClusterer({
+      map,
+      markers: [],
+      algorithm: new SuperClusterAlgorithm({ radius: 100 }),
+    });
   }
 
   async addMarker(place: Place, onClick?: (place: Place) => void): Promise<void> {
@@ -33,10 +42,13 @@ export class GoogleMarkerManager implements BaseMarkerManager {
         lat: place.latitude,
         lng: place.longitude,
       },
-      map: this.map,
+      map: null,  // Clusterer will manage map assignment
       title: place.name,
       content: iconElement,
     });
+
+    // Add marker to clusterer
+    this.clusterer?.addMarker(marker);
 
     this.markers.set(place.id, marker);
     this.places.set(place.id, place);
@@ -83,6 +95,9 @@ export class GoogleMarkerManager implements BaseMarkerManager {
   }
 
   clearMarkers(): void {
+    // Clear clusterer first
+    this.clusterer?.clearMarkers();
+
     this.markers.forEach((marker) => (marker.map = null));
     this.markers.clear();
     this.closeAllInfoWindows();
@@ -120,7 +135,7 @@ export class GoogleMarkerManager implements BaseMarkerManager {
           ${this.escapeHtml(place.name)}
         </div>
         <div style="color: #666; font-size: 12px; margin-bottom: 4px;">
-          ${this.getCategoryLabel(place.category)}
+          ${getCategoryLabel(place.category)}
         </div>
         <div style="color: #666; font-size: 12px; margin-bottom: 8px;">
           ${this.escapeHtml(place.address)}
@@ -136,20 +151,6 @@ export class GoogleMarkerManager implements BaseMarkerManager {
         </button>
       </div>
     `;
-  }
-
-  private getCategoryLabel(category: string): string {
-    const labels: Record<string, string> = {
-      restaurant: '맛집',
-      cafe: '카페',
-      tourist_attraction: '관광',
-      shopping: '쇼핑',
-      culture: '문화',
-      nature: '자연',
-      accommodation: '숙박',
-      etc: '기타',
-    };
-    return labels[category] || category;
   }
 
   private escapeHtml(text: string): string {

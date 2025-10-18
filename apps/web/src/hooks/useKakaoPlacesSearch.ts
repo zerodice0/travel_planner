@@ -22,7 +22,7 @@ export function useKakaoPlacesSearch() {
     return new Promise((resolve) => {
       const ps = new window.kakao.maps.services.Places();
 
-      ps.keywordSearch(keyword, (data: KakaoPlace[], status: any) => {
+      ps.keywordSearch(keyword, (data: KakaoPlace[], status: kakao.maps.services.Status) => {
         setIsSearching(false);
 
         if (status === window.kakao.maps.services.Status.OK) {

@@ -73,7 +73,7 @@ export default function SignupPage() {
     try {
       const response = await api.get(`auth/check-email?email=${encodeURIComponent(email)}`).json<{ available: boolean }>();
       setEmailAvailable(response.available);
-    } catch (error) {
+    } catch {
       setEmailAvailable(null);
     } finally {
       setEmailChecking(false);
@@ -90,7 +90,7 @@ export default function SignupPage() {
     try {
       const response = await api.get(`auth/check-nickname?nickname=${encodeURIComponent(nickname)}`).json<{ available: boolean }>();
       setNicknameAvailable(response.available);
-    } catch (error) {
+    } catch {
       setNicknameAvailable(null);
     } finally {
       setNicknameChecking(false);

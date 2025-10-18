@@ -3,12 +3,12 @@ import type { BaseMarkerManager } from '#types/map';
 import { createMarkerDataURL } from './categoryIcons';
 
 export class KakaoMarkerManager implements BaseMarkerManager {
-  private markers: Map<string, any> = new Map();
-  private infowindows: Map<string, any> = new Map();
+  private markers: Map<string, kakao.maps.Marker> = new Map();
+  private infowindows: Map<string, kakao.maps.InfoWindow> = new Map();
   private places: Map<string, Place> = new Map();
-  private map: any;
+  private map: kakao.maps.Map;
 
-  constructor(map: any) {
+  constructor(map: kakao.maps.Map) {
     this.map = map;
   }
 
@@ -102,7 +102,7 @@ export class KakaoMarkerManager implements BaseMarkerManager {
     this.map.setLevel(level);
   }
 
-  private getMarkerImage(visited: boolean, category: string): any {
+  private getMarkerImage(visited: boolean, category: string): kakao.maps.MarkerImage {
     // Use category-based custom SVG markers
     const imageSrc = createMarkerDataURL(category, visited);
     const imageSize = new window.kakao.maps.Size(40, 50);

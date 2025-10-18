@@ -49,10 +49,10 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
         const map = new Map(container, {
           center: options.center,
           zoom: options.level || 14,
-          mapTypeControl: true,
+          mapTypeControl: false, // Disabled: will use custom control
           fullscreenControl: false,
           streetViewControl: false,
-          zoomControl: true,
+          zoomControl: false, // Disabled: will use custom control
           ...(mapId && { mapId }), // Add mapId if available
         });
 
@@ -104,6 +104,16 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
     mapRef.current.panBy(dx, dy);
   };
 
+  const getMapType = () => {
+    if (!mapRef.current) return null;
+    return mapRef.current.getMapTypeId();
+  };
+
+  const setMapType = (mapTypeId: string) => {
+    if (!mapRef.current) return;
+    mapRef.current.setMapTypeId(mapTypeId);
+  };
+
   return {
     map: mapRef.current,
     isLoaded,
@@ -113,5 +123,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
     setCenter,
     setZoom,
     panBy,
+    getMapType,
+    setMapType,
   };
 }

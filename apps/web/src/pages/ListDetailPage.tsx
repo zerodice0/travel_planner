@@ -15,17 +15,7 @@ import toast from 'react-hot-toast';
 import { listsApi, placesApi } from '#lib/api';
 import type { List, ListPlaceItem } from '#types/list';
 import type { Place } from '#types/place';
-
-const CATEGORIES = [
-  { value: 'restaurant', label: '음식점', emoji: '🍔' },
-  { value: 'cafe', label: '카페', emoji: '☕' },
-  { value: 'attraction', label: '관광지', emoji: '🎡' },
-  { value: 'accommodation', label: '숙소', emoji: '🏨' },
-  { value: 'shopping', label: '쇼핑', emoji: '🛍️' },
-  { value: 'culture', label: '문화시설', emoji: '🎭' },
-  { value: 'nature', label: '자연', emoji: '🌲' },
-  { value: 'etc', label: '기타', emoji: '📍' },
-];
+import { getCategoryIcon } from '#utils/categoryConfig';
 
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -197,11 +187,6 @@ export default function ListDetailPage() {
     }
   };
 
-  const getCategoryEmoji = (category: string) => {
-    const found = CATEGORIES.find((c) => c.value === category);
-    return found?.emoji || '📍';
-  };
-
   const getProgressPercent = () => {
     if (!list || list.placesCount === 0) return 0;
     return Math.round((list.visitedCount / list.placesCount) * 100);
@@ -280,7 +265,12 @@ export default function ListDetailPage() {
         {/* 목록 정보 카드 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="flex items-center gap-4 mb-4">
-            {list.iconType === 'emoji' ? (
+            {list.iconType === 'category' ? (
+              (() => {
+                const Icon = getCategoryIcon(list.iconValue);
+                return <Icon className="w-16 h-16 text-primary-600" />;
+              })()
+            ) : list.iconType === 'emoji' ? (
               <span className="text-5xl">{list.iconValue}</span>
             ) : (
               <img
@@ -398,7 +388,10 @@ export default function ListDetailPage() {
                     onClick={() => navigate(`/places/${place.id}`)}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl">{getCategoryEmoji(place.category)}</span>
+                      {(() => {
+                        const Icon = getCategoryIcon(place.category);
+                        return <Icon className="w-5 h-5 text-muted-foreground" />;
+                      })()}
                       <h3
                         className={`font-semibold ${
                           place.visited ? 'text-muted-foreground line-through' : 'text-foreground'
@@ -519,7 +512,10 @@ export default function ListDetailPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{getCategoryEmoji(place.category)}</span>
+                        {(() => {
+                          const Icon = getCategoryIcon(place.category);
+                          return <Icon className="w-8 h-8 text-primary-600" />;
+                        })()}
                         <div className="flex-1">
                           <h3 className="font-semibold text-foreground">{place.name}</h3>
                           <p className="text-sm text-muted-foreground truncate">{place.address}</p>

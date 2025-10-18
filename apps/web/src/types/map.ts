@@ -13,14 +13,27 @@ export interface SearchResult {
   phone?: string;
   latitude: number;
   longitude: number;
+  description?: string;
   url?: string;
+  isLocal?: boolean;
+}
+
+export interface MarkerPlace {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  category: string;
+  phone?: string;
+  description?: string;
 }
 
 export interface BaseMarkerManager {
-  addMarker(place: any, onClick?: (place: any) => void): void | Promise<void>;
+  addMarker(place: MarkerPlace, onClick?: (place: MarkerPlace) => void): void | Promise<void>;
   removeMarker(placeId: string): void;
   clearMarkers(): void;
-  updateMarker(place: any): void | Promise<void>;
+  updateMarker(place: MarkerPlace): void | Promise<void>;
   panTo(latitude: number, longitude: number): void;
   setLevel(level: number): void;
   closeAllInfoWindows(): void;
@@ -28,7 +41,7 @@ export interface BaseMarkerManager {
 }
 
 export interface MapHookResult {
-  map: any;
+  map: google.maps.Map | kakao.maps.Map | null;
   isLoaded: boolean;
   error: string | null;
 }

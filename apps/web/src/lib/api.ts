@@ -33,6 +33,9 @@ import type { Notification, UnreadCountResponse } from '#types/notification';
 // Event system for email verification required
 export const emailVerificationRequiredEvent = new EventTarget();
 
+// Event system for token expiration (401 Unauthorized)
+export const tokenExpiredEvent = new EventTarget();
+
 const api = ky.create({
   prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
   timeout: 10000,
@@ -47,12 +50,37 @@ const api = ky.create({
       },
     ],
     afterResponse: [
-      async (_request, _options, response) => {
+      async (request, _options, response) => {
+        // 401 Unauthorized 에러 감지 (토큰 만료/유효하지 않음)
+        if (response.status === 401) {
+          const url = request.url;
+
+          // 인증 엔드포인트는 tokenExpiredEvent 발생 제외
+          // 로그인/회원가입 실패는 각 페이지에서 개별 처리
+          const isAuthEndpoint =
+            url.includes('/auth/login') ||
+            url.includes('/auth/signup') ||
+            url.includes('/auth/refresh');
+
+          if (!isAuthEndpoint) {
+            // 보호된 엔드포인트에서의 401만 세션 만료로 처리
+            tokenExpiredEvent.dispatchEvent(new Event('expired'));
+            // 토큰 즉시 삭제
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
+        }
+
         // 403 Forbidden 에러 감지 (이메일 미인증)
         if (response.status === 403) {
           try {
             const errorData = await response.clone().json();
-            if (errorData.requiresEmailVerification) {
+            // NestJS는 Exception 객체를 message 필드에 넣을 수도 있으므로 양쪽 다 체크
+            const requiresVerification =
+              errorData.requiresEmailVerification ||
+              errorData.message?.requiresEmailVerification;
+
+            if (requiresVerification) {
               // 이메일 인증 필요 이벤트 발생
               emailVerificationRequiredEvent.dispatchEvent(new Event('required'));
             }
@@ -81,8 +109,7 @@ const publicApi = ky.create({
     beforeRetry: [
       async ({ error, retryCount }) => {
         // For 429 (Too Many Requests), use exponential backoff
-        const response = error as any;
-        if (response?.response?.status === 429) {
+        if (error instanceof HTTPError && error.response?.status === 429) {
           // Exponential backoff: 1s, 2s, 4s...
           const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
           console.log(`Rate limited, retrying after ${delay}ms (attempt ${retryCount + 1})`);
@@ -277,6 +304,7 @@ export interface User {
   email: string;
   nickname: string;
   profileImage?: string;
+  emailVerified: boolean;
 }
 
 export interface UpdateProfileData {

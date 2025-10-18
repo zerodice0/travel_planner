@@ -67,6 +67,9 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     try {
+      // 계정 삭제 중임을 표시 (AuthContext의 토큰 만료 이벤트에서 토스트를 건너뛰기 위함)
+      localStorage.setItem('isDeletingAccount', 'true');
+
       await usersApi.deleteAccount();
       logout();
       toast.success('계정이 삭제되었습니다.');
@@ -74,6 +77,9 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Failed to delete account:', error);
       toast.error('계정 삭제에 실패했습니다.');
+    } finally {
+      // 플래그 제거
+      localStorage.removeItem('isDeletingAccount');
     }
   };
 

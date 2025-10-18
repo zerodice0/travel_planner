@@ -14,7 +14,7 @@ export const signupSchema = z
     password: z
       .string()
       .min(8, '비밀번호는 최소 8자 이상이어야 합니다')
-      .regex(/^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/, '영문, 숫자, 특수문자만 사용 가능합니다'),
+      .regex(/^[a-zA-Z0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+$/, '영문, 숫자, 특수문자만 사용 가능합니다'),
     passwordConfirm: z.string(),
     nickname: z
       .string()
