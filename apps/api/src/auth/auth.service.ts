@@ -65,6 +65,7 @@ export class AuthService {
         email: user.email,
         nickname: user.nickname,
         profileImage: user.profileImage,
+        emailVerified: user.emailVerified,
       },
     };
   }
@@ -126,7 +127,16 @@ export class AuthService {
         }),
       ]);
 
-      return tokens;
+      return {
+        ...tokens,
+        user: {
+          id: user.id,
+          email: user.email,
+          nickname: user.nickname,
+          profileImage: user.profileImage,
+          emailVerified: user.emailVerified,
+        },
+      };
     } catch {
       throw new UnauthorizedException('Refresh Token이 만료되었습니다');
     }
