@@ -1,12 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Search, MapPin } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { X, Search, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import Input from '#components/ui/Input';
 import { CategoryFilter } from '#components/map/CategoryFilter';
 import { useSearchPlaces } from '#hooks/useSearchPlaces';
 import { useInfiniteScroll } from '#hooks/useInfiniteScroll';
 import { useMapProvider } from '#contexts/MapProviderContext';
+import { useGoogleMap } from '#hooks/useGoogleMap';
 import { placesApi, publicPlacesApi } from '#lib/api';
 import { getCategoryIcon } from '#utils/categoryConfig';
+import { deduplicatePlaces } from '#utils/deduplicatePlaces';
+import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
 import type { Place } from '#types/place';
 import type { PublicPlace } from '#types/publicPlace';
 import type { SearchResult } from '#types/map';
@@ -40,6 +43,7 @@ export function PlaceSelectionModal({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedPlaces, setSelectedPlaces] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(true);
 
   // 내 장소
   const [myPlaces, setMyPlaces] = useState<Place[]>([]);
@@ -62,6 +66,34 @@ export function PlaceSelectionModal({
     publicPlaces,
     searchProvider,
   });
+
+  // Google Map 초기화
+  const markerManagerRef = useRef<GoogleMarkerManager | null>(null);
+  const prevSelectedPlacesRef = useRef<Set<string>>(new Set());
+  const prevAvailablePlaceIdsRef = useRef<Set<string>>(new Set());
+  const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // Seoul City Hall
+
+  const { map, isLoaded } = useGoogleMap(
+    isOpen ? 'place-selection-modal-map' : '',
+    {
+      center: DEFAULT_CENTER,
+      level: 11, // 서울 전체가 보이는 줌 레벨
+    }
+  );
+
+  // 마커 매니저 초기화
+  useEffect(() => {
+    if (map && isLoaded) {
+      markerManagerRef.current = new GoogleMarkerManager(map as google.maps.Map);
+    }
+
+    return () => {
+      if (markerManagerRef.current) {
+        markerManagerRef.current.clearMarkers();
+        markerManagerRef.current = null;
+      }
+    };
+  }, [map, isLoaded]);
 
   // 초기 로드
   useEffect(() => {
@@ -184,6 +216,7 @@ export function PlaceSelectionModal({
       latitude: p.latitude,
       longitude: p.longitude,
       url: p.externalUrl,
+      externalId: p.externalId,
       isLocal: true,
     }));
 
@@ -194,10 +227,12 @@ export function PlaceSelectionModal({
       category: p.category,
       latitude: p.latitude,
       longitude: p.longitude,
+      externalId: p.externalId,
       isPublic: true,
     }));
 
-    const combined = [...myPlacesResults, ...publicPlacesResults];
+    // 중복 제거 (같은 장소가 내 장소와 공개 장소 모두에 있는 경우)
+    const combined = deduplicatePlaces([...myPlacesResults, ...publicPlacesResults]);
 
     // 카테고리 필터 적용
     return selectedCategory
@@ -211,6 +246,120 @@ export function PlaceSelectionModal({
   const availablePlaces = useMemo(() => {
     return displayPlaces.filter(place => !excludePlaceIds.includes(place.id));
   }, [displayPlaces, excludePlaceIds]);
+
+  /**
+   * 지도에 마커 초기 렌더링
+   * availablePlaces가 변경될 때만 실행 (전체 재렌더링)
+   */
+  useEffect(() => {
+    if (!markerManagerRef.current || !isLoaded || !isMapExpanded || !map) return;
+
+    // availablePlaces 변경 감지 (장소 ID 세트로 비교)
+    const currentPlaceIds = new Set(availablePlaces.map(p => p.id));
+    const prevPlaceIds = prevAvailablePlaceIdsRef.current;
+
+    const isPlacesChanged =
+      currentPlaceIds.size !== prevPlaceIds.size ||
+      ![...currentPlaceIds].every(id => prevPlaceIds.has(id));
+
+    if (!isPlacesChanged) return;
+
+    const renderMarkers = async () => {
+      if (!markerManagerRef.current || !map) return;
+
+      // 기존 마커 제거
+      markerManagerRef.current.clearMarkers();
+
+      // 모든 장소를 마커로 표시 (병렬 처리)
+      await Promise.all(
+        availablePlaces.map(async (place) => {
+          const isSelected = selectedPlaces.has(place.id);
+
+          // Place 타입으로 변환 (마커 매니저가 요구하는 형식)
+          const placeData: Place = {
+            id: place.id,
+            name: place.name,
+            address: place.address,
+            category: place.category,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            visited: false,
+            createdAt: new Date().toISOString(),
+            // 선택된 장소는 customName으로 표시
+            customName: isSelected ? `✓ ${place.name}` : undefined,
+          };
+
+          await markerManagerRef.current?.addMarker(placeData, (clickedPlace) => {
+            // 마커 클릭 시 장소 선택/해제
+            setSelectedPlaces(prev => {
+              const newSet = new Set(prev);
+              if (newSet.has(clickedPlace.id)) {
+                newSet.delete(clickedPlace.id);
+              } else {
+                newSet.add(clickedPlace.id);
+              }
+              return newSet;
+            });
+          });
+        })
+      );
+
+      // 마커가 있으면 전체 마커가 보이도록 지도 범위 조정
+      if (availablePlaces.length > 0 && map) {
+        const bounds = new google.maps.LatLngBounds();
+        availablePlaces.forEach(place => {
+          bounds.extend({ lat: place.latitude, lng: place.longitude });
+        });
+        (map as google.maps.Map).fitBounds(bounds);
+      }
+
+      // 현재 장소 ID 세트를 저장
+      prevAvailablePlaceIdsRef.current = currentPlaceIds;
+    };
+
+    renderMarkers();
+  }, [availablePlaces, isLoaded, isMapExpanded, map]);
+
+  /**
+   * 선택 상태 변경 시 마커 라벨만 업데이트
+   * 깜빡임 없이 부드러운 전환
+   */
+  useEffect(() => {
+    if (!markerManagerRef.current || !isLoaded || !isMapExpanded) return;
+
+    const prevSelected = prevSelectedPlacesRef.current;
+    const currentSelected = selectedPlaces;
+
+    // 변경된 장소 찾기
+    const changedPlaces = new Set<string>();
+
+    // 새로 선택된 장소
+    currentSelected.forEach(id => {
+      if (!prevSelected.has(id)) {
+        changedPlaces.add(id);
+      }
+    });
+
+    // 선택 해제된 장소
+    prevSelected.forEach(id => {
+      if (!currentSelected.has(id)) {
+        changedPlaces.add(id);
+      }
+    });
+
+    // 변경된 장소의 라벨만 업데이트
+    changedPlaces.forEach(placeId => {
+      const place = availablePlaces.find(p => p.id === placeId);
+      if (place) {
+        const isSelected = currentSelected.has(placeId);
+        const newLabel = isSelected ? `✓ ${place.name}` : undefined;
+        markerManagerRef.current?.updateMarkerLabel(placeId, newLabel);
+      }
+    });
+
+    // 현재 선택 상태 저장
+    prevSelectedPlacesRef.current = new Set(currentSelected);
+  }, [selectedPlaces, availablePlaces, isLoaded, isMapExpanded]);
 
   /**
    * 장소 선택/해제
@@ -234,6 +383,7 @@ export function PlaceSelectionModal({
     setSearchKeyword('');
     setSelectedCategory('');
     setSelectedPlaces(new Set());
+    setIsMapExpanded(true);
     clearSearch();
     onClose();
   };
@@ -306,6 +456,41 @@ export function PlaceSelectionModal({
           />
         </div>
 
+        {/* Map Section */}
+        <div className="border-b border-border">
+          <button
+            onClick={() => setIsMapExpanded(!isMapExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary-600" />
+              <span className="font-medium text-foreground">지도</span>
+            </div>
+            {isMapExpanded ? (
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
+          {isMapExpanded && (
+            <div className="h-80 relative bg-muted/20">
+              {isOpen ? (
+                <>
+                  <div id="place-selection-modal-map" className="w-full h-full" />
+                  {!isLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+                      <div className="text-center">
+                        <MapPin className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
+                        <p className="text-sm text-muted-foreground">지도 로딩 중...</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+
         {/* Places List */}
         <div className="flex-1 overflow-y-auto p-4">
           {availablePlaces.length > 0 ? (
@@ -329,16 +514,18 @@ export function PlaceSelectionModal({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-foreground truncate">{place.name}</h3>
-                          {place.isLocal && (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full flex-shrink-0">
-                              내 장소
-                            </span>
-                          )}
-                          {place.isPublic && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full flex-shrink-0">
-                              공개
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {place.isLocal && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                                내 장소
+                              </span>
+                            )}
+                            {place.isPublic && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                공개
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
