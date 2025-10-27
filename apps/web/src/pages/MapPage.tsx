@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { Search, MapPin, Navigation, Menu, Plus } from 'lucide-react';
+import { Search, MapPin, Navigation, Menu, Plus, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { HTTPError } from 'ky';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
@@ -11,11 +12,14 @@ import { useAuth } from '#contexts/AuthContext';
 import { useGoogleMap } from '#hooks/useGoogleMap';
 import { useKakaoPlacesSearch } from '#hooks/useKakaoPlacesSearch';
 import { useGooglePlacesSearch } from '#hooks/useGooglePlacesSearch';
+import { useGooglePOIClick } from '#hooks/useGooglePOIClick';
 import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
+import { createSearchResultInfoWindowContent } from '#utils/infoWindowUtils';
 import {
   findNearestPlace,
   formatDistance
 } from '#utils/distanceCalculator';
+import { getCategoryLabel } from '#utils/categoryConfig';
 import { createCustomMarkerContent, injectMarkerStyles } from '#components/map/CustomMarker';
 import { CategoryFilter } from '#components/map/CategoryFilter';
 import { ListFilter } from '#components/map/ListFilter';
@@ -81,6 +85,9 @@ export default function MapPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const tempMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const searchInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const placesRef = useRef<Place[]>([]);
+  const debouncedSearchRef = useRef<((keyword: string) => void) | null>(null);
 
   // Google Map only (for worldwide support)
   const {
@@ -106,11 +113,23 @@ export default function MapPage() {
     error: searchError,
   } = searchProvider === 'kakao' ? kakaoSearch : googleSearch;
 
+  // POI Click Hook - Handles Google Maps POI clicks with custom InfoWindow
+  const { poiPlaceDetails, removePOIMarker } = useGooglePOIClick(
+    map as google.maps.Map | null,
+    isLoaded,
+    () => setShowAddModal(true),
+    { isPlaceListVisible }
+  );
+
   // Remove temporary marker (search result marker)
   const removeTempMarker = useCallback(() => {
     if (tempMarkerRef.current) {
       tempMarkerRef.current.map = null;
       tempMarkerRef.current = null;
+    }
+    if (searchInfoWindowRef.current) {
+      searchInfoWindowRef.current.close();
+      searchInfoWindowRef.current = null;
     }
   }, []);
 
@@ -140,6 +159,29 @@ export default function MapPage() {
         });
 
         tempMarkerRef.current = marker;
+
+        // Create and show Info Window
+        const infoWindow = new google.maps.InfoWindow({
+          content: createSearchResultInfoWindowContent(result),
+          pixelOffset: new google.maps.Size(0, -30),
+          headerDisabled: true,
+        });
+
+        searchInfoWindowRef.current = infoWindow;
+
+        // Open Info Window on marker
+        infoWindow.open({
+          anchor: marker,
+          map: map as google.maps.Map,
+        });
+
+        // Add click listener to marker to reopen Info Window if closed
+        marker.addListener('click', () => {
+          infoWindow.open({
+            anchor: marker,
+            map: map as google.maps.Map,
+          });
+        });
       } catch (error) {
         console.error('Failed to add temp marker:', error);
       }
@@ -387,6 +429,10 @@ export default function MapPage() {
       }
     } catch (error) {
       console.error('Failed to load places:', error);
+      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
       toast.error('장소 목록을 불러오는데 실패했습니다');
     }
   }, [activeTab, selectedCategory, selectedListId, isAuthenticated]);
@@ -395,6 +441,11 @@ export default function MapPage() {
   useEffect(() => {
     loadPlaces();
   }, [loadPlaces]);
+
+  // Update placesRef when places change
+  useEffect(() => {
+    placesRef.current = places;
+  }, [places]);
 
   // Load lists for authenticated users (needed for both tabs)
   useEffect(() => {
@@ -409,12 +460,17 @@ export default function MapPage() {
       setLists(data.lists);
     } catch (error) {
       console.error('Failed to load lists:', error);
+      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
       toast.error('목록을 불러오는데 실패했습니다');
     }
   };
 
-  const getCurrentPosition = async () => {
+  const getCurrentPosition = async (showToast = false) => {
     if (!navigator.geolocation) {
+      toast.error('이 브라우저는 위치 서비스를 지원하지 않습니다.');
       return;
     }
 
@@ -428,9 +484,30 @@ export default function MapPage() {
         if (markerManagerRef.current) {
           markerManagerRef.current.panTo(location.lat, location.lng);
         }
+        if (showToast) {
+          toast.success('현재 위치로 이동했습니다.');
+        }
       },
       (error) => {
         console.error('Geolocation error:', error);
+
+        // Provide user-friendly error messages based on error code
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error(
+              '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.',
+              { duration: 5000 }
+            );
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error('위치 정보를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.');
+            break;
+          case error.TIMEOUT:
+            toast.error('위치 요청 시간이 초과되었습니다. 다시 시도해주세요.');
+            break;
+          default:
+            toast.error('위치를 가져오는 중 오류가 발생했습니다.');
+        }
       },
       {
         enableHighAccuracy: true,
@@ -446,7 +523,7 @@ export default function MapPage() {
       if (!keyword.trim()) return [];
 
       const lowerKeyword = keyword.toLowerCase();
-      return places
+      return placesRef.current
         .filter(
           (place) =>
             place.name.toLowerCase().includes(lowerKeyword) ||
@@ -464,7 +541,7 @@ export default function MapPage() {
           isLocal: true,
         }));
     },
-    [places],
+    [],
   );
 
   // Combined search function (local + external)
@@ -527,12 +604,17 @@ export default function MapPage() {
     };
   };
 
-  const debouncedSearch = useMemo(() => debounce(performSearch, 300), [performSearch]);
+  // Update debouncedSearchRef when performSearch changes
+  useEffect(() => {
+    debouncedSearchRef.current = debounce(performSearch, 300);
+  }, [performSearch]);
 
   // Update search on keyword change
   useEffect(() => {
-    debouncedSearch(searchKeyword);
-  }, [searchKeyword, debouncedSearch]);
+    if (debouncedSearchRef.current) {
+      debouncedSearchRef.current(searchKeyword);
+    }
+  }, [searchKeyword]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -553,12 +635,37 @@ export default function MapPage() {
     setShowAddModal(true);
   };
 
+  // Handle Info Window button clicks (장소 추가)
+  useEffect(() => {
+    const handleInfoWindowClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Check if the clicked element is the "추가" button in Info Window
+      if (target.dataset?.action === 'add-place') {
+        const resultId = target.dataset.resultId;
+        const result = searchResults.find((r) => r.id === resultId);
+
+        if (result) {
+          handleOpenAddModal(result);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleInfoWindowClick);
+    return () => {
+      document.removeEventListener('click', handleInfoWindowClick);
+    };
+  }, [searchResults]);
+
   const handleCloseAddModal = () => {
     setShowAddModal(false);
     setSelectedSearchResult(null);
   };
 
-  const handleConfirmAdd = async (data: CreatePlaceData, selectedListIds?: string[]) => {
+  const handleConfirmAdd = async (
+    data: CreatePlaceData,
+    selectedListIds?: string[]
+  ) => {
     setIsAddingPlace(true);
     try {
       // 좌표 검증 및 변환
@@ -580,19 +687,23 @@ export default function MapPage() {
         return;
       }
 
-      // Create place
+      // Add to my places (automatically creates public place if needed)
       const newPlace = await placesApi.create(data);
 
       // Add to selected lists if any
+      const displayName = data.customName || data.name;
       if (selectedListIds && selectedListIds.length > 0) {
         await Promise.all(
           selectedListIds.map(listId =>
             listsApi.addPlaces(listId, [newPlace.id])
           )
         );
-        toast.success(`${data.name}이(가) ${selectedListIds.length}개 목록에 추가되었습니다`);
+        toast.success(
+          `✨ "${displayName}"이(가) ${selectedListIds.length}개 목록에 추가되었습니다`,
+          { duration: 4000 }
+        );
       } else {
-        toast.success(`${data.name}이(가) 추가되었습니다`);
+        toast.success(`✨ "${displayName}"이(가) 내 장소에 추가되었습니다`);
       }
 
       // Close modal and clear search
@@ -601,12 +712,15 @@ export default function MapPage() {
       setSearchKeyword('');
       setSelectedSearchResultId(null);
       removeTempMarker();
+      removePOIMarker(); // Also remove POI marker
 
-      // Reload places to show new marker
-      await loadPlaces();
+      // Add marker immediately (don't wait for state update)
+      if (markerManagerRef.current && activeTab === 'my-places') {
+        await markerManagerRef.current.addMarker(newPlace);
+      }
 
       // Navigate to the new place on map
-      if (markerManagerRef.current) {
+      if (newPlace && markerManagerRef.current) {
         markerManagerRef.current.panTo(latitude, longitude);
 
         // Adjust for sidebar if visible on desktop
@@ -623,12 +737,13 @@ export default function MapPage() {
         // Set zoom level for better view
         markerManagerRef.current.setZoom(17);
 
-        // Show InfoWindow for the new place
-        setTimeout(() => {
-          markerManagerRef.current?.showInfoWindow(newPlace.id);
-          setSelectedPlaceId(newPlace.id);
-        }, 300);
+        // Show InfoWindow immediately (marker already exists)
+        markerManagerRef.current.showInfoWindow(newPlace.id);
+        setSelectedPlaceId(newPlace.id);
       }
+
+      // Reload places in background for list synchronization
+      loadPlaces();
     } catch (error: unknown) {
       console.error('Failed to add place:', error);
 
@@ -750,7 +865,7 @@ export default function MapPage() {
   };
 
   const handleCurrentLocation = () => {
-    getCurrentPosition();
+    getCurrentPosition(true);
   };
 
   const handleDeletePlace = (place: Place) => {
@@ -804,15 +919,25 @@ export default function MapPage() {
       // Set zoom level for detailed view (consistent with other navigation features)
       markerManagerRef.current.setZoom(17);
 
-      // Show InfoWindow for this place
-      markerManagerRef.current.showInfoWindow(place.id);
-
       // Set as selected
       setSelectedPlaceId(place.id);
 
       // Show success message with distance info
       const distanceText = formatDistance(distance);
       toast.success(`${distanceText} 떨어진 "${place.name}"(으)로 이동합니다`);
+
+      // Wait for map pan/zoom animation to complete, then re-render markers and show InfoWindow
+      setTimeout(async () => {
+        try {
+          // Re-render markers for the new viewport
+          await renderPlaceMarkers();
+
+          // Show InfoWindow for the nearest place (marker should exist now)
+          markerManagerRef.current?.showInfoWindow(place.id);
+        } catch (error) {
+          console.error('Failed to show info window after navigation:', error);
+        }
+      }, 500);
     } catch (error) {
       console.error('Failed to navigate to nearest place:', error);
       toast.error('장소로 이동하는데 실패했습니다');
@@ -1213,7 +1338,7 @@ export default function MapPage() {
               selectedListId={selectedListId}
               lists={lists}
               onPlaceClick={handlePlaceCardClick}
-              onPlaceDelete={handleDeletePlace}
+              onPlaceDelete={activeTab === 'my-places' ? handleDeletePlace : undefined}
               onSearchProviderChange={setSearchProvider}
               onClose={() => setIsPlaceListVisible(false)}
               onNavigateToNearest={handleNavigateToNearest}
@@ -1277,15 +1402,26 @@ export default function MapPage() {
 
         {/* Place Count Info Panel - 좌측 하단 */}
         {!isLoaded || filteredPlaces.length > 0 ? (
-          <div className="absolute bottom-4 left-4 bg-card rounded-lg shadow-lg px-4 py-2 border border-border z-10">
-            <p className="text-sm font-medium text-foreground">
-              {selectedCategory && (
-                <span className="text-muted-foreground">
-                  선택된 카테고리{' '}
-                </span>
-              )}
-              <span className="text-primary font-bold">{filteredPlaces.length}</span>개 장소
-            </p>
+          <div className="fixed bottom-24 left-4 bg-card rounded-lg shadow-lg px-4 py-2 border border-border z-10">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+              <p className="text-sm font-medium text-foreground">
+                {activeTab === 'explore' ? (
+                  <>공개 장소</>
+                ) : selectedListId ? (
+                  <>{lists.find(l => l.id === selectedListId)?.name || '내 장소'}</>
+                ) : (
+                  <>내 장소</>
+                )}
+                {selectedCategory && (
+                  <span className="text-muted-foreground">
+                    {' > '}{getCategoryLabel(selectedCategory)}
+                  </span>
+                )}
+                {' '}
+                <span className="text-primary font-bold">{filteredPlaces.length}</span>개
+              </p>
+            </div>
           </div>
         ) : null}
 
@@ -1293,10 +1429,16 @@ export default function MapPage() {
         {activeTab === 'my-places' && isAuthenticated && (
           <button
             onClick={handleOpenSearchBottomSheet}
-            className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-20 flex items-center justify-center"
+            className="fixed bottom-24 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-30 flex items-center justify-center relative"
             aria-label="장소 추가"
           >
             <Plus className="w-6 h-6" />
+            {/* Lock badge for email verification */}
+            {user && !user.emailVerified && (
+              <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-1 shadow-md">
+                <Lock className="w-3 h-3 text-white" />
+              </div>
+            )}
           </button>
         )}
 
@@ -1317,10 +1459,12 @@ export default function MapPage() {
         <PlaceAddModal
           isOpen={showAddModal}
           searchResult={selectedSearchResult}
+          poiPlaceDetails={poiPlaceDetails}
           onClose={handleCloseAddModal}
           onConfirm={handleConfirmAdd}
           isSubmitting={isAddingPlace}
           lists={lists}
+          currentListId={activeTab === 'my-places' ? selectedListId || undefined : undefined}
         />
 
         {/* Place Search Bottom Sheet */}

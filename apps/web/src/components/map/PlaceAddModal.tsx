@@ -4,27 +4,39 @@ import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import type { SearchResult } from '#types/map';
-import type { CreatePlaceData } from '#types/place';
-import type { List } from '#types/list';
+import type { CreatePlaceData, Place } from '#types/place';
+import type { List, ListPlaceItem } from '#types/list';
+import type { PlaceDetails } from '#hooks/useGooglePlaceDetails';
 import { CATEGORIES, getCategoryLabel, getCategoryIcon } from '#utils/categoryConfig';
 import { getListIcon } from '#utils/listIconConfig';
+import { useGoogleMap } from '#hooks/useGoogleMap';
+import { listsApi } from '#lib/api';
+import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
+import { createCustomMarkerContent } from '#components/map/CustomMarker';
 
 interface PlaceAddModalProps {
   isOpen: boolean;
   searchResult: SearchResult | null;
+  poiPlaceDetails?: PlaceDetails | null; // Google Maps POI 장소 정보
   onClose: () => void;
-  onConfirm: (data: CreatePlaceData, selectedListIds?: string[]) => Promise<void>;
+  onConfirm: (
+    data: CreatePlaceData,
+    selectedListIds?: string[]
+  ) => Promise<void>;
   isSubmitting: boolean;
   lists?: List[]; // 사용 가능한 목록 (옵션)
+  currentListId?: string; // 현재 목록 ID (지도에 표시할 내 장소용)
 }
 
 export function PlaceAddModal({
   isOpen,
   searchResult,
+  poiPlaceDetails,
   onClose,
   onConfirm,
   isSubmitting,
   lists,
+  currentListId,
 }: PlaceAddModalProps) {
   const [category, setCategory] = useState('');
   const [customName, setCustomName] = useState('');
@@ -36,15 +48,160 @@ export function PlaceAddModal({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set());
+  const [listPlaces, setListPlaces] = useState<Place[]>([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const markerManagerRef = useRef<GoogleMarkerManager | null>(null);
+  const tempMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
 
-  // Initialize category from search result
+  // Google Map for modal (레이지 로딩)
+  const placeSource = searchResult || poiPlaceDetails;
+  const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // Seoul City Hall
+  const { map, isLoaded } = useGoogleMap(
+    isOpen ? 'place-add-modal-map' : '',
+    {
+      center: placeSource
+        ? { lat: placeSource.latitude, lng: placeSource.longitude }
+        : DEFAULT_CENTER,
+      level: 15,
+    }
+  );
+
+  // Load list places when modal opens
   useEffect(() => {
-    if (isOpen && searchResult) {
-      setCategory(searchResult.category || 'etc');
+    if (isOpen && currentListId) {
+      listsApi
+        .getPlaces(currentListId)
+        .then((data) => {
+          // Convert ListPlaceItem to Place
+          const places: Place[] = data.places.map((item: ListPlaceItem) => ({
+            id: item.id,
+            name: item.name,
+            address: item.address || '',
+            category: item.category,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            visited: item.visited || false,
+            createdAt: new Date().toISOString(),
+          }));
+          setListPlaces(places);
+        })
+        .catch((error) => {
+          console.error('Failed to load list places:', error);
+        });
+    } else {
+      setListPlaces([]);
+    }
+  }, [isOpen, currentListId]);
+
+  // Initialize marker manager when map loads
+  useEffect(() => {
+    if (map && isLoaded) {
+      markerManagerRef.current = new GoogleMarkerManager(map as google.maps.Map);
+    }
+
+    return () => {
+      if (markerManagerRef.current) {
+        markerManagerRef.current.clearMarkers();
+        markerManagerRef.current = null;
+      }
+      // Cleanup temp marker
+      if (tempMarkerRef.current) {
+        tempMarkerRef.current.map = null;
+        tempMarkerRef.current = null;
+      }
+    };
+  }, [map, isLoaded]);
+
+  // Render markers when places or search result changes
+  useEffect(() => {
+    if (!markerManagerRef.current || !isLoaded) return;
+
+    const renderMarkers = async () => {
+      if (!markerManagerRef.current) return;
+
+      // Clear existing markers
+      markerManagerRef.current.clearMarkers();
+
+      // Add list places markers (gray)
+      await Promise.all(
+        listPlaces.map((place) => markerManagerRef.current?.addMarker(place))
+      );
+
+      // Add search result marker (blue, highlighted)
+      if (placeSource) {
+        await addTempMarker(placeSource);
+      }
+    };
+
+    renderMarkers();
+  }, [listPlaces, placeSource, isLoaded]);
+
+  // Add temporary marker for search result
+  const addTempMarker = async (result: SearchResult | PlaceDetails) => {
+    if (!map || !isLoaded) return;
+
+    // Remove existing temp marker
+    if (tempMarkerRef.current) {
+      tempMarkerRef.current.map = null;
+      tempMarkerRef.current = null;
+    }
+
+    try {
+      // Import marker library
+      const { AdvancedMarkerElement } = (await google.maps.importLibrary(
+        'marker'
+      )) as google.maps.MarkerLibrary;
+
+      // Create custom marker content with label
+      const markerContent = createCustomMarkerContent(result.name);
+
+      // Create marker
+      const marker = new AdvancedMarkerElement({
+        position: { lat: result.latitude, lng: result.longitude },
+        map: map as google.maps.Map,
+        title: result.name,
+        content: markerContent,
+      });
+
+      tempMarkerRef.current = marker;
+
+      // Center map on marker
+      if (markerManagerRef.current) {
+        markerManagerRef.current.panTo(result.latitude, result.longitude);
+      }
+    } catch (error) {
+      console.error('Failed to add temp marker:', error);
+    }
+  };
+
+  // Initialize category from search result or POI details
+  useEffect(() => {
+    if (isOpen && (searchResult || poiPlaceDetails)) {
+      // Determine category from search result or POI types
+      let initialCategory = 'etc';
+      if (searchResult?.category) {
+        initialCategory = searchResult.category;
+      } else if (poiPlaceDetails?.types && poiPlaceDetails.types.length > 0) {
+        // Map Google Maps types to our categories (simplified mapping)
+        const typeMap: Record<string, string> = {
+          restaurant: 'restaurant',
+          cafe: 'cafe',
+          lodging: 'accommodation',
+          tourist_attraction: 'attraction',
+          shopping_mall: 'shopping',
+          bar: 'restaurant',
+          park: 'attraction',
+        };
+        const firstType = poiPlaceDetails.types[0];
+        if (firstType) {
+          initialCategory = typeMap[firstType] || 'etc';
+        }
+      }
+
+      setCategory(initialCategory);
       setCustomName('');
       setLabels([]);
       setNote('');
@@ -55,7 +212,7 @@ export function PlaceAddModal({
       setShowCloseConfirm(false);
       setSelectedLists(new Set());
     }
-  }, [isOpen, searchResult]);
+  }, [isOpen, searchResult, poiPlaceDetails]);
 
   // Track unsaved changes
   useEffect(() => {
@@ -173,27 +330,33 @@ export function PlaceAddModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchResult) return;
+
+    // Get place data from either searchResult or poiPlaceDetails
+    const placeSource = searchResult || poiPlaceDetails;
+    if (!placeSource) return;
 
     const data: CreatePlaceData = {
-      name: searchResult.name,
-      address: searchResult.address,
-      phone: searchResult.phone,
-      latitude: searchResult.latitude,
-      longitude: searchResult.longitude,
+      name: placeSource.name,
+      address: placeSource.address,
+      phone: placeSource.phone,
+      latitude: placeSource.latitude,
+      longitude: placeSource.longitude,
       category,
       customName: customName.trim() || undefined,
       labels: labels.length > 0 ? labels : undefined,
       note: note.trim() || undefined,
-      description: searchResult.description,
-      externalUrl: searchResult.url,
-      externalId: searchResult.id?.substring(0, 255),
+      description: searchResult?.description || poiPlaceDetails?.description,
+      externalUrl: searchResult?.url || poiPlaceDetails?.externalUrl,
+      externalId: (searchResult?.id || poiPlaceDetails?.placeId)?.substring(0, 255),
     };
 
-    await onConfirm(data, selectedLists.size > 0 ? Array.from(selectedLists) : undefined);
+    await onConfirm(
+      data,
+      selectedLists.size > 0 ? Array.from(selectedLists) : undefined
+    );
   };
 
-  if (!isOpen || !searchResult) return null;
+  if (!isOpen || (!searchResult && !poiPlaceDetails)) return null;
 
   const CategoryIcon = getCategoryIcon(category);
   const categoryLabel = getCategoryLabel(category);
@@ -211,7 +374,7 @@ export function PlaceAddModal({
     >
       <div
         ref={modalRef}
-        className="w-full max-w-2xl bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-5xl bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         aria-hidden={showCloseConfirm}
       >
@@ -229,14 +392,34 @@ export function PlaceAddModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Grid Layout: Map (left) + Form (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+          {/* Left: Map Area */}
+          <div className="h-[400px] lg:h-[600px] border-b lg:border-b-0 lg:border-r border-border bg-muted/20 relative">
+            {isOpen ? (
+              <>
+                <div id="place-add-modal-map" className="w-full h-full" />
+                {!isLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+                    <div className="text-center">
+                      <MapPin className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
+                      <p className="text-sm text-muted-foreground">지도 로딩 중...</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+
+          {/* Right: Form Area */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[600px] overflow-y-auto">
           {/* Place Info */}
           <div className="bg-muted/50 rounded-lg p-4 border border-border">
             <div className="flex items-start gap-3">
               <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground mb-1">{searchResult.name}</h3>
-                <p className="text-sm text-muted-foreground truncate">{searchResult.address}</p>
+                <h3 className="font-semibold text-foreground mb-1">{placeSource!.name}</h3>
+                <p className="text-sm text-muted-foreground truncate">{placeSource!.address}</p>
               </div>
             </div>
           </div>
@@ -474,6 +657,7 @@ export function PlaceAddModal({
             </button>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Animations */}
