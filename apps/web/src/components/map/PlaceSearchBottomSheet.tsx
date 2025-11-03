@@ -89,7 +89,7 @@ export function PlaceSearchBottomSheet({
       if (value.trim()) {
         onSearch(value);
       }
-    }, 300),
+    }, 800), // Increased from 300ms to 800ms to reduce API calls
     [onSearch],
   );
 

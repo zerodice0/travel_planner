@@ -9,17 +9,22 @@ import {
   X,
   Plus,
   Trash2,
-  Edit2
+  Edit2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { HTTPError } from 'ky';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
-import { placesApi, listsApi, reviewsApi } from '#lib/api';
+import { placesApi, listsApi, reviewsApi, publicPlacesApi } from '#lib/api';
 import type { PlaceDetail, PlaceListSummary } from '#types/place';
+import type { PublicPlaceDetail } from '#types/publicPlace';
 import type { List } from '#types/list';
 import type { Review, CreateReviewData, UpdateReviewData } from '#types/review';
 import { ReviewList } from '#components/reviews/ReviewList';
 import { ReviewForm } from '#components/reviews/ReviewForm';
+import { useAuth } from '#contexts/AuthContext';
 
 const CATEGORIES = [
   { value: 'restaurant', label: '음식점', emoji: '🍔' },
@@ -32,11 +37,38 @@ const CATEGORIES = [
   { value: 'etc', label: '기타', emoji: '📍' },
 ];
 
+/**
+ * PublicPlaceDetail을 PlaceDetail로 변환하는 함수
+ * PublicPlace에는 개인화 정보가 없으므로 기본값으로 설정
+ */
+function convertPublicPlaceToPlaceDetail(publicPlace: PublicPlaceDetail): PlaceDetail {
+  return {
+    id: publicPlace.id,
+    name: publicPlace.name,
+    category: publicPlace.category,
+    address: publicPlace.address,
+    phone: publicPlace.phone,
+    latitude: publicPlace.latitude,
+    longitude: publicPlace.longitude,
+    description: publicPlace.description,
+    externalUrl: publicPlace.externalUrl,
+    externalId: publicPlace.externalId,
+    createdAt: publicPlace.createdAt,
+    updatedAt: publicPlace.updatedAt,
+    // PlaceDetail 전용 필드 (기본값)
+    visited: false,
+    labels: [],
+    photos: publicPlace.photos || [],
+  };
+}
+
 export default function PlaceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [place, setPlace] = useState<PlaceDetail | null>(null);
+  const [isPublicPlace, setIsPublicPlace] = useState(false);
   const [includedLists, setIncludedLists] = useState<PlaceListSummary[]>([]);
   const [allLists, setAllLists] = useState<List[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +91,9 @@ export default function PlaceDetailPage() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | undefined>();
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isAddingToMyPlaces, setIsAddingToMyPlaces] = useState(false);
+  const [reviewContent, setReviewContent] = useState('');
+  const [showCancelReviewDialog, setShowCancelReviewDialog] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -71,24 +106,107 @@ export default function PlaceDetailPage() {
 
     try {
       setIsLoading(true);
-      const [placeData, listsData, allListsData] = await Promise.all([
-        placesApi.getOne(id),
-        placesApi.getLists(id),
-        listsApi.getAll({ limit: 100 }),
-      ]);
+      setIsPublicPlace(false); // Reset public place flag
 
-      setPlace(placeData);
-      setIncludedLists(listsData.lists);
-      setAllLists(allListsData.lists);
-      setVisitNote(placeData.visitNote || '');
-      setCustomName(placeData.customName || '');
-      setNote(placeData.note || '');
+      let placeData: PlaceDetail | null = null;
+      let isPublic = false;
 
-      // Fetch reviews
-      await fetchReviews();
+      // 먼저 UserPlace API 호출 시도
+      try {
+        placeData = await placesApi.getOne(id);
+        isPublic = false;
+      } catch (userPlaceError) {
+        // UserPlace 조회 실패 시 PublicPlace API로 폴백
+        console.log('UserPlace not found, trying PublicPlace API...');
+
+        // HTTPError 체크 및 404인 경우만 PublicPlace API 시도
+        if (userPlaceError instanceof Error && 'response' in userPlaceError) {
+          const httpError = userPlaceError as { response?: { status?: number } };
+
+          if (httpError.response?.status === 404) {
+            try {
+              const publicPlaceData = await publicPlacesApi.getOne(id);
+              placeData = convertPublicPlaceToPlaceDetail(publicPlaceData);
+              isPublic = true;
+              console.log('PublicPlace loaded successfully');
+            } catch (publicPlaceError) {
+              console.error('Failed to fetch public place:', publicPlaceError);
+              toast.error('장소를 찾을 수 없습니다. 삭제되었거나 접근 권한이 없습니다.');
+              setPlace(null);
+              setIsLoading(false);
+              return;
+            }
+          } else if (httpError.response?.status === 401) {
+            toast.error('로그인이 필요합니다. 다시 로그인해주세요.');
+            setPlace(null);
+            setIsLoading(false);
+            return;
+          } else {
+            toast.error('장소 정보를 불러오는 중 문제가 발생했습니다.');
+            setPlace(null);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          toast.error('장소 정보를 불러오는 중 문제가 발생했습니다.');
+          setPlace(null);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 장소 데이터 설정
+      if (placeData) {
+        setPlace(placeData);
+        setIsPublicPlace(isPublic);
+        setVisitNote(placeData.visitNote || '');
+        setCustomName(placeData.customName || '');
+        setNote(placeData.note || '');
+
+        // 리뷰 가져오기
+        await fetchReviews();
+
+        // PublicPlace가 아닌 경우에만 목록 정보 로드
+        if (!isPublic) {
+          // Promise.allSettled를 사용하여 목록 정보를 독립적으로 처리
+          const [listsResult, allListsResult] = await Promise.allSettled([
+            placesApi.getLists(id),
+            listsApi.getAll({ limit: 100 }),
+          ]);
+
+          // 포함된 목록 처리
+          if (listsResult.status === 'fulfilled') {
+            setIncludedLists(listsResult.value.lists);
+          } else {
+            console.warn('Failed to fetch included lists:', listsResult.reason);
+            setIncludedLists([]);
+          }
+
+          // 전체 목록 처리
+          if (allListsResult.status === 'fulfilled') {
+            setAllLists(allListsResult.value.lists);
+          } else {
+            console.warn('Failed to fetch all lists:', allListsResult.reason);
+            setAllLists([]);
+          }
+        } else {
+          // PublicPlace인 경우 목록 정보 초기화
+          setIncludedLists([]);
+
+          // 전체 목록은 로드 (내 장소에 추가 기능을 위해)
+          try {
+            const allListsData = await listsApi.getAll({ limit: 100 });
+            setAllLists(allListsData.lists);
+          } catch (error) {
+            console.warn('Failed to fetch all lists:', error);
+            setAllLists([]);
+          }
+        }
+      }
     } catch (error) {
-      console.error('Failed to fetch place:', error);
-      toast.error('장소 정보를 불러오는데 실패했습니다.');
+      console.error('Unexpected error in fetchData:', error);
+      toast.error('예상치 못한 오류가 발생했습니다.');
+      setPlace(null);
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +386,20 @@ export default function PlaceDetailPage() {
       await fetchReviews();
     } catch (error) {
       console.error('Failed to create review:', error);
-      toast.error('리뷰 작성에 실패했습니다.');
+
+      if (error instanceof HTTPError) {
+        const status = error.response.status;
+
+        if (status === 403) {
+          toast.error('이메일 인증 후 리뷰를 작성할 수 있습니다.');
+        } else if (status === 404) {
+          toast.error('장소를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+        } else {
+          toast.error('리뷰 작성에 실패했습니다.');
+        }
+      } else {
+        toast.error('리뷰 작성에 실패했습니다.');
+      }
     } finally {
       setIsSubmittingReview(false);
     }
@@ -298,6 +429,34 @@ export default function PlaceDetailPage() {
     } else {
       await handleCreateReview(data as CreateReviewData);
     }
+    // 성공 시 content 초기화
+    setReviewContent('');
+  };
+
+  const handleCancelReview = () => {
+    // 작성 중인 내용이 있는지 확인
+    if (reviewContent.trim()) {
+      // 확인 다이얼로그 표시
+      setShowCancelReviewDialog(true);
+    } else {
+      // 내용 없으면 바로 폼 닫기
+      setShowReviewForm(false);
+      setEditingReview(undefined);
+      setReviewContent('');
+    }
+  };
+
+  const handleConfirmCancelReview = () => {
+    // 확인 → 폼 닫기 + 내용 삭제
+    setShowReviewForm(false);
+    setEditingReview(undefined);
+    setReviewContent('');
+    setShowCancelReviewDialog(false);
+  };
+
+  const handleDismissCancelDialog = () => {
+    // 취소 → 다이얼로그만 닫기
+    setShowCancelReviewDialog(false);
   };
 
   const handleDelete = async () => {
@@ -314,6 +473,41 @@ export default function PlaceDetailPage() {
       toast.error('장소 삭제에 실패했습니다.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleAddToMyPlaces = async () => {
+    if (!place || !isPublicPlace) return;
+
+    setIsAddingToMyPlaces(true);
+    try {
+      // PublicPlace를 CreatePlaceData 형식으로 변환
+      const createData = {
+        name: place.name,
+        address: place.address,
+        phone: place.phone,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        category: place.category,
+        description: place.description,
+        externalUrl: place.externalUrl,
+        externalId: place.externalId,
+      };
+
+      // 내 장소에 추가
+      const newUserPlace = await placesApi.create(createData);
+      toast.success(`"${place.name}"이(가) 내 장소에 추가되었습니다.`);
+
+      // UserPlace 상세 페이지로 이동 (새로 생성된 UserPlace ID 사용)
+      navigate(`/places/${newUserPlace.id}`, { replace: true });
+
+      // 페이지 새로고침하여 UserPlace로 표시
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to add to my places:', error);
+      toast.error('내 장소에 추가하는데 실패했습니다.');
+    } finally {
+      setIsAddingToMyPlaces(false);
     }
   };
 
@@ -338,8 +532,53 @@ export default function PlaceDetailPage() {
 
   if (!place) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">장소를 찾을 수 없습니다.</div>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-card border-b border-border">
+          <div className="flex items-center justify-between p-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-bold text-foreground flex-1 text-center mx-4 truncate">
+              장소를 찾을 수 없습니다
+            </h1>
+            <div className="w-10" /> {/* Spacer for center alignment */}
+          </div>
+        </header>
+
+        {/* Error Content */}
+        <div className="max-w-2xl mx-auto p-6 flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-6">
+            <div className="text-6xl mb-4">🔍</div>
+            <h2 className="text-2xl font-bold text-foreground">장소를 찾을 수 없습니다</h2>
+            <p className="text-muted-foreground max-w-md">
+              요청하신 장소가 삭제되었거나 접근 권한이 없습니다.
+              <br />
+              다른 장소를 확인해보세요.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-6">
+              <button
+                onClick={() => navigate(-1)}
+                className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+              >
+                <ArrowLeft className="w-4 h-4 inline-block mr-2" />
+                이전 페이지로
+              </button>
+              <button
+                onClick={() => navigate('/map')}
+                className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium"
+              >
+                <MapPin className="w-4 h-4 inline-block mr-2" />
+                지도로 이동
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -362,44 +601,66 @@ export default function PlaceDetailPage() {
           <h1 className="text-lg font-bold text-foreground flex-1 text-center mx-4 truncate">
             {place.name}
           </h1>
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1">
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    // TODO: Navigate to edit page
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-background flex items-center gap-2"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  수정
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    setShowDeleteDialog(true);
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-background text-red-600 flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  삭제
-                </button>
-              </div>
-            )}
-          </div>
+          {/* 메뉴는 UserPlace일 때만 표시 */}
+          {!isPublicPlace ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      // TODO: Navigate to edit page
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-background flex items-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    수정
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowDeleteDialog(true);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-background text-red-600 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    삭제
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Spacer for center alignment */
+            <div className="w-10" />
+          )}
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto p-4 space-y-6">
-        {/* 별칭 섹션 */}
-        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+        {/* PublicPlace 안내 배너 */}
+        {isPublicPlace && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">ℹ️</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 mb-1">공개 장소</h3>
+                <p className="text-sm text-blue-700">
+                  이 장소는 모든 사용자가 공유하는 공개 장소입니다. 내 장소에 추가하여 개인화된 정보를 관리할 수 있습니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 별칭 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-foreground">별칭</h3>
             {!isEditingCustomName && (
@@ -445,9 +706,11 @@ export default function PlaceDetailPage() {
             </p>
           )}
         </section>
+        )}
 
-        {/* 메모 섹션 */}
-        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+        {/* 메모 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-foreground">메모</h3>
             {!isEditingNote && (
@@ -496,6 +759,7 @@ export default function PlaceDetailPage() {
             </p>
           )}
         </section>
+        )}
 
         {/* 기본 정보 섹션 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
@@ -531,8 +795,9 @@ export default function PlaceDetailPage() {
           </div>
         </section>
 
-        {/* 방문 여부 섹션 */}
-        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+        {/* 방문 여부 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">방문 여부</h3>
@@ -574,9 +839,11 @@ export default function PlaceDetailPage() {
             )}
           </div>
         </section>
+        )}
 
-        {/* 라벨 섹션 */}
-        <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+        {/* 라벨 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <h3 className="text-lg font-semibold text-foreground mb-3">라벨</h3>
           <div className="flex flex-wrap gap-2">
             {place.labels.map((label) => (
@@ -631,22 +898,27 @@ export default function PlaceDetailPage() {
             <p className="text-xs text-muted-foreground mt-2">라벨은 최대 5개까지 추가할 수 있습니다.</p>
           )}
         </section>
+        )}
 
         {/* 카테고리 섹션 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-foreground">카테고리</h3>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className="px-4 py-2 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-            >
-              변경
-            </button>
+            {/* 변경 버튼은 UserPlace일 때만 표시 */}
+            {!isPublicPlace && (
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="px-4 py-2 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              >
+                변경
+              </button>
+            )}
           </div>
           <p className="text-foreground mt-2">{getCategoryLabel(place.category)}</p>
         </section>
 
-        {/* 목록 관리 섹션 */}
+        {/* 목록 관리 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <h3 className="text-lg font-semibold text-foreground mb-3">포함된 목록</h3>
 
@@ -682,6 +954,25 @@ export default function PlaceDetailPage() {
             목록에 추가
           </button>
         </section>
+        )}
+
+        {/* 내 장소에 추가 섹션 - PublicPlace일 때만 */}
+        {isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-3">내 장소에 추가</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              이 장소를 내 장소에 추가하여 별칭, 메모, 방문 기록 등 개인화된 정보를 관리할 수 있습니다.
+            </p>
+            <button
+              onClick={handleAddToMyPlaces}
+              className="w-full px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isAddingToMyPlaces}
+            >
+              <Plus className="w-4 h-4" />
+              {isAddingToMyPlaces ? '추가 중...' : '내 장소에 추가'}
+            </button>
+          </section>
+        )}
 
         {/* 리뷰 섹션 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
@@ -689,16 +980,38 @@ export default function PlaceDetailPage() {
             <h3 className="text-lg font-semibold text-foreground">
               공개 리뷰 ({reviews.length})
             </h3>
-            <button
-              onClick={() => {
-                setEditingReview(undefined);
-                setShowReviewForm(!showReviewForm);
-              }}
-              className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              리뷰 작성
-            </button>
+            {user?.emailVerified ? (
+              <button
+                onClick={() => {
+                  if (showReviewForm) {
+                    // 폼 닫기 시도 (취소)
+                    handleCancelReview();
+                  } else {
+                    // 폼 열기
+                    setEditingReview(undefined);
+                    setReviewContent('');  // 초기화
+                    setShowReviewForm(true);
+                  }
+                }}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2"
+              >
+                {showReviewForm ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    취소
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    리뷰 작성
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="text-sm text-muted-foreground px-4 py-2 bg-muted rounded-lg">
+                이메일 인증 후 리뷰 작성 가능
+              </div>
+            )}
           </div>
 
           {showReviewForm && (
@@ -708,11 +1021,10 @@ export default function PlaceDetailPage() {
               </h4>
               <ReviewForm
                 existingReview={editingReview}
+                content={reviewContent}
+                onContentChange={setReviewContent}
                 onSubmit={handleReviewSubmit}
-                onCancel={() => {
-                  setShowReviewForm(false);
-                  setEditingReview(undefined);
-                }}
+                onCancel={handleCancelReview}
                 isSubmitting={isSubmittingReview}
               />
             </div>
@@ -730,8 +1042,9 @@ export default function PlaceDetailPage() {
           )}
         </section>
 
-        {/* 위험 영역 섹션 */}
-        <section className="bg-card rounded-xl p-6 shadow-sm border border-red-200">
+        {/* 위험 영역 섹션 - UserPlace만 */}
+        {!isPublicPlace && (
+          <section className="bg-card rounded-xl p-6 shadow-sm border border-red-200">
           <h3 className="text-lg font-semibold text-foreground mb-3">위험 영역</h3>
           <p className="text-sm text-muted-foreground mb-4">
             장소를 삭제하면 복구할 수 없습니다. 이 장소가 포함된 모든 목록에서도 제거됩니다.
@@ -744,6 +1057,7 @@ export default function PlaceDetailPage() {
             장소 삭제하기
           </button>
         </section>
+        )}
       </div>
 
       {/* 카테고리 선택 모달 */}
@@ -820,6 +1134,18 @@ export default function PlaceDetailPage() {
         cancelText="취소"
         variant="danger"
         loading={isDeleting}
+      />
+
+      {/* 리뷰 취소 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={showCancelReviewDialog}
+        onClose={handleDismissCancelDialog}
+        onConfirm={handleConfirmCancelReview}
+        title="리뷰 작성 취소"
+        message="작성 중인 리뷰가 삭제됩니다. 계속하시겠습니까?"
+        confirmText="삭제"
+        cancelText="계속 작성"
+        variant="warning"
       />
     </div>
   );

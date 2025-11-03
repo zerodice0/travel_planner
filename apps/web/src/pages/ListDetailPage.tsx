@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -8,15 +8,19 @@ import {
   Edit2,
   Trash2,
   MapPin,
-  Route as RouteIcon,
+  Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { listsApi, placesApi } from '#lib/api';
 import type { List, ListPlaceItem } from '#types/list';
 import type { SearchResult } from '#types/map';
-import type { CreatePlaceData } from '#types/place';
+import type { CreatePlaceData, Place } from '#types/place';
 import { getCategoryIcon } from '#utils/categoryConfig';
 import { PlaceSelectionModal } from '#components/list/PlaceSelectionModal';
+import { useGoogleMap } from '#hooks/useGoogleMap';
+import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
+import { injectMarkerStyles } from '#components/map/CustomMarker';
+import { BottomSheet, type BottomSheetState } from '#components/ui/BottomSheet';
 
 export default function ListDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +29,7 @@ export default function ListDetailPage() {
   const [list, setList] = useState<List | null>(null);
   const [places, setPlaces] = useState<ListPlaceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'order' | 'name'>('order');
+  const [sortBy, setSortBy] = useState<'order' | 'name' | 'distance'>('order');
   const [showMenu, setShowMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -33,11 +37,59 @@ export default function ListDetailPage() {
   const [contextMenuPlaceId, setContextMenuPlaceId] = useState<string | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
+  // 맵 관련 상태
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const markerManagerRef = useRef<GoogleMarkerManager | null>(null);
+
+  // 모바일 하단 시트 상태
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(true);
+  const [bottomSheetState, setBottomSheetState] = useState<BottomSheetState>('half');
+
+  // 맵 중심 좌표 계산 (첫 번째 장소 또는 기본값)
+  const defaultCenter = places.length > 0 && places[0]
+    ? { lat: places[0].latitude, lng: places[0].longitude }
+    : { lat: 37.5665, lng: 126.978 }; // Seoul City Hall
+
+  // Google Map 초기화
+  const {
+    map,
+    isLoaded,
+    error: mapError,
+  } = useGoogleMap('list-detail-map-container', {
+    center: defaultCenter,
+    level: 14,
+  });
+
   useEffect(() => {
     if (id) {
       fetchData();
     }
   }, [id, sortBy]);
+
+  // 맵 초기화 및 마커 매니저 생성
+  useEffect(() => {
+    if (map && isLoaded) {
+      // Inject custom marker styles once
+      injectMarkerStyles();
+
+      markerManagerRef.current = new GoogleMarkerManager(map);
+      renderPlaceMarkers();
+    }
+
+    return () => {
+      if (markerManagerRef.current) {
+        markerManagerRef.current.clearMarkers();
+      }
+    };
+  }, [map, isLoaded]);
+
+  // 장소 목록 변경 시 마커 및 경로 재렌더링
+  useEffect(() => {
+    if (markerManagerRef.current && isLoaded && places.length > 0) {
+      renderPlaceMarkers();
+      renderPolyline();
+    }
+  }, [places, isLoaded]);
 
   const fetchData = async () => {
     if (!id) return;
@@ -65,10 +117,16 @@ export default function ListDetailPage() {
 
     const newVisited = !place.visited;
 
-    // Optimistic update
+    // Optimistic update - 리스트 UI
     setPlaces(
       places.map((p) => (p.id === placeId ? { ...p, visited: newVisited } : p))
     );
+
+    // Optimistic update - 맵 마커
+    if (markerManagerRef.current) {
+      const updatedPlace = convertToPlace({ ...place, visited: newVisited });
+      await markerManagerRef.current.updateMarker(updatedPlace);
+    }
 
     try {
       await placesApi.update(placeId, { visited: newVisited });
@@ -79,8 +137,13 @@ export default function ListDetailPage() {
       }
     } catch (error) {
       console.error('Failed to toggle visit:', error);
-      // Revert on error
+      // Revert on error - 리스트
       setPlaces(places.map((p) => (p.id === placeId ? { ...p, visited: !newVisited } : p)));
+      // Revert on error - 맵
+      if (markerManagerRef.current) {
+        const revertedPlace = convertToPlace({ ...place, visited: !newVisited });
+        await markerManagerRef.current.updateMarker(revertedPlace);
+      }
       toast.error('방문 상태 변경에 실패했습니다.');
     }
   };
@@ -152,6 +215,72 @@ export default function ListDetailPage() {
       toast.error('장소 추가에 실패했습니다.');
     }
   };
+
+  // ListPlaceItem을 Place로 변환하는 헬퍼 함수
+  const convertToPlace = useCallback((place: ListPlaceItem): Place => ({
+    id: place.id,
+    name: place.name,
+    address: place.address,
+    category: place.category,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    visited: place.visited,
+    createdAt: new Date().toISOString(),
+  }), []);
+
+  // 마커 렌더링 함수
+  const renderPlaceMarkers = useCallback(async () => {
+    if (!markerManagerRef.current) return;
+
+    markerManagerRef.current.clearMarkers();
+
+    // 마커 추가
+    await Promise.all(
+      places.map((place) => {
+        const placeData = convertToPlace(place);
+        return markerManagerRef.current?.addMarker(placeData, (clickedPlace) => {
+          handleMarkerClick(clickedPlace.id);
+        });
+      })
+    );
+  }, [places, convertToPlace]);
+
+  // 경로 렌더링 함수
+  const renderPolyline = useCallback(() => {
+    if (!markerManagerRef.current || places.length < 2) {
+      markerManagerRef.current?.clearPolyline();
+      return;
+    }
+
+    const placesData = places.map(convertToPlace);
+    markerManagerRef.current.renderPolyline(placesData);
+  }, [places, convertToPlace]);
+
+  // 마커 클릭 핸들러 (맵 → 리스트)
+  const handleMarkerClick = useCallback((placeId: string) => {
+    setSelectedPlaceId(placeId);
+
+    // 리스트에서 해당 항목으로 스크롤
+    const element = document.getElementById(`place-item-${placeId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
+
+  // 리스트 항목 클릭 핸들러 (리스트 → 맵)
+  const handlePlaceCardClick = useCallback((place: ListPlaceItem) => {
+    if (!markerManagerRef.current) return;
+
+    // 맵 이동
+    markerManagerRef.current.panTo(place.latitude, place.longitude);
+    markerManagerRef.current.setZoom(17);
+
+    // InfoWindow 표시
+    markerManagerRef.current.showInfoWindow(place.id);
+
+    // 선택 상태 설정
+    setSelectedPlaceId(place.id);
+  }, []);
 
   const handleOptimizeRoute = async () => {
     if (!id) return;
@@ -226,26 +355,24 @@ export default function ListDetailPage() {
   // 이미 목록에 있는 장소 ID 목록
   const excludePlaceIds = places.map(p => p.id);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">로딩 중...</div>
-      </div>
-    );
-  }
-
-  if (!list) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">목록을 찾을 수 없습니다.</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-50 bg-background flex items-center justify-center">
+          <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      )}
+
+      {/* Error Overlay (List Not Found) */}
+      {!list && !isLoading && (
+        <div className="absolute inset-0 z-50 bg-background flex items-center justify-center">
+          <div className="text-muted-foreground">목록을 찾을 수 없습니다.</div>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-card border-b border-border">
+      <header className="flex-shrink-0 z-10 bg-card border-b border-border">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={() => navigate(-1)}
@@ -254,7 +381,7 @@ export default function ListDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold text-foreground flex-1 text-center mx-4 truncate">
-            {list.name}
+            {list?.name || '로딩 중...'}
           </h1>
           <div className="relative">
             <button
@@ -291,7 +418,11 @@ export default function ListDetailPage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
+      {/* Main Content: Split View (Desktop) / Map + Bottom Sheet (Mobile) */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* 데스크톱: 좌측 리스트 영역 / 모바일: 하단시트에 포함 */}
+        {list && (
+          <div className="hidden md:block md:w-2/5 overflow-y-auto p-4 space-y-4 bg-background">
         {/* 목록 정보 카드 */}
         <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
           <div className="flex items-center gap-4 mb-4">
@@ -332,59 +463,66 @@ export default function ListDetailPage() {
           </div>
         </section>
 
-        {/* 정렬 및 최적화 버튼 */}
+        {/* 정렬 드롭다운 */}
         <div className="flex items-center justify-between">
           <div className="relative">
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-2 px-4 py-2 bg-card border border-input rounded-lg hover:bg-background transition-colors"
+              disabled={isOptimizing}
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-input rounded-lg hover:bg-background transition-colors disabled:opacity-50"
             >
               <ArrowUpDown className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {sortBy === 'order' ? '순서' : '이름순'}
+                {isOptimizing ? '최적화 중...' :
+                  sortBy === 'order' ? '추가한 순서' :
+                  sortBy === 'name' ? '이름순 (가나다)' :
+                  '거리순 (가까운 곳부터)'}
               </span>
             </button>
 
             {showSortMenu && (
-              <div className="absolute left-0 mt-2 w-32 bg-card rounded-lg shadow-lg border border-border py-1 z-10">
+              <div className="absolute left-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border py-1 z-10">
                 <button
                   onClick={() => {
                     setSortBy('order');
                     setShowSortMenu(false);
                   }}
-                  className={`w-full px-4 py-2 text-left text-sm hover:bg-background ${
+                  className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors ${
                     sortBy === 'order' ? 'text-primary-600 font-medium' : ''
                   }`}
                 >
-                  순서
+                  추가한 순서
                 </button>
                 <button
                   onClick={() => {
                     setSortBy('name');
                     setShowSortMenu(false);
                   }}
-                  className={`w-full px-4 py-2 text-left text-sm hover:bg-background ${
+                  className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors ${
                     sortBy === 'name' ? 'text-primary-600 font-medium' : ''
                   }`}
                 >
-                  이름순
+                  이름순 (가나다)
                 </button>
+                {places.length > 1 && (
+                  <button
+                    onClick={async () => {
+                      setShowSortMenu(false);
+                      setSortBy('distance');
+                      await handleOptimizeRoute();
+                    }}
+                    disabled={isOptimizing}
+                    className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors flex items-center gap-2 ${
+                      sortBy === 'distance' ? 'text-primary-600 font-medium' : ''
+                    } disabled:opacity-50`}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    거리순 (가까운 곳부터)
+                  </button>
+                )}
               </div>
             )}
           </div>
-
-          {places.length > 1 && (
-            <button
-              onClick={handleOptimizeRoute}
-              disabled={isOptimizing}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
-            >
-              <RouteIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                {isOptimizing ? '최적화 중...' : '경로 최적화'}
-              </span>
-            </button>
-          )}
         </div>
 
         {/* 장소 리스트 */}
@@ -392,30 +530,38 @@ export default function ListDetailPage() {
           <div className="space-y-3">
             {places.map((place) => (
               <div
+                id={`place-item-${place.id}`}
                 key={place.id}
-                className="relative bg-card rounded-lg p-4 border border-border hover:shadow-md transition-shadow"
+                className={`relative bg-card rounded-lg p-4 border transition-all ${
+                  selectedPlaceId === place.id
+                    ? 'border-primary-500 shadow-lg ring-2 ring-primary-200'
+                    : 'border-border hover:shadow-md'
+                }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* 체크박스 */}
+                  {/* 방문 상태 배지 */}
                   <button
                     onClick={() => handleToggleVisit(place.id)}
-                    className={`flex-shrink-0 w-6 h-6 border-2 rounded flex items-center justify-center transition-colors ${
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${
                       place.visited
-                        ? 'bg-primary-500 border-primary-500'
-                        : 'border-input hover:border-primary-500'
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    {place.visited && (
-                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                    {place.visited ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        방문 완료
+                      </>
+                    ) : (
+                      <>방문 예정</>
                     )}
                   </button>
 
                   {/* 장소 정보 */}
                   <div
                     className="flex-1 cursor-pointer"
-                    onClick={() => navigate(`/places/${place.id}`)}
+                    onClick={() => handlePlaceCardClick(place)}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       {(() => {
@@ -430,7 +576,7 @@ export default function ListDetailPage() {
                         {place.name}
                       </h3>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground min-w-0">
                       <MapPin className="w-3 h-3" />
                       <span className="truncate">{place.address}</span>
                     </div>
@@ -488,13 +634,265 @@ export default function ListDetailPage() {
             </button>
           </div>
         )}
-      </div>
+        </div>
+        )}
+        {/* 데스크톱 리스트 영역 끝 */}
 
-      {/* 플로팅 버튼 */}
+        {/* 맵 영역 (모바일: 전체화면, 데스크톱: 우측 60%) */}
+        <div className="absolute md:relative inset-0 md:flex-1 bg-muted z-0">
+          {!isLoaded && !mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
+              <div className="text-center">
+                <MapPin className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
+                <p className="text-muted-foreground">구글맵을 불러오는 중...</p>
+              </div>
+            </div>
+          )}
+          {mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
+              <div className="text-center p-6">
+                <MapPin className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                <p className="text-red-600 text-sm">{mapError}</p>
+              </div>
+            </div>
+          )}
+          <div id="list-detail-map-container" className="w-full h-full" />
+        </div>
+
+        {/* 모바일: 하단 시트 (리스트 내용) */}
+        {list && (
+          <BottomSheet
+            isOpen={isBottomSheetOpen}
+            onClose={() => setIsBottomSheetOpen(false)}
+            title={`${list.name} (${places.length})`}
+            state={bottomSheetState}
+            onStateChange={setBottomSheetState}
+            collapsedHeight={80}
+            halfHeight={400}
+          >
+          <div className="p-4 space-y-4">
+            {/* 목록 정보 카드 */}
+            <section className="bg-card rounded-xl p-6 shadow-sm border border-border">
+              <div className="flex items-center gap-4 mb-4">
+                {list.iconType === 'category' ? (
+                  (() => {
+                    const Icon = getCategoryIcon(list.iconValue);
+                    return <Icon className="w-16 h-16 text-primary-600" />;
+                  })()
+                ) : list.iconType === 'emoji' ? (
+                  <span className="text-5xl">{list.iconValue}</span>
+                ) : (
+                  <img
+                    src={list.iconValue}
+                    alt={list.name}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                )}
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-foreground">{list.name}</h2>
+                  {list.description && (
+                    <p className="text-muted-foreground text-sm mt-1">{list.description}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full bg-muted rounded-full h-3 mb-3">
+                <div
+                  className="bg-primary-500 h-3 rounded-full transition-all"
+                  style={{ width: `${getProgressPercent()}%` }}
+                ></div>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">
+                  {list.placesCount}개 장소 · {list.visitedCount}/{list.placesCount} 방문
+                </span>
+                <span className="text-primary-600 font-semibold">{getProgressPercent()}% 완료</span>
+              </div>
+            </section>
+
+            {/* 정렬 드롭다운 */}
+            <div className="flex items-center justify-between">
+              <div className="relative">
+                <button
+                  onClick={() => setShowSortMenu(!showSortMenu)}
+                  disabled={isOptimizing}
+                  className="flex items-center gap-2 px-4 py-2 bg-card border border-input rounded-lg hover:bg-background transition-colors disabled:opacity-50"
+                >
+                  <ArrowUpDown className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    {isOptimizing ? '최적화 중...' :
+                      sortBy === 'order' ? '추가한 순서' :
+                      sortBy === 'name' ? '이름순 (가나다)' :
+                      '거리순 (가까운 곳부터)'}
+                  </span>
+                </button>
+
+                {showSortMenu && (
+                  <div className="absolute left-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border py-1 z-10">
+                    <button
+                      onClick={() => {
+                        setSortBy('order');
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors ${
+                        sortBy === 'order' ? 'text-primary-600 font-medium' : ''
+                      }`}
+                    >
+                      추가한 순서
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSortBy('name');
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors ${
+                        sortBy === 'name' ? 'text-primary-600 font-medium' : ''
+                      }`}
+                    >
+                      이름순 (가나다)
+                    </button>
+                    {places.length > 1 && (
+                      <button
+                        onClick={async () => {
+                          setShowSortMenu(false);
+                          setSortBy('distance');
+                          await handleOptimizeRoute();
+                        }}
+                        disabled={isOptimizing}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-background transition-colors flex items-center gap-2 ${
+                          sortBy === 'distance' ? 'text-primary-600 font-medium' : ''
+                        } disabled:opacity-50`}
+                      >
+                        <MapPin className="w-4 h-4" />
+                        거리순 (가까운 곳부터)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 장소 리스트 */}
+            {places.length > 0 ? (
+              <div className="space-y-3">
+                {places.map((place) => (
+                  <div
+                    id={`place-item-${place.id}`}
+                    key={place.id}
+                    className={`relative bg-card rounded-lg p-4 border transition-all ${
+                      selectedPlaceId === place.id
+                        ? 'border-primary-500 shadow-lg ring-2 ring-primary-200'
+                        : 'border-border hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* 방문 상태 배지 */}
+                      <button
+                        onClick={() => handleToggleVisit(place.id)}
+                        className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${
+                          place.visited
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {place.visited ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            방문 완료
+                          </>
+                        ) : (
+                          <>방문 예정</>
+                        )}
+                      </button>
+
+                      {/* 장소 정보 */}
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handlePlaceCardClick(place)}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {(() => {
+                            const Icon = getCategoryIcon(place.category);
+                            return <Icon className="w-5 h-5 text-muted-foreground" />;
+                          })()}
+                          <h3
+                            className={`font-semibold ${
+                              place.visited ? 'text-muted-foreground line-through' : 'text-foreground'
+                            }`}
+                          >
+                            {place.name}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{place.address}</span>
+                        </div>
+                      </div>
+
+                      {/* 더보기 버튼 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContextMenuPlaceId(contextMenuPlaceId === place.id ? null : place.id);
+                        }}
+                        className="flex-shrink-0 p-1 hover:bg-muted rounded-lg transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                      </button>
+
+                      {/* 컨텍스트 메뉴 */}
+                      {contextMenuPlaceId === place.id && (
+                        <div
+                          className="absolute top-12 right-4 w-40 bg-card rounded-lg shadow-lg border border-border py-1 z-10"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => {
+                              navigate(`/places/${place.id}`);
+                              setContextMenuPlaceId(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-background"
+                          >
+                            장소 상세
+                          </button>
+                          <button
+                            onClick={() => handleRemovePlace(place.id)}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-background text-red-600"
+                          >
+                            목록에서 제거
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-card rounded-xl border border-border">
+                <MapPin className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-2">아직 추가된 장소가 없습니다.</p>
+                <p className="text-sm text-muted-foreground mb-6">첫 장소를 추가해보세요!</p>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors inline-flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  장소 추가
+                </button>
+              </div>
+            )}
+          </div>
+        </BottomSheet>
+        )}
+      </div>
+      {/* Main Content 끝 */}
+
+      {/* 플로팅 버튼 (하단 시트 위에 표시) */}
       {places.length > 0 && (
         <button
           onClick={() => setShowAddModal(true)}
-          className="fixed bottom-20 right-6 w-14 h-14 bg-primary-500 text-white rounded-full shadow-lg hover:bg-primary-600 transition-all flex items-center justify-center z-20"
+          className="fixed bottom-20 right-6 w-14 h-14 bg-primary-500 text-white rounded-full shadow-lg hover:bg-primary-600 transition-all flex items-center justify-center z-[60] md:z-20"
         >
           <Plus className="w-6 h-6" />
         </button>
@@ -509,7 +907,7 @@ export default function ListDetailPage() {
       />
 
       {/* 삭제 확인 다이얼로그 */}
-      {showDeleteDialog && (
+      {showDeleteDialog && list && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
           onClick={() => setShowDeleteDialog(false)}

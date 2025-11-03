@@ -15,6 +15,7 @@ export interface SearchResult {
   longitude: number;
   description?: string;
   url?: string;
+  externalId?: string;
   isLocal?: boolean; // 내 장소
   isPublic?: boolean; // 공개 장소
 }

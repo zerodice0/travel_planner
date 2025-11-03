@@ -6,13 +6,13 @@ import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
 import { PlaceAddModal } from '#components/map/PlaceAddModal';
+import { ManualPlaceAddModal } from '#components/map/ManualPlaceAddModal';
 import { PlaceSearchBottomSheet } from '#components/map/PlaceSearchBottomSheet';
 import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
 import { useAuth } from '#contexts/AuthContext';
 import { useGoogleMap } from '#hooks/useGoogleMap';
 import { useKakaoPlacesSearch } from '#hooks/useKakaoPlacesSearch';
 import { useGooglePlacesSearch } from '#hooks/useGooglePlacesSearch';
-import { useGooglePOIClick } from '#hooks/useGooglePOIClick';
 import { GoogleMarkerManager } from '#utils/GoogleMarkerManager';
 import { createSearchResultInfoWindowContent } from '#utils/infoWindowUtils';
 import {
@@ -31,7 +31,7 @@ import AppLayout from '#components/layout/AppLayout';
 import { placesApi, publicPlacesApi, listsApi } from '#lib/api';
 import { useMapProvider } from '#contexts/MapProviderContext';
 import type { Place, CreatePlaceData } from '#types/place';
-import type { PublicPlace } from '#types/publicPlace';
+import type { PublicPlace, CreatePublicPlaceData } from '#types/publicPlace';
 import type { BaseMarkerManager, SearchResult } from '#types/map';
 import type { List, ListPlaceItem } from '#types/list';
 
@@ -77,6 +77,8 @@ export default function MapPage() {
   const [selectedSearchResultId, setSelectedSearchResultId] = useState<string | null>(null);
   const [showSearchBottomSheet, setShowSearchBottomSheet] = useState(false);
   const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  const [showManualAddModal, setShowManualAddModal] = useState(false);
+  const [manualAddLocation, setManualAddLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [currentMapType, setCurrentMapType] = useState<string>('roadmap');
   const [showEmptyNotice, setShowEmptyNotice] = useState(true);
   const [toolbarHeight, setToolbarHeight] = useState(176); // 동적으로 계산될 상단 툴바 높이 (검색바 + 탭 + 카테고리 필터)
@@ -113,13 +115,8 @@ export default function MapPage() {
     error: searchError,
   } = searchProvider === 'kakao' ? kakaoSearch : googleSearch;
 
-  // POI Click Hook - Handles Google Maps POI clicks with custom InfoWindow
-  const { poiPlaceDetails, removePOIMarker } = useGooglePOIClick(
-    map as google.maps.Map | null,
-    isLoaded,
-    () => setShowAddModal(true),
-    { isPlaceListVisible }
-  );
+  // Phase 1: POI click removed - POI interactions disabled via Map config
+  // Previously used useGooglePOIClick for POI handling
 
   // Remove temporary marker (search result marker)
   const removeTempMarker = useCallback(() => {
@@ -393,6 +390,42 @@ export default function MapPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isLoaded, map, isPlaceListVisible]);
 
+  // Map click listener for manual place add
+  useEffect(() => {
+    if (!map || !isLoaded || !isAuthenticated || activeTab !== 'my-places') return;
+
+    const googleMap = map as google.maps.Map;
+
+    const clickListener = googleMap.addListener('click', (e: google.maps.MapMouseEvent) => {
+      // Ignore clicks on POI/markers
+      const placeId = (e as google.maps.IconMouseEvent).placeId;
+      if (placeId) {
+        return;
+      }
+
+      const lat = e.latLng?.lat();
+      const lng = e.latLng?.lng();
+
+      if (lat && lng) {
+        // Check email verification
+        if (user && !user.emailVerified) {
+          setShowEmailVerificationModal(true);
+          return;
+        }
+
+        // Open manual place add modal
+        setManualAddLocation({ lat, lng });
+        setShowManualAddModal(true);
+      }
+    });
+
+    return () => {
+      if (clickListener) {
+        google.maps.event.removeListener(clickListener);
+      }
+    };
+  }, [map, isLoaded, isAuthenticated, activeTab, user]);
+
   const loadPlaces = useCallback(async () => {
     try {
       if (activeTab === 'explore') {
@@ -554,16 +587,35 @@ export default function MapPage() {
         return;
       }
 
+      // Minimum search length (reduce unnecessary API calls for very short queries)
+      const MIN_SEARCH_LENGTH = 2;
+      const shouldUseExternalAPI = keyword.trim().length >= MIN_SEARCH_LENGTH;
+
       // Reset selection when starting a new search
       setSelectedSearchResultId(null);
       removeTempMarker();
 
       try {
-        // Search local places
+        // Search local places first
         const localResults = searchLocalPlaces(keyword);
 
-        // Search external API
-        const externalResults = await search(keyword);
+        // DB-first strategy: Only call Google API if local results are insufficient
+        const MIN_RESULTS_THRESHOLD = 5;
+        const hasEnoughLocalResults = localResults.length >= MIN_RESULTS_THRESHOLD;
+
+        let externalResults: SearchResult[] = [];
+
+        // Only search external API if:
+        // 1. Search keyword is long enough (2+ characters)
+        // 2. Local results are insufficient (< 5 results)
+        if (shouldUseExternalAPI && !hasEnoughLocalResults) {
+          console.log(`Local results (${localResults.length}) insufficient, searching Google API...`);
+          externalResults = await search(keyword);
+        } else if (hasEnoughLocalResults) {
+          console.log(`Using ${localResults.length} local results only (sufficient, skipping Google API)`);
+        } else {
+          console.log(`Search keyword too short (${keyword.length} chars), skipping Google API`);
+        }
 
         // Filter out external results that duplicate local places
         // Match by name and approximate location (within 50m)
@@ -606,7 +658,7 @@ export default function MapPage() {
 
   // Update debouncedSearchRef when performSearch changes
   useEffect(() => {
-    debouncedSearchRef.current = debounce(performSearch, 300);
+    debouncedSearchRef.current = debounce(performSearch, 800); // Increased from 300ms to 800ms to reduce API calls
   }, [performSearch]);
 
   // Update search on keyword change
@@ -712,7 +764,7 @@ export default function MapPage() {
       setSearchKeyword('');
       setSelectedSearchResultId(null);
       removeTempMarker();
-      removePOIMarker(); // Also remove POI marker
+      // Phase 1: removePOIMarker() removed - no longer needed as POI clicks are disabled
 
       // Add marker immediately (don't wait for state update)
       if (markerManagerRef.current && activeTab === 'my-places') {
@@ -976,6 +1028,107 @@ export default function MapPage() {
   const handleCancelDelete = () => {
     setIsDeleteDialogOpen(false);
     setPlaceToDelete(null);
+  };
+
+  // Manual Place Add Handlers
+  const handleManualPlaceAdd = async (data: CreatePublicPlaceData) => {
+    setIsAddingPlace(true);
+    try {
+      // Validate coordinates
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        toast.error('잘못된 좌표 정보입니다');
+        return;
+      }
+
+      if (latitude < -90 || latitude > 90) {
+        toast.error('위도 값이 유효하지 않습니다 (-90 ~ 90)');
+        return;
+      }
+
+      if (longitude < -180 || longitude > 180) {
+        toast.error('경도 값이 유효하지 않습니다 (-180 ~ 180)');
+        return;
+      }
+
+      // Create public place first
+      await publicPlacesApi.create(data);
+
+      // Then add to my places
+      const createData: CreatePlaceData = {
+        name: data.name,
+        address: data.address,
+        phone: data.phone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        category: data.category,
+        description: data.description,
+        externalUrl: data.externalUrl,
+        externalId: data.externalId,
+      };
+
+      const newPlace = await placesApi.create(createData);
+
+      toast.success(`✨ "${data.name}"이(가) 내 장소에 추가되었습니다`);
+
+      // Close modal
+      setShowManualAddModal(false);
+      setManualAddLocation(null);
+
+      // Add marker immediately
+      if (markerManagerRef.current && activeTab === 'my-places') {
+        await markerManagerRef.current.addMarker(newPlace);
+      }
+
+      // Navigate to the new place on map
+      if (newPlace && markerManagerRef.current) {
+        markerManagerRef.current.panTo(latitude, longitude);
+
+        // Adjust for sidebar if visible on desktop
+        const isDesktop = window.innerWidth >= 768;
+        if (isPlaceListVisible && isDesktop) {
+          const SIDEBAR_WIDTH = 320;
+          const offsetX = SIDEBAR_WIDTH / 2;
+          const googleMap = map as google.maps.Map;
+          if (googleMap && googleMap.panBy) {
+            setTimeout(() => googleMap.panBy(-offsetX, 0), 100);
+          }
+        }
+
+        // Set zoom level for better view
+        markerManagerRef.current.setZoom(17);
+
+        // Show InfoWindow immediately
+        markerManagerRef.current.showInfoWindow(newPlace.id);
+        setSelectedPlaceId(newPlace.id);
+      }
+
+      // Reload places in background
+      loadPlaces();
+    } catch (error: unknown) {
+      console.error('Failed to add place:', error);
+
+      if (error instanceof HTTPError) {
+        const errorData = await error.response.json();
+        const errorMessage = Array.isArray(errorData.message)
+          ? errorData.message.join(', ')
+          : errorData.message || '장소 추가에 실패했습니다';
+        toast.error(`장소 추가 실패: ${errorMessage}`);
+      } else if (error instanceof Error) {
+        toast.error(`장소 추가 실패: ${error.message}`);
+      } else {
+        toast.error('장소 추가에 실패했습니다');
+      }
+    } finally {
+      setIsAddingPlace(false);
+    }
+  };
+
+  const handleCloseManualAddModal = () => {
+    setShowManualAddModal(false);
+    setManualAddLocation(null);
   };
 
   const handleLoginClick = () => {
@@ -1459,12 +1612,21 @@ export default function MapPage() {
         <PlaceAddModal
           isOpen={showAddModal}
           searchResult={selectedSearchResult}
-          poiPlaceDetails={poiPlaceDetails}
+          poiPlaceDetails={null}
           onClose={handleCloseAddModal}
           onConfirm={handleConfirmAdd}
           isSubmitting={isAddingPlace}
           lists={lists}
           currentListId={activeTab === 'my-places' ? selectedListId || undefined : undefined}
+        />
+
+        {/* Manual Place Add Modal */}
+        <ManualPlaceAddModal
+          isOpen={showManualAddModal}
+          onClose={handleCloseManualAddModal}
+          initialLocation={manualAddLocation}
+          onConfirm={handleManualPlaceAdd}
+          isSubmitting={isAddingPlace}
         />
 
         {/* Place Search Bottom Sheet */}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, X, Check, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { HTTPError } from 'ky';
 import { notificationsApi } from '#lib/api';
 import type { Notification } from '#types/notification';
 
@@ -49,6 +50,10 @@ export default function NotificationDropdown({
       setNotifications(data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
+      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
       toast.error('알림을 불러오는데 실패했습니다');
     } finally {
       setIsLoading(false);

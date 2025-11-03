@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import api, { tokenExpiredEvent } from '#lib/api';
+import api, { tokenExpiredEvent, resetTokenExpiredFlag } from '#lib/api';
 
 interface User {
   id: string;
@@ -98,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     setUser(userData);
+    // 로그인 시 토큰 만료 플래그 초기화
+    resetTokenExpiredFlag();
   };
 
   const logout = () => {

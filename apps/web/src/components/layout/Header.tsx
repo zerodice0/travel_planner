@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Settings, User } from 'lucide-react';
+import { HTTPError } from 'ky';
 import { useAuth } from '#contexts/AuthContext';
 import NotificationDropdown from '#components/notification/NotificationDropdown';
 import { notificationsApi } from '#lib/api';
@@ -44,6 +45,10 @@ export default function Header({
       const { count } = await notificationsApi.getUnreadCount();
       setUnreadCount(count);
     } catch (error) {
+      // 401 에러는 tokenExpiredEvent가 처리하므로 로그 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
       console.error('Failed to load unread count:', error);
     }
   };

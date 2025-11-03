@@ -11,6 +11,11 @@ export interface Place {
   externalUrl?: string;
   externalId?: string;
   createdAt: string;
+
+  // Custom fields for personalization and marker visualization
+  customName?: string;
+  customCategory?: string;
+  labels?: string[];
 }
 
 export interface PlaceDetail extends Place {

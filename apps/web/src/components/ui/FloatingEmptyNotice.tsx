@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MapPin, LogIn, Navigation, Plus, X } from 'lucide-react';
 import { getCategoryLabel } from '#utils/categoryConfig';
 import { EMPTY_STATE_MESSAGES, ACTION_MESSAGES } from '#utils/messages';
@@ -12,6 +13,7 @@ interface FloatingEmptyNoticeProps {
   onAddFirstPlace?: () => void;
   onClose?: () => void;
   isPlaceListVisible?: boolean;
+  isInfoWindowOpen?: boolean;
 }
 
 export function FloatingEmptyNotice({
@@ -24,6 +26,7 @@ export function FloatingEmptyNotice({
   onAddFirstPlace,
   onClose,
   isPlaceListVisible = false,
+  isInfoWindowOpen = false,
 }: FloatingEmptyNoticeProps) {
   const getMessage = () => {
     switch (type) {
@@ -45,10 +48,31 @@ export function FloatingEmptyNotice({
   // global 타입에서만 "첫 장소 추가하기" 버튼 표시
   const showAddFirstPlaceButton = type === 'global' && isAuthenticated && onAddFirstPlace;
 
+  // 동적 스타일 계산 - InfoWindow 열림 시 반응형 처리 (useMemo로 최적화)
+  const positionClasses = useMemo(() => {
+    if (isInfoWindowOpen) {
+      // InfoWindow 열림: 데스크톱은 하단 배치, 모바일은 페이드아웃
+      return 'top-1/2 md:top-auto md:bottom-4 -translate-y-1/2 md:-translate-y-0 opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto';
+    }
+    // InfoWindow 닫힘: 중앙 배치
+    return 'top-1/2 -translate-y-1/2 opacity-100 pointer-events-auto';
+  }, [isInfoWindowOpen]);
+
   return (
-    <div className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 max-w-md w-full px-4 transition-all duration-300 ${
-      isPlaceListVisible ? 'left-1/2 md:left-[calc(50%+160px)]' : 'left-1/2'
-    }`}>
+    <div
+      className={`
+        absolute -translate-x-1/2 z-10 max-w-md w-full px-4
+        transition-[opacity,transform] duration-300 ease-in-out
+        ${positionClasses}
+        ${isPlaceListVisible ? 'left-1/2 md:left-[calc(50%+160px)]' : 'left-1/2'}
+        print:hidden
+      `}
+      role="complementary"
+      aria-label="장소 탐색 안내"
+      aria-hidden={isInfoWindowOpen}
+      aria-live={isInfoWindowOpen ? 'off' : 'polite'}
+      aria-atomic="true"
+    >
       <div className="bg-white rounded-lg shadow-lg border border-border p-4 relative">
         {/* Close Button - Top Right */}
         {onClose && (

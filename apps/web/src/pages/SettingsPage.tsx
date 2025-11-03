@@ -12,12 +12,16 @@ import {
   ChevronRight,
   FileText,
   Shield,
+  Mail,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AppLayout from '#components/layout/AppLayout';
 import { useAuth } from '#contexts/AuthContext';
 import { useTheme, type Theme } from '#contexts/ThemeContext';
 import { usersApi } from '#lib/api';
+import api from '#lib/api';
 
 type Language = 'ko' | 'en';
 
@@ -38,6 +42,7 @@ export default function SettingsPage() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
@@ -80,6 +85,23 @@ export default function SettingsPage() {
     } finally {
       // 플래그 제거
       localStorage.removeItem('isDeletingAccount');
+    }
+  };
+
+  const handleResendVerificationEmail = async () => {
+    if (!user?.email) return;
+
+    setIsResendingEmail(true);
+    try {
+      await api.post('auth/resend-verification-email', {
+        json: { email: user.email },
+      }).json();
+
+      toast.success('인증 메일이 재발송되었습니다. 메일함을 확인해주세요.');
+    } catch {
+      toast.error('인증 메일 재발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsResendingEmail(false);
     }
   };
 
@@ -131,13 +153,51 @@ export default function SettingsPage() {
                 <User className="w-8 h-8 text-primary-600" />
               )}
             </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-foreground">{user?.nickname}</h2>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
+            <div className="flex-1 min-w-0">
+              {/* 닉네임 */}
+              <h2 className="text-lg font-semibold text-foreground mb-1 truncate">
+                {user?.nickname}
+              </h2>
+
+              {/* 이메일 + 인증 상태 + 재발송 버튼 */}
+              <div className="flex items-center gap-2">
+                {/* 이메일 아이콘 */}
+                <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+
+                {/* 이메일 주소 */}
+                <p className="text-sm text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+
+                {/* 인증 상태 배지 */}
+                {user?.emailVerified ? (
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-xs rounded-full flex-shrink-0">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>인증됨</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs rounded-full flex-shrink-0">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>미인증</span>
+                    </div>
+
+                    {/* 재발송 버튼 (미인증 시만) */}
+                    <button
+                      onClick={handleResendVerificationEmail}
+                      disabled={isResendingEmail}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    >
+                      <Mail className="w-3 h-3" />
+                      <span>{isResendingEmail ? '발송 중...' : '재발송'}</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <button
               onClick={() => navigate('/settings/profile')}
-              className="px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950 rounded-lg transition-colors flex-shrink-0"
             >
               편집
             </button>

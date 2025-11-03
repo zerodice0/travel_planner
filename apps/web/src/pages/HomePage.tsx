@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapPin, LogIn, UserPlus, X, Plus, User } from 'lucide-react';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
+import { HTTPError } from 'ky';
 import { publicPlacesApi } from '#lib/api';
 import type { PublicPlace } from '#types/publicPlace';
 import toast from 'react-hot-toast';
@@ -142,6 +143,11 @@ export default function HomePage() {
       }
 
       console.error('Failed to fetch places:', error);
+
+      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
 
       if (isInitialLoad) {
         toast.error('장소를 불러오는데 실패했습니다.');

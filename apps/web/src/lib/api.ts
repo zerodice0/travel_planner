@@ -27,6 +27,7 @@ import type {
   ViewportQuery,
   NearestPlaceQuery,
   NearestPlace,
+  CreatePublicPlaceData,
 } from '#types/publicPlace';
 import type { Notification, UnreadCountResponse } from '#types/notification';
 
@@ -35,6 +36,68 @@ export const emailVerificationRequiredEvent = new EventTarget();
 
 // Event system for token expiration (401 Unauthorized)
 export const tokenExpiredEvent = new EventTarget();
+
+// Flag to prevent duplicate token expiration events
+let isTokenExpired = false;
+
+// Function to reset token expiration flag (called on login)
+export function resetTokenExpiredFlag() {
+  isTokenExpired = false;
+}
+
+// Refresh token management
+let isRefreshing = false;
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string }> | null = null;
+
+// Function to refresh access token
+async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken: string }> {
+  const refreshToken = localStorage.getItem('refreshToken');
+
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+
+  // If already refreshing, return the existing promise
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  // Start refreshing
+  isRefreshing = true;
+  refreshPromise = ky
+    .post('auth/refresh', {
+      prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+      json: { refreshToken },
+      timeout: 10000,
+    })
+    .json<{ accessToken: string; refreshToken: string; user: unknown }>()
+    .then((result) => {
+      // Update tokens
+      localStorage.setItem('accessToken', result.accessToken);
+      localStorage.setItem('refreshToken', result.refreshToken);
+
+      // Reset token expiration flag
+      resetTokenExpiredFlag();
+
+      return {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      };
+    })
+    .catch((error) => {
+      // Clear tokens on refresh failure
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      throw error;
+    })
+    .finally(() => {
+      // Reset refreshing state
+      isRefreshing = false;
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
 
 const api = ky.create({
   prefixUrl: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -55,19 +118,53 @@ const api = ky.create({
         if (response.status === 401) {
           const url = request.url;
 
-          // 인증 엔드포인트는 tokenExpiredEvent 발생 제외
-          // 로그인/회원가입 실패는 각 페이지에서 개별 처리
+          // 인증 엔드포인트는 자동 갱신 제외
           const isAuthEndpoint =
             url.includes('/auth/login') ||
             url.includes('/auth/signup') ||
             url.includes('/auth/refresh');
 
           if (!isAuthEndpoint) {
-            // 보호된 엔드포인트에서의 401만 세션 만료로 처리
-            tokenExpiredEvent.dispatchEvent(new Event('expired'));
-            // 토큰 즉시 삭제
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            const refreshToken = localStorage.getItem('refreshToken');
+
+            // Refresh Token이 있으면 자동 갱신 시도
+            if (refreshToken && !isTokenExpired) {
+              try {
+                // 토큰 갱신
+                await refreshAccessToken();
+
+                // 원래 요청 재시도 (새로운 토큰으로)
+                const newToken = localStorage.getItem('accessToken');
+                if (newToken) {
+                  // Clone the request and update the Authorization header
+                  const retryRequest = new Request(request, {
+                    headers: {
+                      ...Object.fromEntries(request.headers.entries()),
+                      Authorization: `Bearer ${newToken}`,
+                    },
+                  });
+
+                  // Retry the original request with new token
+                  return ky(retryRequest);
+                }
+              } catch (error) {
+                // 토큰 갱신 실패 → 로그아웃 처리
+                console.error('Token refresh failed:', error);
+
+                if (!isTokenExpired) {
+                  isTokenExpired = true;
+                  tokenExpiredEvent.dispatchEvent(new Event('expired'));
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('refreshToken');
+                }
+              }
+            } else if (!isTokenExpired) {
+              // Refresh Token 없음 → 로그아웃
+              isTokenExpired = true;
+              tokenExpiredEvent.dispatchEvent(new Event('expired'));
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+            }
           }
         }
 
@@ -342,7 +439,7 @@ export const uploadApi = {
   },
 };
 
-// Public Places API (no authentication required)
+// Public Places API (no authentication required for GET, authentication required for POST)
 export const publicPlacesApi = {
   getAll: async (params?: PublicPlaceQuery): Promise<PublicPlacesResponse> => {
     const searchParams = new URLSearchParams();
@@ -350,6 +447,31 @@ export const publicPlacesApi = {
     if (params?.limit) searchParams.append('limit', params.limit.toString());
     if (params?.offset) searchParams.append('offset', params.offset.toString());
     if (params?.sort) searchParams.append('sort', params.sort);
+
+    return publicApi.get('public/places', { searchParams }).json<PublicPlacesResponse>();
+  },
+
+  /**
+   * Search public places using FTS5
+   * @param keyword - Search keyword
+   * @param category - Optional category filter
+   * @param limit - Max results (default: 20)
+   * @param offset - Pagination offset (default: 0)
+   * @returns Array of public places matching search criteria
+   */
+  search: async (params: {
+    keyword: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PublicPlacesResponse> => {
+    const searchParams = new URLSearchParams({
+      keyword: params.keyword,
+    });
+
+    if (params.category) searchParams.append('category', params.category);
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+    if (params.offset) searchParams.append('offset', params.offset.toString());
 
     return publicApi.get('public/places', { searchParams }).json<PublicPlacesResponse>();
   },
@@ -379,6 +501,10 @@ export const publicPlacesApi = {
 
   getOne: async (placeId: string): Promise<PublicPlaceDetail> => {
     return publicApi.get(`public/places/${placeId}`).json<PublicPlaceDetail>();
+  },
+
+  create: async (data: CreatePublicPlaceData): Promise<PublicPlaceDetail> => {
+    return api.post('public/places', { json: data }).json<PublicPlaceDetail>();
   },
 };
 

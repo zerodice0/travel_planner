@@ -4,7 +4,6 @@ import Input from '#components/ui/Input';
 import { CategoryFilter } from '#components/map/CategoryFilter';
 import { useSearchPlaces } from '#hooks/useSearchPlaces';
 import { useInfiniteScroll } from '#hooks/useInfiniteScroll';
-import { useMapProvider } from '#contexts/MapProviderContext';
 import { useGoogleMap } from '#hooks/useGoogleMap';
 import { placesApi, publicPlacesApi } from '#lib/api';
 import { getCategoryIcon } from '#utils/categoryConfig';
@@ -37,8 +36,6 @@ export function PlaceSelectionModal({
   onConfirm,
   excludePlaceIds = [],
 }: PlaceSelectionModalProps) {
-  const { searchProvider } = useMapProvider();
-
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedPlaces, setSelectedPlaces] = useState<Set<string>>(new Set());
@@ -49,13 +46,13 @@ export function PlaceSelectionModal({
   const [myPlaces, setMyPlaces] = useState<Place[]>([]);
   const [myPlacesPage, setMyPlacesPage] = useState(0);
 
-  // 공개 장소
+  // 공개 장소 (Phase 2에서 제거 - DB 검색으로 대체)
   const [publicPlaces, setPublicPlaces] = useState<PublicPlace[]>([]);
   const [publicPlacesPage, setPublicPlacesPage] = useState(0);
   const [hasMorePublicPlaces, setHasMorePublicPlaces] = useState(true);
   const [isLoadingPublicPlaces, setIsLoadingPublicPlaces] = useState(false);
 
-  // 통합 검색
+  // 통합 검색 (Phase 2: DB-based search)
   const {
     searchResults,
     isSearching,
@@ -63,8 +60,6 @@ export function PlaceSelectionModal({
     clearSearch,
   } = useSearchPlaces({
     myPlaces,
-    publicPlaces,
-    searchProvider,
   });
 
   // Google Map 초기화

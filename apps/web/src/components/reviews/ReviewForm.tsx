@@ -3,6 +3,8 @@ import type { Review, CreateReviewData, UpdateReviewData } from '#types/review';
 
 interface ReviewFormProps {
   existingReview?: Review;
+  content: string;
+  onContentChange: (content: string) => void;
   onSubmit: (data: CreateReviewData | UpdateReviewData) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -10,12 +12,13 @@ interface ReviewFormProps {
 
 export function ReviewForm({
   existingReview,
+  content,
+  onContentChange,
   onSubmit,
   onCancel,
   isSubmitting = false,
 }: ReviewFormProps) {
-  const [content, setContent] = useState(existingReview?.content || '');
-  const [isPublic, setIsPublic] = useState(existingReview?.isPublic ?? false);
+  const [isPublic, setIsPublic] = useState(existingReview?.isPublic ?? true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +45,7 @@ export function ReviewForm({
         </label>
         <textarea
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => onContentChange(e.target.value)}
           placeholder="이 장소에 대한 리뷰를 작성해주세요..."
           maxLength={2000}
           rows={6}

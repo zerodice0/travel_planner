@@ -1,6 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Header from '#components/layout/Header';
 import BottomNavigation from '#components/layout/BottomNavigation';
+import { EmailVerificationBanner } from '#components/banners/EmailVerificationBanner';
+import { useAuth } from '#contexts/AuthContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,6 +17,22 @@ export default function AppLayout({
   showHeader = true,
   showBottomNav = true,
 }: AppLayoutProps) {
+  const { user } = useAuth();
+  const [showEmailBanner, setShowEmailBanner] = useState(true);
+
+  // Load email banner dismissed state from localStorage
+  useEffect(() => {
+    const dismissed = localStorage.getItem('emailVerificationBannerDismissed');
+    if (dismissed === 'true') {
+      setShowEmailBanner(false);
+    }
+  }, []);
+
+  const handleCloseEmailBanner = () => {
+    setShowEmailBanner(false);
+    localStorage.setItem('emailVerificationBannerDismissed', 'true');
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Skip to main content link for accessibility */}
@@ -24,6 +42,14 @@ export default function AppLayout({
       >
         본문으로 건너뛰기
       </a>
+
+      {/* Email Verification Banner - shown on all pages */}
+      {user && !user.emailVerified && showEmailBanner && (
+        <EmailVerificationBanner
+          userEmail={user.email}
+          onClose={handleCloseEmailBanner}
+        />
+      )}
 
       {showHeader && <Header title={title} />}
 

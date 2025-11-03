@@ -17,6 +17,8 @@ export interface PublicPlace {
   photos: string[];
   reviewCount: number;
   topLabels: LabelCount[];
+  externalId?: string;
+  externalUrl?: string;
   createdAt: string;
 }
 
@@ -55,4 +57,16 @@ export interface NearestPlaceQuery {
 
 export interface NearestPlace extends PublicPlace {
   distance: number; // km 단위
+}
+
+export interface CreatePublicPlaceData {
+  name: string;
+  address: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  category: string;
+  description?: string;
+  externalUrl?: string;
+  externalId?: string;
 }

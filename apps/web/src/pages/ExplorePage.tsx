@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, LogIn, UserPlus, X, Plus } from 'lucide-react';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
+import { HTTPError } from 'ky';
 import { publicPlacesApi } from '#lib/api';
 import type { PublicPlace } from '#types/publicPlace';
 import toast from 'react-hot-toast';
 import { useGoogleMap } from '#hooks/useGoogleMap';
+import { useGooglePlaceDetails } from '#hooks/useGooglePlaceDetails';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
 import { useAuth } from '#contexts/AuthContext';
 import { createMarkerDataURL } from '#utils/categoryIcons';
@@ -18,9 +20,11 @@ export default function ExplorePage() {
   const { isAuthenticated } = useAuth();
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<PublicPlace | null>(null);
+  const [isLoadingPlaceDetails, setIsLoadingPlaceDetails] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 첫 로드 여부
+  const [isInitializing, setIsInitializing] = useState(true); // 초기화 진행 여부 (지도 표시 제어)
   const [showEmptyState, setShowEmptyState] = useState(false); // Empty state 표시 여부
   const [emptyStateType, setEmptyStateType] = useState<'viewport' | 'category' | 'global'>('global'); // Empty state 타입
   const [isLoadingNearest, setIsLoadingNearest] = useState(false); // 가장 가까운 장소 로딩
@@ -47,6 +51,9 @@ export default function ExplorePage() {
     level: 14,
   });
 
+  // Place Details 훅
+  const { fetchBasicDetails, fetchPlaceDetails } = useGooglePlaceDetails();
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -61,6 +68,100 @@ export default function ExplorePage() {
       }
     };
   }, []);
+
+  // POI 클릭 처리 - 낙관적 UI 업데이트로 즉시 반응
+  useEffect(() => {
+    if (!map || !isLoaded) return;
+
+    const googleMap = map as google.maps.Map;
+
+    // POI click event includes placeId
+    interface POIClickEvent extends google.maps.MapMouseEvent {
+      placeId?: string;
+    }
+
+    const clickListener = googleMap.addListener('click', async (event: POIClickEvent) => {
+      if (event.placeId) {
+        event.stop(); // Prevent default info window
+
+        const placeId = event.placeId;
+        const clickLatLng = event.latLng;
+
+        // 1. 즉시 지도 이동 (병렬 실행)
+        if (clickLatLng) {
+          googleMap.panTo(clickLatLng);
+        }
+
+        // 2. 기본 정보로 즉시 사이드 패널 표시 (낙관적 업데이트)
+        setSelectedPlace({
+          id: placeId,
+          name: '장소 정보를 불러오는 중...', // 로딩 플레이스홀더
+          address: '',
+          category: 'etc',
+          latitude: clickLatLng?.lat() ?? 0,
+          longitude: clickLatLng?.lng() ?? 0,
+          description: '',
+          photos: [],
+          reviewCount: 0,
+          topLabels: [],
+          createdAt: new Date().toISOString(),
+        });
+        setIsLoadingPlaceDetails(true);
+
+        try {
+          // 3. 백그라운드에서 기본 정보 로드 (빠른 응답)
+          const basicDetails = await fetchBasicDetails(placeId);
+
+          if (basicDetails) {
+            // 기본 정보로 즉시 업데이트
+            setSelectedPlace({
+              id: placeId,
+              name: basicDetails.name,
+              address: basicDetails.address,
+              category: 'etc',
+              latitude: basicDetails.latitude,
+              longitude: basicDetails.longitude,
+              description: '',
+              photos: [],
+              reviewCount: 0,
+              topLabels: [],
+              createdAt: new Date().toISOString(),
+            });
+
+            // 4. 상세 정보 로드 (백그라운드)
+            const detailedInfo = await fetchPlaceDetails(placeId);
+
+            if (detailedInfo) {
+              // 상세 정보로 최종 업데이트
+              setSelectedPlace({
+                id: placeId,
+                name: detailedInfo.name,
+                address: detailedInfo.address,
+                category: detailedInfo.types?.[0] || 'etc',
+                latitude: detailedInfo.latitude,
+                longitude: detailedInfo.longitude,
+                description: detailedInfo.description || '',
+                photos: [],
+                reviewCount: detailedInfo.userRatingCount || 0,
+                topLabels: [],
+                createdAt: new Date().toISOString(),
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch place details:', error);
+          toast.error('장소 정보를 불러올 수 없습니다');
+          setSelectedPlace(null);
+        } finally {
+          setIsLoadingPlaceDetails(false);
+        }
+      }
+    });
+
+    return () => {
+      google.maps.event.removeListener(clickListener);
+    };
+  }, [map, isLoaded, fetchBasicDetails, fetchPlaceDetails]);
 
   // Viewport 기반 장소 조회 함수
   const fetchPlacesByViewport = useCallback(async (params: {
@@ -164,6 +265,11 @@ export default function ExplorePage() {
 
       // 다른 에러는 로그만 남기고 조용히 처리 (초기 로드가 아닌 경우)
       console.error('Failed to fetch places:', error);
+
+      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
+      if (error instanceof HTTPError && error.response.status === 401) {
+        return;
+      }
 
       if (isInitialLoad) {
         // 초기 로드 실패는 사용자에게 알림
@@ -297,6 +403,7 @@ export default function ExplorePage() {
       } finally {
         setIsLoading(false);
         setIsInitialLoad(false);
+        setIsInitializing(false); // 초기화 완료 - 지도 표시 허용
       }
     };
 
@@ -417,9 +524,9 @@ export default function ExplorePage() {
     navigate(`/explore/places/${placeId}`);
   };
 
-  const handleLoginClick = () => {
+  const handleLoginClick = useCallback(() => {
     navigate('/login');
-  };
+  }, [navigate]);
 
   const handleSignupClick = () => {
     navigate('/signup');
@@ -437,7 +544,7 @@ export default function ExplorePage() {
   };
 
   // 등록된 장소 중 가장 가까운 곳으로 이동
-  const handleExploreNearest = async () => {
+  const handleExploreNearest = useCallback(async () => {
     if (!userLocation || isLoadingNearest) return;
 
     setIsLoadingNearest(true);
@@ -479,7 +586,7 @@ export default function ExplorePage() {
     } finally {
       setIsLoadingNearest(false);
     }
-  };
+  }, [userLocation, isLoadingNearest, map]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -586,6 +693,7 @@ export default function ExplorePage() {
                   onLoginClick={handleLoginClick}
                   onExploreNearest={userLocation ? handleExploreNearest : undefined}
                   isLoadingNearest={isLoadingNearest}
+                  isInfoWindowOpen={selectedPlace !== null}
                 />
               )}
 
@@ -627,12 +735,17 @@ export default function ExplorePage() {
                 </div>
               )}
 
-              {/* 초기 로딩 */}
-              {!isLoaded && !mapError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+              {/* 초기 로딩 - API 로딩 또는 위치 결정 중 */}
+              {(!isLoaded || isInitializing) && !mapError && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/95 backdrop-blur-sm">
                   <div className="text-center">
                     <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent mb-2"></div>
-                    <p className="text-muted-foreground">지도 로딩 중...</p>
+                    <p className="text-muted-foreground font-medium">
+                      {!isLoaded ? '지도 로딩 중...' : '위치를 찾고 있습니다...'}
+                    </p>
+                    {isInitializing && isLoaded && (
+                      <p className="text-sm text-muted-foreground/70 mt-1">잠시만 기다려주세요</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -690,8 +803,17 @@ export default function ExplorePage() {
 
                   {/* 스크롤 가능 영역 */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {/* 로딩 상태 */}
+                    {isLoadingPlaceDetails && (
+                      <div className="animate-pulse space-y-4">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-4 bg-gray-200 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                      </div>
+                    )}
+
                     {/* 설명 섹션 */}
-                    {selectedPlace.description && (
+                    {!isLoadingPlaceDetails && selectedPlace.description && (
                       <div className="pb-4 border-b border-border">
                         <p className="text-sm text-muted-foreground leading-relaxed">
                           {selectedPlace.description}
@@ -700,7 +822,7 @@ export default function ExplorePage() {
                     )}
 
                     {/* 리뷰 수 */}
-                    {selectedPlace.reviewCount > 0 && (
+                    {!isLoadingPlaceDetails && selectedPlace.reviewCount > 0 && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>💬</span>
                         <span>{selectedPlace.reviewCount}명이 이 장소를 기록했습니다</span>
@@ -708,7 +830,7 @@ export default function ExplorePage() {
                     )}
 
                     {/* 커스텀 라벨 */}
-                    {selectedPlace.topLabels && selectedPlace.topLabels.length > 0 && (
+                    {!isLoadingPlaceDetails && selectedPlace.topLabels && selectedPlace.topLabels.length > 0 && (
                       <div>
                         <p className="text-sm font-medium text-foreground mb-2">
                           다른 사용자들은 이렇게 저장했습니다
@@ -733,7 +855,7 @@ export default function ExplorePage() {
                     )}
 
                     {/* 사진 그리드 */}
-                    {selectedPlace.photos && selectedPlace.photos.length > 0 && (
+                    {!isLoadingPlaceDetails && selectedPlace.photos && selectedPlace.photos.length > 0 && (
                       <div>
                         <p className="text-sm font-medium text-foreground mb-2">사진</p>
                         <div className="grid grid-cols-2 gap-2">
