@@ -24,7 +24,7 @@ travel-planner/
 
 ### 백엔드
 - **프레임워크**: NestJS
-- **데이터베이스**: PostgreSQL
+- **데이터베이스**: SQLite (개발) / Cloudflare D1 (프로덕션)
 - **ORM**: Prisma
 - **인증**: JWT + Passport
 - **문서화**: Swagger/OpenAPI
@@ -38,9 +38,14 @@ travel-planner/
 ## 시작하기
 
 ### 사전 요구사항
+
+**로컬 개발:**
 - Node.js >= 20.0.0
 - pnpm >= 9.0.0
-- PostgreSQL >= 14
+
+**Docker 개발 (권장):**
+- Docker Desktop
+- Docker Compose
 
 ### 설치
 
@@ -59,15 +64,35 @@ pnpm prisma:migrate
 
 ### 개발 서버 실행
 
+**방법 1: Docker 개발 (권장)**
 ```bash
-# 모든 앱 동시 실행
+# Docker로 전체 시스템 실행 (자동 빌드 + 실행)
 pnpm dev
 
-# 개별 앱 실행
-pnpm --filter @travel-planner/web dev
-pnpm --filter @travel-planner/api dev
+# 백그라운드 실행
+pnpm dev:detached
+
+# 로그 확인
+pnpm dev:logs
+
+# 중지
+pnpm dev:stop
+
+# 재시작
+pnpm dev:restart
 ```
 
+**방법 2: 로컬 개발 (IDE 디버깅용)**
+```bash
+# 로컬에서 전체 시스템 실행
+pnpm dev:local
+
+# 개별 앱 실행
+cd apps/api && pnpm dev
+cd apps/web && pnpm dev
+```
+
+**접속 주소:**
 - 프론트엔드: http://localhost:3000
 - 백엔드 API: http://localhost:4000/api
 - API 문서: http://localhost:4000/api/docs
@@ -119,6 +144,8 @@ pnpm format
 - [프로젝트 개요](./docs/prd/00-overview.md)
 - [API 사양](./docs/prd/05-technical/01-api-specifications.md)
 - [데이터 모델](./docs/prd/05-technical/02-data-models.md)
+- [Docker 가이드](./docs/docker-guide.md)
+- [D1 마이그레이션 가이드](./docs/d1-migration-guide.md)
 
 ## 라이선스
 

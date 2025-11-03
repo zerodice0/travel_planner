@@ -8,7 +8,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev:local": "turbo run dev",
+    "dev:docker": "docker-compose -f docker-compose.dev.yml up",
+    "dev:detached": "docker-compose -f docker-compose.dev.yml up -d",
+    "dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "dev:stop": "docker-compose -f docker-compose.dev.yml down",
+    "dev:restart": "docker-compose -f docker-compose.dev.yml restart",
+    "dev:build": "docker-compose -f docker-compose.dev.yml up --build",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -19,7 +26,7 @@
     "prettier": "^3.6.2",
     "turbo": "^2.5.8"
   },
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.18.3",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
