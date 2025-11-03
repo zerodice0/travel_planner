@@ -64,3 +64,24 @@ uploads/
 
 # Claude Code
 .claude/
+
+# Cursor IDE
+.cursor/
+
+# Spec Kitty (project-specific workflow)
+.kittify/
+
+# Environment-specific files (contain sensitive data)
+apps/api/.env.development
+apps/api/.env.production
+apps/web/.env.development
+apps/web/.env.production
+
+# Personal notes and todo lists
+todo_list_for_reduce_google_place_api/
+**/todo_*.md
+**/TODO_*.md
+
+# Database backups
+*.backup/
+**/migrations.*.backup/
