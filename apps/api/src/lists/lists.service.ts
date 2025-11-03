@@ -250,14 +250,19 @@ export class ListsService {
       throw new NotFoundException('One or more places not found');
     }
 
-    await this.prisma.placeList.createMany({
-      data: addPlacesDto.placeIds.map((userPlaceId, index) => ({
-        userPlaceId,
-        listId,
-        order: startOrder + index,
-      })),
-      skipDuplicates: true,
-    });
+    // SQLite does not support skipDuplicates option
+    // Use individual creates with error handling instead
+    await Promise.allSettled(
+      addPlacesDto.placeIds.map((userPlaceId, index) =>
+        this.prisma.placeList.create({
+          data: {
+            userPlaceId,
+            listId,
+            order: startOrder + index,
+          },
+        }).catch(() => null) // Ignore duplicate errors
+      )
+    );
 
     return { added: addPlacesDto.placeIds.length };
   }

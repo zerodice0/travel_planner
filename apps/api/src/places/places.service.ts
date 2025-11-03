@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlaceQueryDto, ViewportQueryDto, NearestPlaceQueryDto } from './dto/place-query.dto';
 import { PlaceResponseDto, PlacesResponseDto } from './dto/place-response.dto';
 import { CreatePlaceDto } from './dto/create-place.dto';
+import { CreatePublicPlaceDto } from './dto/create-public-place.dto';
 import { UpdatePlaceDto } from './dto/update-place.dto';
 import { PlaceDetailResponseDto } from './dto/place-detail-response.dto';
 import {
@@ -28,6 +29,9 @@ export class PlacesService {
         id: true,
         visited: true,
         createdAt: true,
+        customName: true,
+        customCategory: true,
+        labels: true,
         place: {
           select: {
             id: true,
@@ -56,6 +60,10 @@ export class PlacesService {
       externalUrl: userPlace.place.externalUrl ?? undefined,
       externalId: userPlace.place.externalId ?? undefined,
       createdAt: userPlace.createdAt,
+      // Custom fields for marker visualization
+      customName: userPlace.customName ?? undefined,
+      customCategory: userPlace.customCategory ?? undefined,
+      labels: JSON.parse(userPlace.labels) as string[],
     }));
 
     return { places: placeResponses };
@@ -86,14 +94,14 @@ export class PlacesService {
       category: userPlace.place.category,
       customName: userPlace.customName,
       customCategory: userPlace.customCategory,
-      labels: userPlace.labels,
+      labels: JSON.parse(userPlace.labels) as string[],
       note: userPlace.note,
       visited: userPlace.visited,
       visitedAt: userPlace.visitedAt,
       visitNote: userPlace.visitNote,
       rating: userPlace.rating,
       estimatedCost: userPlace.estimatedCost,
-      photos: userPlace.photos,
+      photos: JSON.parse(userPlace.photos) as string[],
       externalUrl: userPlace.place.externalUrl,
       externalId: userPlace.place.externalId,
       createdAt: userPlace.createdAt,
@@ -138,10 +146,10 @@ export class PlacesService {
           placeId: place.id,
           customName: createPlaceDto.customName,
           customCategory: createPlaceDto.customCategory,
-          labels: createPlaceDto.labels || [],
+          labels: JSON.stringify(createPlaceDto.labels || []),
           note: createPlaceDto.note,
           visited: createPlaceDto.visited || false,
-          photos: [],
+          photos: JSON.stringify([]),
         },
       });
 
@@ -195,7 +203,7 @@ export class PlacesService {
 
     // UserPlace에 속하는 필드만 추출
     // Place 필드(name, address, phone, latitude, longitude, category)는 제외
-     
+
     const {
       category,
       name: _name,
@@ -203,13 +211,17 @@ export class PlacesService {
       phone: _phone,
       latitude: _latitude,
       longitude: _longitude,
+      labels,
+      photos,
       ...userPlaceFields
     } = updatePlaceDto;
 
-    // category를 customCategory로 매핑
+    // category를 customCategory로 매핑하고 배열 필드를 JSON 문자열로 변환
     const updateData = {
       ...userPlaceFields,
       ...(category !== undefined && { customCategory: category }),
+      ...(labels !== undefined && { labels: JSON.stringify(labels) }),
+      ...(photos !== undefined && { photos: JSON.stringify(photos) }),
     };
 
     await this.prisma.userPlace.update({
@@ -377,7 +389,8 @@ export class PlacesService {
       // 커스텀 라벨 집계
       const labelCounts = new Map<string, number>();
       place.userPlaces.forEach((up) => {
-        up.labels.forEach((label) => {
+        const labels = JSON.parse(up.labels) as string[];
+        labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
         });
       });
@@ -403,6 +416,7 @@ export class PlacesService {
         photos: allPhotos,
         reviewCount,
         topLabels,
+        externalId: place.externalId,
         createdAt: place.createdAt,
         distance: place.distance,
       };
@@ -447,7 +461,8 @@ export class PlacesService {
       // 커스텀 라벨 집계 (빈도수 계산)
       const labelCounts = new Map<string, number>();
       place.userPlaces.forEach((up) => {
-        up.labels.forEach((label) => {
+        const labels = JSON.parse(up.labels) as string[];
+        labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
         });
       });
@@ -473,6 +488,7 @@ export class PlacesService {
         photos: allPhotos,
         reviewCount,
         topLabels,
+        externalId: place.externalId,
         createdAt: place.createdAt,
       };
     });
@@ -515,7 +531,8 @@ export class PlacesService {
       // 커스텀 라벨 집계 (빈도수 계산)
       const labelCounts = new Map<string, number>();
       place.userPlaces.forEach((up) => {
-        up.labels.forEach((label) => {
+        const labels = JSON.parse(up.labels) as string[];
+        labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
         });
       });
@@ -541,6 +558,124 @@ export class PlacesService {
         photos: allPhotos,
         reviewCount,
         topLabels,
+        externalId: place.externalId,
+        createdAt: place.createdAt,
+      };
+    });
+
+    return { places: placeResponses, total };
+  }
+
+  /**
+   * Search public places using SQLite FTS5
+   * @param keyword - Search keyword
+   * @param category - Optional category filter
+   * @param limit - Max results (default: 50)
+   * @param offset - Pagination offset (default: 0)
+   * @returns Ranked search results
+   */
+  async searchPublicPlaces(options: {
+    keyword: string;
+    category?: string;
+    limit: number;
+    offset: number;
+  }): Promise<PublicPlacesResponseDto> {
+    const { keyword, category, limit, offset } = options;
+
+    // SQLite FTS5 search query
+    // MATCH operator searches the FTS5 virtual table
+    const ftsQuery = `
+      SELECT place_id
+      FROM places_fts
+      WHERE places_fts MATCH ?
+      ORDER BY rank
+      LIMIT ? OFFSET ?
+    `;
+
+    // Execute FTS5 search
+    const ftsResults = await this.prisma.$queryRawUnsafe<{ place_id: string }[]>(
+      ftsQuery,
+      keyword,
+      limit,
+      offset,
+    );
+
+    if (ftsResults.length === 0) {
+      return { places: [], total: 0 };
+    }
+
+    // Get place IDs from FTS results
+    const placeIds = ftsResults.map((r) => r.place_id);
+
+    // Build where clause for Place table
+    const where: any = {
+      id: { in: placeIds },
+    };
+
+    if (category) {
+      where.category = category;
+    }
+
+    // Fetch full place data with aggregations
+    const [places, total] = await Promise.all([
+      this.prisma.place.findMany({
+        where,
+        include: {
+          userPlaces: {
+            select: {
+              labels: true,
+              photos: true,
+              reviews: {
+                where: { isPublic: true },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.place.count({ where }),
+    ]);
+
+    // Transform to PublicPlaceResponseDto (same as findAllPublic)
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+      // Review count
+      const reviewCount = place.userPlaces.reduce(
+        (sum, up) => sum + up.reviews.length,
+        0,
+      );
+
+      // Aggregate labels
+      const labelCounts = new Map<string, number>();
+      place.userPlaces.forEach((up) => {
+        const labels = JSON.parse(up.labels) as string[];
+        labels.forEach((label: string) => {
+          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+        });
+      });
+
+      // Top 10 labels
+      const topLabels: LabelCount[] = Array.from(labelCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // All photos
+      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+
+      return {
+        id: place.id,
+        name: place.name,
+        address: place.address,
+        phone: place.phone ?? undefined,
+        latitude: Number(place.latitude),
+        longitude: Number(place.longitude),
+        category: place.category,
+        description: place.description ?? undefined,
+        externalUrl: place.externalUrl ?? undefined,
+        reviewCount,
+        photos: allPhotos,
+        topLabels,
+        externalId: place.externalId ?? undefined,
         createdAt: place.createdAt,
       };
     });
@@ -578,7 +713,8 @@ export class PlacesService {
     // 커스텀 라벨 집계 (빈도수 계산)
     const labelCounts = new Map<string, number>();
     place.userPlaces.forEach((up) => {
-      up.labels.forEach((label) => {
+      const labels = JSON.parse(up.labels) as string[];
+      labels.forEach((label: string) => {
         labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
       });
     });
@@ -609,5 +745,90 @@ export class PlacesService {
       createdAt: place.createdAt,
       updatedAt: place.updatedAt,
     };
+  }
+
+  async createPublicPlace(
+    createPublicPlaceDto: CreatePublicPlaceDto,
+  ): Promise<PublicPlaceDetailResponseDto> {
+    try {
+      // 1. Check if place already exists (by externalId if provided)
+      if (createPublicPlaceDto.externalId) {
+        const existingPlace = await this.prisma.place.findUnique({
+          where: { externalId: createPublicPlaceDto.externalId },
+        });
+
+        if (existingPlace) {
+          throw new ConflictException(
+            '이미 등록된 장소입니다. 해당 장소를 "내 장소"로 추가할 수 있습니다.',
+          );
+        }
+      }
+
+      // 2. Create new public place
+      const place = await this.prisma.place.create({
+        data: {
+          name: createPublicPlaceDto.name,
+          address: createPublicPlaceDto.address,
+          phone: createPublicPlaceDto.phone,
+          latitude: createPublicPlaceDto.latitude,
+          longitude: createPublicPlaceDto.longitude,
+          category: createPublicPlaceDto.category,
+          description: createPublicPlaceDto.description,
+          externalUrl: createPublicPlaceDto.externalUrl,
+          externalId: createPublicPlaceDto.externalId,
+        },
+      });
+
+      // 3. Return the created place as PublicPlaceDetail
+      return {
+        id: place.id,
+        name: place.name,
+        category: place.category,
+        address: place.address,
+        phone: place.phone,
+        latitude: Number(place.latitude),
+        longitude: Number(place.longitude),
+        description: place.description,
+        photos: [],
+        reviewCount: 0,
+        topLabels: [],
+        externalUrl: place.externalUrl,
+        externalId: place.externalId,
+        createdAt: place.createdAt,
+        updatedAt: place.updatedAt,
+      };
+    } catch (error) {
+      // Re-throw ConflictException
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
+      // Prisma error handling
+      const prismaError = error as { code?: string };
+
+      if (prismaError.code === 'P2002') {
+        throw new ConflictException(
+          '이미 등록된 장소입니다. 중복된 정보가 있습니다.',
+        );
+      }
+
+      if (prismaError.code === 'P2000') {
+        throw new Error(
+          'Value too long for column. Please check your data length.',
+        );
+      }
+
+      // Decimal conversion error
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('Invalid') && errorMessage.includes('Decimal')) {
+        throw new Error(
+          'Invalid latitude or longitude value. Please provide valid coordinates.',
+        );
+      }
+
+      // Other errors
+      console.error('Public place creation error:', error);
+      throw error;
+    }
   }
 }

@@ -5,22 +5,34 @@ import { Resend } from 'resend';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private resend: Resend;
+  private resend: Resend | null = null;
+  private readonly isEnabled: boolean;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) {
+    this.isEnabled = !!apiKey;
+
+    if (!this.isEnabled) {
       this.logger.warn('RESEND_API_KEY is not configured. Email sending will be disabled.');
+    } else {
+      this.resend = new Resend(apiKey);
     }
-    this.resend = new Resend(apiKey);
+  }
+
+  private checkEnabled(): void {
+    if (!this.isEnabled || !this.resend) {
+      throw new Error('Email service is not configured. Please set RESEND_API_KEY in environment variables.');
+    }
   }
 
   async sendVerificationEmail(email: string, nickname: string, token: string, frontendUrl?: string): Promise<void> {
+    this.checkEnabled();
+
     const baseUrl = frontendUrl || this.configService.get<string>('FRONTEND_URL');
     const verificationLink = `${baseUrl}/verify-email?token=${token}`;
 
     try {
-      const { data, error } = await this.resend.emails.send({
+      const { data, error } = await this.resend!.emails.send({
         from: this.configService.get<string>('EMAIL_FROM', 'Travel Planner <noreply@resend.dev>'),
         to: [email],
         subject: '[Travel Planner] 이메일 인증을 완료해주세요',
@@ -40,8 +52,10 @@ export class EmailService {
   }
 
   async sendWelcomeEmail(email: string, nickname: string): Promise<void> {
+    this.checkEnabled();
+
     try {
-      const { data, error } = await this.resend.emails.send({
+      const { data, error } = await this.resend!.emails.send({
         from: this.configService.get<string>('EMAIL_FROM', 'Travel Planner <noreply@resend.dev>'),
         to: [email],
         subject: '[Travel Planner] 환영합니다! 🎉',
@@ -76,7 +90,7 @@ export class EmailService {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #f15a20 0%, #e23e16 100%); padding: 40px; text-align: center;">
+            <td style="background: linear-gradient(135deg, #5C9AE4 0%, #4A90E2 100%); padding: 40px; text-align: center;">
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Travel Planner</h1>
             </td>
           </tr>
@@ -94,7 +108,7 @@ export class EmailService {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 24px 0;">
-                    <a href="${verificationLink}" style="display: inline-block; background-color: #f15a20; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                    <a href="${verificationLink}" style="display: inline-block; background-color: #4A90E2; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
                       이메일 인증하기
                     </a>
                   </td>
@@ -131,11 +145,13 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, nickname: string, token: string, frontendUrl?: string): Promise<void> {
+    this.checkEnabled();
+
     const baseUrl = frontendUrl || this.configService.get<string>('FRONTEND_URL');
     const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     try {
-      const { data, error } = await this.resend.emails.send({
+      const { data, error } = await this.resend!.emails.send({
         from: this.configService.get<string>('EMAIL_FROM', 'Travel Planner <noreply@resend.dev>'),
         to: [email],
         subject: '[Travel Planner] 비밀번호 재설정 안내',
@@ -160,8 +176,10 @@ export class EmailService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<void> {
+    this.checkEnabled();
+
     try {
-      const { data, error } = await this.resend.emails.send({
+      const { data, error } = await this.resend!.emails.send({
         from: this.configService.get<string>('EMAIL_FROM', 'Travel Planner <noreply@resend.dev>'),
         to: [email],
         subject: '[Travel Planner] 비밀번호가 변경되었습니다',
@@ -196,7 +214,7 @@ export class EmailService {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #f15a20 0%, #e23e16 100%); padding: 40px; text-align: center;">
+            <td style="background: linear-gradient(135deg, #5C9AE4 0%, #4A90E2 100%); padding: 40px; text-align: center;">
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Travel Planner</h1>
             </td>
           </tr>
@@ -214,7 +232,7 @@ export class EmailService {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 24px 0;">
-                    <a href="${resetLink}" style="display: inline-block; background-color: #f15a20; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                    <a href="${resetLink}" style="display: inline-block; background-color: #4A90E2; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
                       비밀번호 재설정하기
                     </a>
                   </td>
@@ -270,7 +288,7 @@ export class EmailService {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #f15a20 0%, #e23e16 100%); padding: 40px; text-align: center;">
+            <td style="background: linear-gradient(135deg, #5C9AE4 0%, #4A90E2 100%); padding: 40px; text-align: center;">
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Travel Planner</h1>
             </td>
           </tr>
@@ -283,7 +301,7 @@ export class EmailService {
                 귀하의 계정 비밀번호가 방금 변경되었습니다.
               </p>
 
-              <div style="background-color: #fef5ee; border-left: 4px solid #f15a20; padding: 16px; margin: 24px 0;">
+              <div style="background-color: #E8F2FB; border-left: 4px solid #4A90E2; padding: 16px; margin: 24px 0;">
                 <h3 style="color: #1f2937; margin: 0 0 12px 0; font-size: 16px;">변경 정보</h3>
                 <p style="color: #4b5563; margin: 0; font-size: 14px;">
                   <strong>변경 일시:</strong> ${now}<br>
@@ -335,7 +353,7 @@ export class EmailService {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #f15a20 0%, #e23e16 100%); padding: 40px; text-align: center;">
+            <td style="background: linear-gradient(135deg, #5C9AE4 0%, #4A90E2 100%); padding: 40px; text-align: center;">
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Travel Planner</h1>
             </td>
           </tr>
@@ -349,7 +367,7 @@ export class EmailService {
                 이제 Travel Planner의 모든 기능을 사용하실 수 있습니다!
               </p>
 
-              <div style="background-color: #fef5ee; border-left: 4px solid #f15a20; padding: 16px; margin: 24px 0;">
+              <div style="background-color: #E8F2FB; border-left: 4px solid #4A90E2; padding: 16px; margin: 24px 0;">
                 <h3 style="color: #1f2937; margin: 0 0 12px 0; font-size: 18px;">시작하기</h3>
                 <ul style="color: #4b5563; margin: 0; padding-left: 20px;">
                   <li style="margin-bottom: 8px;">관심 있는 여행지를 검색하고 저장하세요</li>
@@ -362,7 +380,7 @@ export class EmailService {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 24px 0;">
-                    <a href="${this.configService.get<string>('FRONTEND_URL')}" style="display: inline-block; background-color: #f15a20; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                    <a href="${this.configService.get<string>('FRONTEND_URL')}" style="display: inline-block; background-color: #4A90E2; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
                       시작하기
                     </a>
                   </td>

@@ -34,8 +34,8 @@ export class ReviewsService {
         placeId: userPlace.placeId,
         content: createReviewDto.content,
         rating: createReviewDto.rating,
-        photos: createReviewDto.photos || [],
-        isPublic: createReviewDto.isPublic || false,
+        photos: JSON.stringify(createReviewDto.photos || []),
+        isPublic: createReviewDto.isPublic ?? true,
       },
       include: {
         user: {
@@ -60,7 +60,7 @@ export class ReviewsService {
       userPlaceId: review.userPlaceId,
       content: review.content,
       rating: review.rating,
-      photos: review.photos,
+      photos: JSON.parse(review.photos) as string[],
       isPublic: review.isPublic,
       likeCount: review.likeCount,
       reportCount: review.reportCount,
@@ -98,7 +98,7 @@ export class ReviewsService {
         userPlaceId: review.userPlaceId,
         content: review.content,
         rating: review.rating,
-        photos: review.photos,
+        photos: JSON.parse(review.photos) as string[],
         isPublic: review.isPublic,
         likeCount: review.likeCount,
         reportCount: review.reportCount,
@@ -135,7 +135,7 @@ export class ReviewsService {
         userPlaceId: review.userPlaceId,
         content: review.content,
         rating: review.rating,
-        photos: review.photos,
+        photos: JSON.parse(review.photos) as string[],
         isPublic: review.isPublic,
         likeCount: review.likeCount,
         reportCount: review.reportCount,
@@ -168,9 +168,14 @@ export class ReviewsService {
       throw new ForbiddenException('You can only update your own reviews');
     }
 
+    const { photos, ...otherFields } = updateReviewDto;
+
     const updated = await this.prisma.review.update({
       where: { id: reviewId },
-      data: updateReviewDto,
+      data: {
+        ...otherFields,
+        ...(photos !== undefined && { photos: JSON.stringify(photos) }),
+      },
       include: {
         user: {
           select: {
@@ -187,7 +192,7 @@ export class ReviewsService {
       userPlaceId: updated.userPlaceId,
       content: updated.content,
       rating: updated.rating,
-      photos: updated.photos,
+      photos: JSON.parse(updated.photos) as string[],
       isPublic: updated.isPublic,
       likeCount: updated.likeCount,
       reportCount: updated.reportCount,
@@ -251,7 +256,7 @@ export class ReviewsService {
       userPlaceId: updated.userPlaceId,
       content: updated.content,
       rating: updated.rating,
-      photos: updated.photos,
+      photos: JSON.parse(updated.photos) as string[],
       isPublic: updated.isPublic,
       likeCount: updated.likeCount,
       reportCount: updated.reportCount,

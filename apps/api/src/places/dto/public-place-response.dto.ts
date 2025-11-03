@@ -42,6 +42,9 @@ export class PublicPlaceResponseDto {
   @ApiProperty({ type: [LabelCount] })
   topLabels!: LabelCount[];
 
+  @ApiPropertyOptional()
+  externalId?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 }
@@ -49,9 +52,6 @@ export class PublicPlaceResponseDto {
 export class PublicPlaceDetailResponseDto extends PublicPlaceResponseDto {
   @ApiPropertyOptional()
   externalUrl?: string | null;
-
-  @ApiPropertyOptional()
-  externalId?: string | null;
 
   @ApiProperty()
   updatedAt!: Date;

@@ -15,6 +15,7 @@ import { SearchModule } from './search/search.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -23,12 +24,23 @@ import { NotificationsModule } from './notifications/notifications.module';
     }),
     ThrottlerModule.forRoot([
       {
-        ttl: 60000, // 60초
-        limit: 10, // 기본 제한: 10회
+        name: 'short',
+        ttl: 1000, // 1초
+        limit: 3, // 1초에 3회
+      },
+      {
+        name: 'medium',
+        ttl: 60000, // 1분
+        limit: 20, // 1분에 20회
+      },
+      {
+        name: 'long',
+        ttl: 3600000, // 1시간
+        limit: 100, // 1시간에 100회
       },
     ]),
     PrismaModule,
-    AuthModule,
+    AuthModule.forRoot(),
     UploadModule,
     UsersModule,
     DashboardModule,
@@ -38,6 +50,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CategoriesModule,
     ReviewsModule,
     NotificationsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

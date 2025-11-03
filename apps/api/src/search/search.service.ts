@@ -59,10 +59,10 @@ export class SearchService {
       const whereClause: Prisma.UserPlaceWhereInput = {
         userId,
         OR: [
-          { place: { name: { contains: keyword, mode: 'insensitive' } } },
-          { place: { address: { contains: keyword, mode: 'insensitive' } } },
-          { customCategory: { contains: keyword, mode: 'insensitive' } },
-          { labels: { has: keyword } },
+          { place: { name: { contains: keyword } } },
+          { place: { address: { contains: keyword } } },
+          { customCategory: { contains: keyword } },
+          { labels: { contains: keyword } }, // JSON string search
         ],
       };
 
@@ -89,7 +89,7 @@ export class SearchService {
         address: up.place.address,
         category: up.place.category,
         customCategory: up.customCategory,
-        labels: up.labels,
+        labels: JSON.parse(up.labels) as string[],
         visited: up.visited,
         latitude: Number(up.place.latitude),
         longitude: Number(up.place.longitude),
@@ -105,8 +105,8 @@ export class SearchService {
         where: {
           userId,
           OR: [
-            { name: { contains: keyword, mode: 'insensitive' } },
-            { description: { contains: keyword, mode: 'insensitive' } },
+            { name: { contains: keyword } },
+            { description: { contains: keyword } },
           ],
         },
         take: 10,
@@ -133,8 +133,9 @@ export class SearchService {
         iconValue: list.iconValue,
         colorTheme: list.colorTheme,
         placesCount: list.placeLists.length,
-        visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited)
-          .length,
+        visitedCount: list.placeLists.filter(
+          (pl: { userPlace: { visited: boolean } }) => pl.userPlace.visited
+        ).length,
         createdAt: list.createdAt,
         updatedAt: list.updatedAt,
       }));

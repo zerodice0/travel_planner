@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { randomBytes } from 'crypto';
 
@@ -109,6 +109,24 @@ export class StorageService {
     } catch (error) {
       this.logger.error('Failed to upload place photo', error);
       throw new Error('장소 사진 업로드에 실패했습니다');
+    }
+  }
+
+  /**
+   * R2 스토리지 연결 확인
+   * @returns 연결 가능 여부
+   */
+  async checkConnection(): Promise<boolean> {
+    try {
+      const command = new HeadBucketCommand({
+        Bucket: this.bucketName,
+      });
+
+      await this.s3Client.send(command);
+      return true;
+    } catch (error) {
+      this.logger.warn('R2 connection check failed', error);
+      return false;
     }
   }
 }

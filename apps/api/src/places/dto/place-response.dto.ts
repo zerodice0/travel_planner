@@ -10,6 +10,11 @@ export class PlaceResponseDto {
   externalUrl?: string;
   externalId?: string;
   createdAt!: Date;
+
+  // Custom fields for marker visualization
+  customName?: string;
+  customCategory?: string;
+  labels!: string[];
 }
 
 export class PlacesResponseDto {
