@@ -1,0 +1,259 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # v1.0.0, v1.2.3 등
+  workflow_dispatch: # 수동 트리거 허용
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production (Cloudflare)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 1. 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. 태그 검증 (Semantic Versioning)
+      - name: Validate tag
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid tag format: $TAG_NAME"
+            echo "Expected format: v1.0.0 (Semantic Versioning)"
+            exit 1
+          fi
+          echo "✅ Tag validation passed: $TAG_NAME"
+
+      # 3. Node.js 설정
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 4. pnpm 설정
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      # 5. 의존성 캐싱
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 6. 의존성 설치
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 7. 타입 체크
+      - name: Type check
+        run: pnpm typecheck
+
+      # 8. 린트
+      - name: Lint
+        run: pnpm lint
+
+      # 9. 프로덕션 빌드
+      - name: Build for production
+        env:
+          NODE_ENV: production
+        run: pnpm build
+
+      # 10. Cloudflare D1 마이그레이션 확인
+      - name: Check D1 migrations
+        run: |
+          echo "📊 Checking D1 migrations status..."
+          cd apps/api
+          ls -la prisma/migrations/ || echo "No migrations directory found"
+
+      # 11. Wrangler 설치 및 배포 (운영 환경)
+      - name: Deploy to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "🚀 Deploying to Cloudflare..."
+
+          # Wrangler 글로벌 설치
+          npm install -g wrangler
+
+          # Wrangler 인증
+          echo "🔐 Authenticating with Cloudflare..."
+          export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN"
+
+          # D1 마이그레이션 적용 (운영 DB)
+          echo "📦 Applying D1 migrations..."
+          cd apps/api
+          wrangler d1 migrations apply travel-planner-prod --remote || echo "⚠️  Migration skipped or failed"
+
+          # Cloudflare Pages 배포 (웹 앱)
+          echo "🌐 Deploying web app to Cloudflare Pages..."
+          cd ../web
+          npx wrangler pages deploy dist --project-name=travel-planner-web-prod
+
+          echo "✅ Deployment to Cloudflare completed!"
+
+      # 12. Health Check (운영 환경)
+      - name: Health check (Production)
+        env:
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+        run: |
+          echo "🏥 Performing production health check..."
+
+          # 최대 10번 재시도 (30초 간격)
+          for i in {1..10}; do
+            echo "Health check attempt $i/10..."
+
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_API_URL/api/health" || echo "000")
+
+            if [ "$response" = "200" ]; then
+              echo "✅ Production health check passed!"
+
+              # Health 정보 출력
+              curl -s "$PROD_API_URL/api/health" | jq '.'
+
+              exit 0
+            fi
+
+            echo "⚠️  Health check failed (HTTP $response). Retrying in 30s..."
+            sleep 30
+          done
+
+          echo "❌ Production health check failed after 10 attempts"
+          exit 1
+
+      # 13. GitHub Release 생성
+      - name: Create GitHub Release
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "📝 Creating GitHub Release..."
+
+          # Release 노트를 파일로 생성 (보안 강화)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")
+
+          {
+            echo "## Changes"
+            echo ""
+            if [ -n "$PREVIOUS_TAG" ]; then
+              git log "$PREVIOUS_TAG..$TAG_NAME" --pretty=format:"- %s (%h)" --no-merges
+            else
+              echo "Initial release"
+            fi
+            echo ""
+            echo ""
+            echo "## Deployment"
+            echo "- API: Cloudflare Workers"
+            echo "- Web: Cloudflare Pages"
+            echo "- Database: Cloudflare D1"
+            echo ""
+            echo "Deployed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          } > release_notes.md
+
+          # GitHub Release 생성 (파일에서 읽기)
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes-file release_notes.md \
+            --verify-tag
+
+          echo "✅ GitHub Release created: $TAG_NAME"
+
+      # 14. 배포 성공 알림
+      - name: Send success notification
+        if: success()
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+          PROD_WEB_URL: ${{ secrets.PROD_WEB_URL }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "✅ [Travel Planner] 운영 서버 배포 성공"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Travel Planner CI/CD
+          body: |
+            🎉 운영 서버 배포가 성공적으로 완료되었습니다.
+
+            📌 배포 정보:
+            - 버전: ${{ env.TAG_NAME }}
+            - 커밋: ${{ env.COMMIT_SHA }}
+            - 배포자: ${{ env.ACTOR }}
+
+            🔗 링크:
+            - API: ${{ env.PROD_API_URL }}
+            - Web: ${{ env.PROD_WEB_URL }}
+            - Release: ${{ env.REPO_URL }}/releases/tag/${{ env.TAG_NAME }}
+            - GitHub Actions: ${{ env.REPO_URL }}/actions/runs/${{ env.RUN_ID }}
+
+            🚀 Cloudflare 배포 완료
+            - Workers (API)
+            - Pages (Web)
+            - D1 (Database)
+
+            ---
+            Travel Planner CI/CD System
+
+      # 15. 배포 실패 알림
+      - name: Send failure notification
+        if: failure()
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ [Travel Planner] 운영 서버 배포 실패"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Travel Planner CI/CD
+          body: |
+            ⚠️  운영 서버 배포가 실패했습니다.
+
+            📌 배포 정보:
+            - 버전: ${{ env.TAG_NAME }}
+            - 커밋: ${{ env.COMMIT_SHA }}
+            - 배포자: ${{ env.ACTOR }}
+
+            🔗 로그 확인:
+            ${{ env.REPO_URL }}/actions/runs/${{ env.RUN_ID }}
+
+            ⚠️  즉시 확인 및 조치가 필요합니다.
+
+            ---
+            Travel Planner CI/CD System

@@ -1,0 +1,213 @@
+name: Deploy to Development Server
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch: # 수동 트리거 허용
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development Server (Mini PC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # 1. 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전체 히스토리 가져오기 (커밋 해시 확인용)
+
+      # 2. Node.js 설정
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 3. pnpm 설정
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      # 4. 의존성 캐싱
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 5. 의존성 설치
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 6. 타입 체크
+      - name: Type check
+        run: pnpm typecheck
+
+      # 7. 린트
+      - name: Lint
+        run: pnpm lint
+
+      # 8. 빌드 테스트
+      - name: Build test
+        run: pnpm build
+
+      # 9. 미니PC SSH 배포
+      - name: Deploy to Mini PC
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          PROJECT_PATH: ${{ secrets.DEV_PROJECT_PATH }}
+        with:
+          host: ${{ secrets.DEV_SSH_HOST }}
+          username: ${{ secrets.DEV_SSH_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_SSH_PORT || 22 }}
+          script_stop: true # 에러 시 중지
+          envs: PROJECT_PATH
+          script: |
+            echo "🚀 Starting deployment to development server..."
+
+            # 프로젝트 디렉토리로 이동
+            cd "${PROJECT_PATH:-$HOME/travel-planner}"
+
+            # Git pull (develop 브랜치)
+            echo "📥 Pulling latest code..."
+            git fetch origin develop
+            git reset --hard origin/develop
+
+            # 환경 정보 출력
+            echo "📊 Deployment info:"
+            echo "Commit: $(git rev-parse --short HEAD)"
+            echo "Author: $(git log -1 --pretty=format:'%an')"
+            echo "Message: $(git log -1 --pretty=format:'%s')"
+
+            # Docker Compose 재시작 (빌드 포함)
+            echo "🔄 Restarting Docker containers..."
+            docker-compose -f docker-compose.dev.yml up -d --build
+
+            # 컨테이너 시작 대기 (30초)
+            echo "⏳ Waiting for containers to start..."
+            sleep 30
+
+            # 컨테이너 상태 확인
+            echo "✅ Container status:"
+            docker-compose -f docker-compose.dev.yml ps
+
+            echo "✅ Deployment completed!"
+
+      # 10. Health Check
+      - name: Health check
+        env:
+          DEV_API_URL: ${{ secrets.DEV_API_URL }}
+        run: |
+          echo "🏥 Performing health check..."
+
+          # 최대 5번 재시도 (30초 간격)
+          for i in {1..5}; do
+            echo "Health check attempt $i/5..."
+
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$DEV_API_URL/api/health" || echo "000")
+
+            if [ "$response" = "200" ]; then
+              echo "✅ Health check passed!"
+
+              # Health 정보 출력
+              curl -s "$DEV_API_URL/api/health" | jq '.'
+
+              exit 0
+            fi
+
+            echo "⚠️  Health check failed (HTTP $response). Retrying in 30s..."
+            sleep 30
+          done
+
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
+
+      # 11. 배포 성공 알림
+      - name: Send success notification
+        if: success()
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_ID: ${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          DEV_API_URL: ${{ secrets.DEV_API_URL }}
+          DEV_WEB_URL: ${{ secrets.DEV_WEB_URL }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "✅ [Travel Planner] 개발 서버 배포 성공"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Travel Planner CI/CD
+          body: |
+            개발 서버 배포가 성공적으로 완료되었습니다.
+
+            📌 배포 정보:
+            - 브랜치: ${{ env.BRANCH_NAME }}
+            - 커밋: ${{ env.COMMIT_SHA }}
+            - 작성자: ${{ env.ACTOR }}
+            - 메시지: ${{ env.COMMIT_MESSAGE }}
+
+            🔗 링크:
+            - API: ${{ env.DEV_API_URL }}
+            - Web: ${{ env.DEV_WEB_URL }}
+            - GitHub Actions: ${{ env.REPO_URL }}/actions/runs/${{ env.RUN_ID }}
+
+            ---
+            Travel Planner CI/CD System
+
+      # 12. 배포 실패 알림
+      - name: Send failure notification
+        if: failure()
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_ID: ${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ [Travel Planner] 개발 서버 배포 실패"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: Travel Planner CI/CD
+          body: |
+            ⚠️  개발 서버 배포가 실패했습니다.
+
+            📌 배포 정보:
+            - 브랜치: ${{ env.BRANCH_NAME }}
+            - 커밋: ${{ env.COMMIT_SHA }}
+            - 작성자: ${{ env.ACTOR }}
+            - 메시지: ${{ env.COMMIT_MESSAGE }}
+
+            🔗 로그 확인:
+            ${{ env.REPO_URL }}/actions/runs/${{ env.RUN_ID }}
+
+            확인 후 수정이 필요합니다.
+
+            ---
+            Travel Planner CI/CD System

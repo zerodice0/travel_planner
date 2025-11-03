@@ -1,0 +1,87 @@
+services:
+  # API Service (Development)
+  dev-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: base
+    container_name: travel-planner-dev-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+      # Persist database
+      - dev-db-data:/app/apps/api/prisma
+      # Exclude node_modules
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=file:./prisma/dev.db
+      # Load from .env.development
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key-change-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-refresh-secret-key-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:4000/api/auth/google/callback}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET=${R2_BUCKET:-travel-planner-dev}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@localhost}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - THROTTLE_TTL=${THROTTLE_TTL:-60}
+      - THROTTLE_LIMIT=${THROTTLE_LIMIT:-100}
+    command: sh -c "cd apps/api && pnpm prisma migrate deploy && pnpm dev"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - travel-planner-dev
+
+  # Web Service (Development)
+  dev-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: base
+    container_name: travel-planner-dev-web
+    restart: unless-stopped
+    ports:
+      - "3000:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      # Exclude node_modules
+      - /app/node_modules
+      - /app/apps/web/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
+    command: sh -c "cd apps/web && pnpm dev --host 0.0.0.0"
+    depends_on:
+      dev-api:
+        condition: service_healthy
+    networks:
+      - travel-planner-dev
+
+volumes:
+  dev-db-data:
+    driver: local
+
+networks:
+  travel-planner-dev:
+    driver: bridge
