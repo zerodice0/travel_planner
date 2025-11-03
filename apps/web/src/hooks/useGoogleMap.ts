@@ -21,7 +21,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
     }
 
     if (!mapId) {
-      console.warn('Google Map ID is not configured. Advanced Markers may not work properly.');
+      console.warn('Google Map ID is not configured.');
     }
 
     // Reuse loader if already created
@@ -29,7 +29,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
       loaderRef.current = new Loader({
         apiKey,
         version: 'weekly',
-        libraries: ['places', 'marker'],
+        libraries: ['places'],
       });
     }
 
@@ -53,7 +53,19 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
           fullscreenControl: false,
           streetViewControl: false,
           zoomControl: false, // Disabled: will use custom control
-          ...(mapId && { mapId }), // Add mapId if available
+          // Only add mapId if it's a valid Map ID (not placeholder like "your-google-map-id")
+          // This prevents mapId from overriding styles option
+          ...(mapId && !mapId.includes('your-') && { mapId }),
+
+          // Phase 1: POI removal for cost optimization (40-60% API cost reduction)
+          clickableIcons: false, // Disable POI click to prevent Place Details API calls
+          styles: [
+            {
+              featureType: 'poi',
+              // Remove elementType to hide both icons and labels
+              stylers: [{ visibility: 'off' }],
+            },
+          ], // Hide all POI markers (icons + labels) for cleaner UI
         });
 
         mapRef.current = map;
