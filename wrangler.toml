@@ -1,0 +1,24 @@
+# Cloudflare D1 Configuration for Travel Planner
+
+name = "travel-planner-api"
+compatibility_date = "2025-01-21"
+
+# D1 데이터베이스 바인딩 (개발 환경)
+# 운영 환경은 GitHub Actions에서 자동 설정됩니다
+[[d1_databases]]
+binding = "DB"
+database_name = "travel-planner-dev"
+database_id = "15a9945d-ed68-4772-9baf-b0ac768a6566"  # wrangler d1 create travel-planner-dev 실행 후 ID 입력
+
+# 환경별 설정
+[env.production]
+name = "travel-planner-api-prod"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "travel-planner-prod"
+database_id = "ba50e159-55ee-487f-9a9d-c446250c709c"  # wrangler d1 create travel-planner-prod 실행 후 ID 입력
+
+# 로컬 개발 설정
+[dev]
+port = 8787
