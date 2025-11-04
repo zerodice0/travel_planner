@@ -7,8 +7,6 @@ import { ThemeProvider } from '#contexts/ThemeContext';
 import ProtectedRoute from '#components/ProtectedRoute';
 import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
 import { emailVerificationRequiredEvent } from '#lib/api';
-import SplashScreen from '#pages/SplashScreen';
-import OnboardingScreen from '#pages/OnboardingScreen';
 import LoginPage from '#pages/LoginPage';
 import SignupPage from '#pages/SignupPage';
 import GoogleSignupPage from '#pages/GoogleSignupPage';
@@ -72,8 +70,11 @@ function App() {
             />
             <div className="min-h-screen bg-background">
             <Routes>
-              <Route path="/splash" element={<SplashScreen />} />
-              <Route path="/onboarding" element={<OnboardingScreen />} />
+              {/* Splash/Onboarding redirects (deprecated) */}
+              <Route path="/splash" element={<Navigate to="/explore" replace />} />
+              <Route path="/onboarding" element={<Navigate to="/explore" replace />} />
+
+              {/* Auth routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/signup/google" element={<GoogleSignupPage />} />
@@ -81,10 +82,16 @@ function App() {
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+              {/* Public routes */}
               <Route path="/explore" element={<ExplorePage />} />
               <Route path="/explore/places/:placeId" element={<PublicPlaceDetailPage />} />
-              <Route path="/" element={<Navigate to="/map" replace />} />
+
+              {/* Root redirect - go directly to explore */}
+              <Route path="/" element={<Navigate to="/explore" replace />} />
               <Route path="/dashboard" element={<Navigate to="/map" replace />} />
+
+              {/* Map page (hybrid: public explore + authenticated my places) */}
               <Route path="/map" element={<MapPage />} />
               <Route
                 path="/places/:id"
@@ -150,7 +157,8 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="*" element={<Navigate to="/splash" replace />} />
+              {/* 404 fallback - redirect to explore */}
+              <Route path="*" element={<Navigate to="/explore" replace />} />
             </Routes>
             </div>
           </MapProviderProvider>

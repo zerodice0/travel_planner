@@ -12,12 +12,31 @@ import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
 import { useAuth } from '#contexts/AuthContext';
 import { createMarkerDataURL } from '#utils/categoryIcons';
 import { useDebounce } from '#hooks/useDebounce';
+import { useRequireAuth } from '#hooks/useRequireAuth';
+import { ConfirmDialog } from '#components/ui/ConfirmDialog';
+import { LoginDialog } from '#components/LoginDialog';
 
 import { CATEGORIES } from '#utils/categoryConfig';
 
 export default function ExplorePage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+
+  // 인증이 필요한 액션을 위한 훅
+  const {
+    requireAuth,
+    showConfirmDialog,
+    setShowConfirmDialog,
+    showLoginDialog,
+    setShowLoginDialog,
+    handleConfirmLogin,
+    handleLoginSuccess,
+    confirmMessage,
+  } = useRequireAuth({
+    confirmMessage: '장소를 추가하려면 로그인이 필요합니다.',
+    loginSuccessMessage: '로그인되었습니다!',
+  });
+
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<PublicPlace | null>(null);
   const [isLoadingPlaceDetails, setIsLoadingPlaceDetails] = useState(false);
@@ -533,14 +552,11 @@ export default function ExplorePage() {
   };
 
   const handleAddPlaceClick = () => {
-    if (isAuthenticated) {
-      // 로그인 사용자: 장소 추가 페이지로 이동 (선택된 카테고리가 있으면 쿼리 파라미터로 전달)
+    requireAuth(() => {
+      // 장소 추가 페이지로 이동 (선택된 카테고리가 있으면 쿼리 파라미터로 전달)
       const categoryParam = selectedCategory ? `?category=${selectedCategory}` : '';
       navigate(`/places/new${categoryParam}`);
-    } else {
-      // 비로그인 사용자: 로그인 페이지로 이동
-      navigate('/login');
-    }
+    });
   };
 
   // 등록된 장소 중 가장 가까운 곳으로 이동
@@ -916,6 +932,25 @@ export default function ExplorePage() {
           </div>
         </section>
       </div>
+
+      {/* 로그인 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={handleConfirmLogin}
+        title="로그인이 필요합니다"
+        message={confirmMessage}
+        confirmText="로그인"
+        cancelText="취소"
+        variant="info"
+      />
+
+      {/* 로그인 다이얼로그 */}
+      <LoginDialog
+        isOpen={showLoginDialog}
+        onClose={() => setShowLoginDialog(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 }

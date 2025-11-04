@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Redirect to login or explore page
       const currentPath = window.location.pathname;
-      const isProtectedRoute = !['/login', '/signup', '/explore', '/splash', '/onboarding'].includes(currentPath);
+      const isProtectedRoute = !['/login', '/signup', '/explore'].includes(currentPath);
 
       if (isProtectedRoute) {
         // Save current path to return after login
