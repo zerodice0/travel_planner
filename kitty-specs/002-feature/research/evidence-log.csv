@@ -1,0 +1,17 @@
+EvidenceID,Decision,Finding,Source,Date,Confidence,Notes
+E001,Backend Validation Architecture,Hybrid approach (Guard/Pipe/Service) optimal for NestJS validation layers,NestJS Documentation,2025-11-04,High,"Guards for request-level auth, Pipes for data transform, Services for complex business logic"
+E002,Duplicate Detection Algorithm,Bounding box + application validation required for D1,Cloudflare D1 Documentation,2025-11-04,High,SQLite lacks PostGIS; hybrid approach is necessary
+E003,Duplicate Detection Libraries,geolib (3.3.4) and fastest-levenshtein (1.0.16) are production-ready,npm Registry,2025-11-04,High,Both MIT licensed with high download counts (100k+ and 500k+ weekly)
+E004,Rate Limiting Storage,D1 sufficient for Phase 1; KV optimization deferred to Phase 2,Planning Discussion,2025-11-04,Medium,Simplicity prioritized; performance can be improved later if needed
+E005,Phase 1 Scope,All features (backend + frontend + admin UI) included in Phase 1,Feature Specification,2025-11-04,High,Spec defines Phase 1 as complete core validation system
+E006,Admin Moderation UI,Basic admin page required for complete validation workflow,Planning Discussion,2025-11-04,High,Low effort but enables end-to-end testing
+E007,Haversine Formula,100m proximity threshold suitable for urban duplicate detection,Geographic Best Practices,2025-11-04,Medium,Standard threshold for point-of-interest deduplication
+E008,Levenshtein Similarity,80% similarity threshold balances false positives/negatives,String Matching Research,2025-11-04,Medium,Tunable parameter for production adjustment
+E009,Place.externalId Optional,Required to support user-generated places without Google API,Architecture Analysis,2025-11-04,High,Breaking change from current schema
+E010,Spatial Indexes,Composite index on (latitude,longitude) critical for bounding box performance,Database Optimization,2025-11-04,High,Reduces query time from O(n) to O(log n)
+E011,UserPlace.createdAt Index,Required for efficient rate limiting count queries,Performance Analysis,2025-11-04,High,Enables fast daily creation counts
+E012,Profanity Filter,Library selection deferred to implementation phase,Open Question,2025-11-04,Low,Requires Korean + English support testing
+E013,Migration Strategy,Prisma migrations sufficient for D1 schema changes,Prisma Documentation,2025-11-04,High,Standard approach for D1 with Prisma
+E014,Cloudflare D1 Constraints,SQLite-based with no PostGIS or advanced spatial features,Cloudflare Platform Docs,2025-11-04,High,Fundamental constraint driving hybrid approach
+E015,NestJS Guard Pattern,Optimal for rate limiting and auth checks before route handler,NestJS Guards Guide,2025-11-04,High,Executes before request reaches controller
+E016,NestJS Pipe Pattern,Best for input transformation and DTO validation,NestJS Pipes Guide,2025-11-04,High,Transforms and validates data before handler

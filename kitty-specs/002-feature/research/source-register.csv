@@ -1,0 +1,16 @@
+SourceID,Title,URL,Type,AccessDate,Relevance,Notes
+S001,NestJS Guards,https://docs.nestjs.com/guards,Documentation,2025-11-04,High,Official NestJS guide for implementing guards
+S002,NestJS Pipes,https://docs.nestjs.com/pipes,Documentation,2025-11-04,High,Official NestJS guide for implementing pipes
+S003,Cloudflare D1 Documentation,https://developers.cloudflare.com/d1/,Documentation,2025-11-04,High,Platform constraints and capabilities
+S004,geolib npm,https://www.npmjs.com/package/geolib,Library,2025-11-04,High,Haversine distance calculation library
+S005,fastest-levenshtein npm,https://www.npmjs.com/package/fastest-levenshtein,Library,2025-11-04,High,String similarity calculation library
+S006,Prisma Migrations,https://www.prisma.io/docs/concepts/components/prisma-migrate,Documentation,2025-11-04,High,Database migration workflow
+S007,Feature Specification,kitty-specs/002-feature/spec.md,Internal,2025-11-04,High,Primary requirements document
+S008,Project Constitution,.kittify/memory/constitution.md,Internal,2025-11-04,High,Project principles and constraints
+S009,Planning Discussion,Conversation transcript,Internal,2025-11-04,High,Technical decision rationale
+S010,SQLite Spatial Indexing,https://www.sqlite.org/rtree.html,Documentation,2025-11-04,Medium,SQLite R*Tree module (not available in D1)
+S011,Haversine Formula,https://en.wikipedia.org/wiki/Haversine_formula,Reference,2025-11-04,Medium,Geographic distance calculation
+S012,Levenshtein Distance,https://en.wikipedia.org/wiki/Levenshtein_distance,Reference,2025-11-04,Medium,String edit distance algorithm
+S013,NestJS Architecture,https://docs.nestjs.com/,Documentation,2025-11-04,High,Overall framework architecture
+S014,Prisma Schema Reference,https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference,Documentation,2025-11-04,High,Schema definition syntax
+S015,Cloudflare Workers Limits,https://developers.cloudflare.com/workers/platform/limits/,Documentation,2025-11-04,Medium,Platform resource constraints

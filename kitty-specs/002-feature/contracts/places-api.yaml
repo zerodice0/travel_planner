@@ -1,0 +1,605 @@
+openapi: 3.0.3
+info:
+  title: Travel Planner - Place Validation API
+  description: |
+    API for user-generated place addition with comprehensive validation system.
+    Supports manual place creation with duplicate detection, rate limiting, and moderation queue.
+  version: 1.0.0
+  contact:
+    name: Travel Planner Team
+
+servers:
+  - url: http://localhost:4000/api
+    description: Development server
+  - url: https://api.travel-planner.com
+    description: Production server
+
+tags:
+  - name: places
+    description: Place creation and management
+  - name: moderation
+    description: Admin moderation operations
+  - name: validation
+    description: Validation utilities
+
+paths:
+  /places:
+    post:
+      summary: Create a new user place
+      description: |
+        Creates a new place with comprehensive validation:
+        1. DTO validation (class-validator)
+        2. Profanity filter
+        3. Duplicate detection (Levenshtein + Haversine)
+        4. Rate limiting (5/day for new users, 10/day for verified)
+        5. Moderation queue entry (automatic)
+      tags:
+        - places
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlaceRequest'
+            examples:
+              restaurant:
+                summary: Restaurant example
+                value:
+                  name: "맛있는 식당"
+                  address: "서울시 강남구 테헤란로 123"
+                  latitude: 37.5012
+                  longitude: 127.0396
+                  category: "restaurant"
+                  description: "정통 한식당"
+                  phoneNumber: "02-1234-5678"
+                  website: "https://example.com"
+              tourist_spot:
+                summary: Tourist spot example
+                value:
+                  name: "Beautiful Park"
+                  address: "123 Main St, City"
+                  latitude: 37.5665
+                  longitude: 126.9780
+                  category: "park"
+                  description: "Scenic park with walking trails"
+      responses:
+        '201':
+          description: Place created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                profanity:
+                  summary: Profanity detected
+                  value:
+                    statusCode: 400
+                    message: "Place name contains inappropriate content"
+                    error: "Bad Request"
+                invalid_coordinates:
+                  summary: Invalid coordinates
+                  value:
+                    statusCode: 400
+                    message: ["latitude must be between -90 and 90", "longitude must be between -180 and 180"]
+                    error: "Bad Request"
+        '409':
+          description: Duplicate place detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateError'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /places/validate-duplicate:
+    post:
+      summary: Check for duplicate places
+      description: |
+        Validates if a place already exists using:
+        - Bounding box query (±0.001 degrees)
+        - Haversine distance (≤100m)
+        - Levenshtein similarity (≥80%)
+      tags:
+        - validation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - latitude
+                - longitude
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                latitude:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                longitude:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+      responses:
+        '200':
+          description: Duplicate check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasDuplicates:
+                    type: boolean
+                  duplicates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DuplicatePlace'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /places/rate-limit-status:
+    get:
+      summary: Get current rate limit status
+      description: Returns user's current creation count and remaining quota for today
+      tags:
+        - validation
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rate limit status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  limit:
+                    type: integer
+                    example: 5
+                    description: Daily creation limit
+                  used:
+                    type: integer
+                    example: 3
+                    description: Places created today
+                  remaining:
+                    type: integer
+                    example: 2
+                    description: Remaining quota
+                  resetsAt:
+                    type: string
+                    format: date-time
+                    description: When the quota resets (midnight UTC)
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /admin/moderation:
+    get:
+      summary: Get moderation queue
+      description: Returns list of places pending review
+      tags:
+        - moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+            default: pending
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sortBy
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [createdAt, updatedAt]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Moderation queue list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModerationQueueItem'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 403
+                  message:
+                    type: string
+                    example: "Admin access required"
+                  error:
+                    type: string
+                    example: "Forbidden"
+
+  /admin/moderation/{id}:
+    patch:
+      summary: Review a place in moderation queue
+      description: Approve or reject a pending place
+      tags:
+        - moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Moderation queue item ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+                reviewNotes:
+                  type: string
+                  maxLength: 500
+                  description: Required when rejecting
+            examples:
+              approve:
+                summary: Approve place
+                value:
+                  status: "approved"
+              reject:
+                summary: Reject place
+                value:
+                  status: "rejected"
+                  reviewNotes: "Duplicate place - already exists as 'Seoul Restaurant'"
+      responses:
+        '200':
+          description: Place reviewed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationQueueItem'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Moderation queue item not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Moderation queue item not found"
+                  error:
+                    type: string
+                    example: "Not Found"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreatePlaceRequest:
+      type: object
+      required:
+        - name
+        - address
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Place name (no profanity)
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+          description: Full address
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude coordinate
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude coordinate
+        category:
+          type: string
+          maxLength: 50
+          description: Place category (e.g., restaurant, park, museum)
+        description:
+          type: string
+          maxLength: 1000
+          description: Place description
+        phoneNumber:
+          type: string
+          maxLength: 20
+          description: Contact phone number
+        website:
+          type: string
+          format: uri
+          maxLength: 200
+          description: Website URL
+
+    PlaceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "clx1234567890"
+        name:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        category:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        moderationStatus:
+          type: string
+          enum: [pending, approved, rejected]
+          description: Current moderation status
+
+    DuplicatePlace:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        distance:
+          type: number
+          description: Distance in meters
+        similarity:
+          type: number
+          description: Name similarity (0-1)
+        createdAt:
+          type: string
+          format: date-time
+
+    ModerationQueueItem:
+      type: object
+      properties:
+        id:
+          type: string
+        placeId:
+          type: string
+        place:
+          $ref: '#/components/schemas/PlaceResponse'
+        creator:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        reviewerId:
+          type: string
+          nullable: true
+        reviewer:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewNotes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 156
+        totalPages:
+          type: integer
+          example: 8
+
+    ValidationError:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string
+          example: "Bad Request"
+
+    DuplicateError:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 409
+        message:
+          type: string
+          example: "Duplicate place detected"
+        duplicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/DuplicatePlace'
+        error:
+          type: string
+          example: "Conflict"
+
+    RateLimitError:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 429
+        message:
+          type: string
+          example: "Daily place creation limit exceeded (5/5 used)"
+        limit:
+          type: integer
+          example: 5
+        used:
+          type: integer
+          example: 5
+        resetsAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+          example: "Too Many Requests"
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 401
+              message:
+                type: string
+                example: "Unauthorized"
+              error:
+                type: string
+                example: "Unauthorized"
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 403
+              message:
+                type: string
+                example: "Forbidden resource"
+              error:
+                type: string
+                example: "Forbidden"
