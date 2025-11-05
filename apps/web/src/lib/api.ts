@@ -334,6 +334,32 @@ export const placesApi = {
   toggleVisit: async (placeId: string) => {
     return api.patch(`places/${placeId}/visit`).json();
   },
+
+  validateDuplicate: async (data: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<{
+    hasDuplicates: boolean;
+    duplicates: Array<{
+      id: string;
+      name: string;
+      address: string;
+      distance: number;
+      similarity: number;
+    }>;
+  }> => {
+    return api.post('places/validate-duplicate', { json: data }).json();
+  },
+
+  getRateLimitStatus: async (): Promise<{
+    limit: number;
+    used: number;
+    remaining: number;
+    resetsAt: string;
+  }> => {
+    return api.get('places/rate-limit-status').json();
+  },
 };
 
 // Search API

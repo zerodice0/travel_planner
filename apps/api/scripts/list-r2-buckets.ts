@@ -46,7 +46,6 @@ async function listR2Buckets() {
       console.log(`   Created: ${bucket.CreationDate?.toISOString()}`);
       console.log('');
     });
-
   } catch (error: any) {
     console.error('\n❌ Failed to list buckets:');
     console.error(`Error: ${error.message || error}`);

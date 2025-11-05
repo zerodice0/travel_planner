@@ -1,4 +1,15 @@
-import { Body, Controller, HttpCode, Post, Get, Query, UseGuards, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Get,
+  Query,
+  UseGuards,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, SignupDto } from './dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -90,7 +101,15 @@ export class AuthController {
     if (!req.user) {
       throw new UnauthorizedException('Google 인증에 실패했습니다');
     }
-    const result = await this.authService.googleLogin(req.user as { googleId: string; email: string; firstName: string; lastName: string; profileImage: string; });
+    const result = await this.authService.googleLogin(
+      req.user as {
+        googleId: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        profileImage: string;
+      },
+    );
 
     if ('needsAdditionalInfo' in result && result.needsAdditionalInfo) {
       // 추가 정보 입력 필요 - 프론트엔드로 리다이렉트
@@ -114,9 +133,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Google 회원가입 완료' })
   @ApiResponse({ status: 201, description: 'Google 회원가입 완료' })
   async completeGoogleSignup(
-    @Body() body: { email: string; nickname: string; googleId: string; profileImage?: string }
+    @Body() body: { email: string; nickname: string; googleId: string; profileImage?: string },
   ) {
-    return this.authService.completeGoogleSignup(body.email, body.nickname, body.googleId, body.profileImage);
+    return this.authService.completeGoogleSignup(
+      body.email,
+      body.nickname,
+      body.googleId,
+      body.profileImage,
+    );
   }
 
   @Post('request-password-reset')

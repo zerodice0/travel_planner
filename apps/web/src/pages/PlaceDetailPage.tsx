@@ -615,7 +615,7 @@ export default function PlaceDetailPage() {
                   <button
                     onClick={() => {
                       setShowMenu(false);
-                      // TODO: Navigate to edit page
+                      // NOTE: Edit functionality will be implemented in Phase 2
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-background flex items-center gap-2"
                   >

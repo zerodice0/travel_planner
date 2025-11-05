@@ -63,4 +63,7 @@ export class PlaceDetailResponseDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiPropertyOptional()
+  moderationStatus?: string;
 }

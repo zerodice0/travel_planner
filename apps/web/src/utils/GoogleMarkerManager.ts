@@ -90,7 +90,7 @@ export class GoogleMarkerManager implements BaseMarkerManager {
   removeMarker(placeId: string): void {
     const marker = this.markers.get(placeId);
     if (marker) {
-      marker.map = null;
+      marker.setMap(null);
       this.markers.delete(placeId);
     }
 
@@ -107,7 +107,7 @@ export class GoogleMarkerManager implements BaseMarkerManager {
     // Clear clusterer first
     this.clusterer?.clearMarkers();
 
-    this.markers.forEach((marker) => (marker.map = null));
+    this.markers.forEach((marker) => marker.setMap(null));
     this.markers.clear();
     this.closeAllInfoWindows();
     this.infoWindows.clear();

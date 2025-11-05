@@ -4,8 +4,7 @@ description: Open the Spec Kitty dashboard in your browser.
 
 **Path reference rule:** When you mention directories or files, provide either the absolute path or a path relative to the project root (for example, `kitty-specs/<feature>/tasks/`). Never refer to a folder by name alone.
 
-*Path: [.kittify/templates/commands/dashboard.md](.kittify/templates/commands/dashboard.md)*
-
+_Path: [.kittify/templates/commands/dashboard.md](.kittify/templates/commands/dashboard.md)_
 
 ## Dashboard Access
 

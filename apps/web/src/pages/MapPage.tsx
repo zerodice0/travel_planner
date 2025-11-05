@@ -7,6 +7,7 @@ import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
 import { PlaceAddModal } from '#components/map/PlaceAddModal';
 import { ManualPlaceAddModal } from '#components/map/ManualPlaceAddModal';
+import { DuplicateWarningDialog } from '#components/map/DuplicateWarningDialog';
 import { PlaceSearchBottomSheet } from '#components/map/PlaceSearchBottomSheet';
 import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
 import { useAuth } from '#contexts/AuthContext';
@@ -82,6 +83,25 @@ export default function MapPage() {
   const [currentMapType, setCurrentMapType] = useState<string>('roadmap');
   const [showEmptyNotice, setShowEmptyNotice] = useState(true);
   const [toolbarHeight, setToolbarHeight] = useState(176); // 동적으로 계산될 상단 툴바 높이 (검색바 + 탭 + 카테고리 필터)
+
+  // WP05: Duplicate validation and rate limit
+  const [duplicateWarning, setDuplicateWarning] = useState<Array<{
+    id: string;
+    name: string;
+    address: string;
+    distance: number;
+    similarity: number;
+  }>>([]);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+  const [pendingPlaceData, setPendingPlaceData] = useState<CreatePublicPlaceData | null>(null);
+  const [rateLimitStatus, setRateLimitStatus] = useState<{
+    limit: number;
+    used: number;
+    remaining: number;
+  }>({ limit: 5, used: 0, remaining: 5 });
+
+  // WP05 T026: Add Place Mode
+  const [isAddPlaceMode, setIsAddPlaceMode] = useState(false);
 
   const markerManagerRef = useRef<BaseMarkerManager | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -390,9 +410,9 @@ export default function MapPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isLoaded, map, isPlaceListVisible]);
 
-  // Map click listener for manual place add
+  // WP05 T026: Map click listener for manual place add (only in Add Place Mode)
   useEffect(() => {
-    if (!map || !isLoaded || !isAuthenticated || activeTab !== 'my-places') return;
+    if (!map || !isLoaded || !isAuthenticated || activeTab !== 'my-places' || !isAddPlaceMode) return;
 
     const googleMap = map as google.maps.Map;
 
@@ -413,9 +433,10 @@ export default function MapPage() {
           return;
         }
 
-        // Open manual place add modal
+        // Open manual place add modal and exit Add Place Mode
         setManualAddLocation({ lat, lng });
         setShowManualAddModal(true);
+        setIsAddPlaceMode(false); // Auto-exit add mode after selection
       }
     });
 
@@ -424,7 +445,7 @@ export default function MapPage() {
         google.maps.event.removeListener(clickListener);
       }
     };
-  }, [map, isLoaded, isAuthenticated, activeTab, user]);
+  }, [map, isLoaded, isAuthenticated, activeTab, user, isAddPlaceMode]);
 
   const loadPlaces = useCallback(async () => {
     try {
@@ -484,6 +505,13 @@ export default function MapPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadLists();
+    }
+  }, [isAuthenticated]);
+
+  // WP05: Load rate limit status for authenticated users
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchRateLimitStatus();
     }
   }, [isAuthenticated]);
 
@@ -1030,7 +1058,19 @@ export default function MapPage() {
     setPlaceToDelete(null);
   };
 
-  // Manual Place Add Handlers
+  // WP05: Fetch rate limit status
+  const fetchRateLimitStatus = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const status = await placesApi.getRateLimitStatus();
+      setRateLimitStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch rate limit status:', error);
+    }
+  };
+
+  // Manual Place Add Handlers (WP05: with duplicate validation)
   const handleManualPlaceAdd = async (data: CreatePublicPlaceData) => {
     setIsAddingPlace(true);
     try {
@@ -1053,74 +1093,135 @@ export default function MapPage() {
         return;
       }
 
-      // Create public place first
-      await publicPlacesApi.create(data);
+      // WP05: Check for duplicates (only for user-generated places without externalId)
+      if (!data.externalId) {
+        const dupCheck = await placesApi.validateDuplicate({
+          name: data.name,
+          latitude,
+          longitude,
+        });
 
-      // Then add to my places
-      const createData: CreatePlaceData = {
-        name: data.name,
-        address: data.address,
-        phone: data.phone,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        category: data.category,
-        description: data.description,
-        externalUrl: data.externalUrl,
-        externalId: data.externalId,
-      };
-
-      const newPlace = await placesApi.create(createData);
-
-      toast.success(`✨ "${data.name}"이(가) 내 장소에 추가되었습니다`);
-
-      // Close modal
-      setShowManualAddModal(false);
-      setManualAddLocation(null);
-
-      // Add marker immediately
-      if (markerManagerRef.current && activeTab === 'my-places') {
-        await markerManagerRef.current.addMarker(newPlace);
-      }
-
-      // Navigate to the new place on map
-      if (newPlace && markerManagerRef.current) {
-        markerManagerRef.current.panTo(latitude, longitude);
-
-        // Adjust for sidebar if visible on desktop
-        const isDesktop = window.innerWidth >= 768;
-        if (isPlaceListVisible && isDesktop) {
-          const SIDEBAR_WIDTH = 320;
-          const offsetX = SIDEBAR_WIDTH / 2;
-          const googleMap = map as google.maps.Map;
-          if (googleMap && googleMap.panBy) {
-            setTimeout(() => googleMap.panBy(-offsetX, 0), 100);
-          }
+        if (dupCheck.hasDuplicates) {
+          // Show duplicate warning dialog
+          setDuplicateWarning(dupCheck.duplicates);
+          setPendingPlaceData(data);
+          setIsDuplicateDialogOpen(true);
+          return; // Wait for user decision
         }
-
-        // Set zoom level for better view
-        markerManagerRef.current.setZoom(17);
-
-        // Show InfoWindow immediately
-        markerManagerRef.current.showInfoWindow(newPlace.id);
-        setSelectedPlaceId(newPlace.id);
       }
 
-      // Reload places in background
-      loadPlaces();
+      // No duplicates or user-generated, proceed with creation
+      await createPlaceDirectly(data);
     } catch (error: unknown) {
       console.error('Failed to add place:', error);
 
       if (error instanceof HTTPError) {
         const errorData = await error.response.json();
-        const errorMessage = Array.isArray(errorData.message)
-          ? errorData.message.join(', ')
-          : errorData.message || '장소 추가에 실패했습니다';
-        toast.error(`장소 추가 실패: ${errorMessage}`);
+
+        // WP05: Handle specific error codes
+        if (error.response.status === 400) {
+          const errorMessage = Array.isArray(errorData.message)
+            ? errorData.message.join(', ')
+            : errorData.message || '입력 정보가 올바르지 않습니다';
+          toast.error(`입력 오류: ${errorMessage}`);
+        } else if (error.response.status === 409) {
+          // Duplicate error from backend
+          setDuplicateWarning(errorData.duplicates || []);
+          setPendingPlaceData(data);
+          setIsDuplicateDialogOpen(true);
+        } else if (error.response.status === 429) {
+          // Rate limit exceeded
+          toast.error(`일일 추가 한도 초과 (${errorData.used || 0}/${errorData.limit || 5})`);
+        } else {
+          const errorMessage = Array.isArray(errorData.message)
+            ? errorData.message.join(', ')
+            : errorData.message || '장소 추가에 실패했습니다';
+          toast.error(`장소 추가 실패: ${errorMessage}`);
+        }
       } else if (error instanceof Error) {
         toast.error(`장소 추가 실패: ${error.message}`);
       } else {
         toast.error('장소 추가에 실패했습니다');
       }
+    } finally {
+      setIsAddingPlace(false);
+    }
+  };
+
+  // WP05: Create place directly (after validation or user override)
+  const createPlaceDirectly = async (data: CreatePublicPlaceData) => {
+    const latitude = Number(data.latitude);
+    const longitude = Number(data.longitude);
+
+    // Create public place first
+    await publicPlacesApi.create(data);
+
+    // Then add to my places
+    const createData: CreatePlaceData = {
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      category: data.category,
+      description: data.description,
+      externalUrl: data.externalUrl,
+      externalId: data.externalId,
+    };
+
+    const newPlace = await placesApi.create(createData);
+
+    toast.success(`✨ "${data.name}"이(가) 내 장소에 추가되었습니다. 검토 후 승인됩니다.`);
+
+    // Close modals
+    setShowManualAddModal(false);
+    setManualAddLocation(null);
+    setIsDuplicateDialogOpen(false);
+    setPendingPlaceData(null);
+
+    // Add marker immediately
+    if (markerManagerRef.current && activeTab === 'my-places') {
+      await markerManagerRef.current.addMarker(newPlace);
+    }
+
+    // Navigate to the new place on map
+    if (newPlace && markerManagerRef.current) {
+      markerManagerRef.current.panTo(latitude, longitude);
+
+      // Adjust for sidebar if visible on desktop
+      const isDesktop = window.innerWidth >= 768;
+      if (isPlaceListVisible && isDesktop) {
+        const SIDEBAR_WIDTH = 320;
+        const offsetX = SIDEBAR_WIDTH / 2;
+        const googleMap = map as google.maps.Map;
+        if (googleMap && googleMap.panBy) {
+          setTimeout(() => googleMap.panBy(-offsetX, 0), 100);
+        }
+      }
+
+      // Set zoom level for better view
+      markerManagerRef.current.setZoom(17);
+
+      // Show InfoWindow immediately
+      markerManagerRef.current.showInfoWindow(newPlace.id);
+      setSelectedPlaceId(newPlace.id);
+    }
+
+    // Reload places and rate limit status
+    loadPlaces();
+    fetchRateLimitStatus();
+  };
+
+  // WP05: Handle "Add Anyway" in duplicate warning dialog
+  const handleAddAnyway = async () => {
+    if (!pendingPlaceData) return;
+
+    setIsAddingPlace(true);
+    try {
+      await createPlaceDirectly(pendingPlaceData);
+    } catch (error: unknown) {
+      console.error('Failed to add place:', error);
+      toast.error('장소 추가에 실패했습니다');
     } finally {
       setIsAddingPlace(false);
     }
@@ -1332,6 +1433,27 @@ export default function MapPage() {
             onLoginRequired={handleLoginRequired}
           />
 
+          {/* WP05: Rate Limit Indicator */}
+          {isAuthenticated && (
+            <div className="px-4 py-2 bg-blue-50 border-y border-blue-200">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-blue-700">
+                  오늘 장소 추가: <strong>{rateLimitStatus.used}/{rateLimitStatus.limit}</strong>
+                </span>
+                {rateLimitStatus.remaining === 0 && (
+                  <span className="text-red-600 font-medium">
+                    (한도 초과)
+                  </span>
+                )}
+                {rateLimitStatus.remaining > 0 && rateLimitStatus.remaining <= 2 && (
+                  <span className="text-amber-600 font-medium">
+                    (잔여: {rateLimitStatus.remaining}개)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Category Filter Tabs */}
           <CategoryFilter
             selectedCategory={selectedCategory}
@@ -1503,6 +1625,7 @@ export default function MapPage() {
         <div
           id="google-map-container"
           className="w-full h-full"
+          style={{ cursor: isAddPlaceMode ? 'crosshair' : 'default' }}
         />
 
         {/* Floating Empty Notice - 탭별로 다른 메시지 */}
@@ -1578,12 +1701,38 @@ export default function MapPage() {
           </div>
         ) : null}
 
+        {/* WP05 T026: Add Place Mode Instruction Overlay */}
+        {isAddPlaceMode && isLoaded && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+            <div className="bg-primary text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              <span className="font-medium">지도를 클릭하여 장소를 추가하세요</span>
+            </div>
+          </div>
+        )}
+
+        {/* WP05 T026: Add Place Mode Toggle Button - '내 장소' 탭에서만 표시 */}
+        {activeTab === 'my-places' && isAuthenticated && (
+          <button
+            onClick={() => setIsAddPlaceMode(!isAddPlaceMode)}
+            className={`fixed bottom-40 right-4 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-30 flex items-center justify-center ${
+              isAddPlaceMode
+                ? 'bg-amber-500 text-white'
+                : 'bg-white text-gray-700 border-2 border-gray-300'
+            }`}
+            aria-label={isAddPlaceMode ? "장소 추가 모드 종료" : "지도에서 장소 추가"}
+            title={isAddPlaceMode ? "장소 추가 모드 종료" : "지도를 클릭하여 장소 추가"}
+          >
+            <MapPin className={`w-6 h-6 ${isAddPlaceMode ? 'animate-pulse' : ''}`} />
+          </button>
+        )}
+
         {/* FAB (Floating Action Button) - 우측 하단 - '내 장소' 탭에서만 표시 */}
         {activeTab === 'my-places' && isAuthenticated && (
           <button
             onClick={handleOpenSearchBottomSheet}
             className="fixed bottom-24 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all z-30 flex items-center justify-center relative"
-            aria-label="장소 추가"
+            aria-label="검색하여 장소 추가"
           >
             <Plus className="w-6 h-6" />
             {/* Lock badge for email verification */}
@@ -1649,6 +1798,17 @@ export default function MapPage() {
             userEmail={user.email}
           />
         )}
+
+        {/* WP05: Duplicate Warning Dialog */}
+        <DuplicateWarningDialog
+          isOpen={isDuplicateDialogOpen}
+          onClose={() => {
+            setIsDuplicateDialogOpen(false);
+            setPendingPlaceData(null);
+          }}
+          onAddAnyway={handleAddAnyway}
+          duplicates={duplicateWarning}
+        />
       </div>
     </AppLayout>
   );

@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -186,7 +192,12 @@ export class AuthService {
 
     // 이메일 발송
     try {
-      await this.emailService.sendVerificationEmail(user.email, user.nickname, verificationToken, dto.frontendUrl);
+      await this.emailService.sendVerificationEmail(
+        user.email,
+        user.nickname,
+        verificationToken,
+        dto.frontendUrl,
+      );
     } catch (error) {
       // 이메일 발송 실패 시 로그만 남기고 가입은 진행
       console.error('Failed to send verification email:', error);
@@ -247,7 +258,9 @@ export class AuthService {
     }
 
     if (verification.expiresAt < new Date()) {
-      this.logger.warn(`만료된 인증 토큰 - UserId: ${verification.userId}, ExpiresAt: ${verification.expiresAt}`);
+      this.logger.warn(
+        `만료된 인증 토큰 - UserId: ${verification.userId}, ExpiresAt: ${verification.expiresAt}`,
+      );
       throw new BadRequestException('만료된 인증 링크입니다');
     }
 
@@ -275,7 +288,10 @@ export class AuthService {
         await this.emailService.sendWelcomeEmail(user!.email, user!.nickname);
       } catch (error) {
         // 이메일 발송 실패 시 로그만 남기고 인증은 완료
-        this.logger.error(`웰컴 이메일 발송 실패 - UserId: ${user!.id}`, error instanceof Error ? error.stack : String(error));
+        this.logger.error(
+          `웰컴 이메일 발송 실패 - UserId: ${user!.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
 
       return {
@@ -290,12 +306,21 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`이메일 인증 처리 중 오류 - UserId: ${verification.userId}`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `이메일 인증 처리 중 오류 - UserId: ${verification.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
       throw new BadRequestException('인증 처리 중 오류가 발생했습니다');
     }
   }
 
-  async googleLogin(googleUser: { googleId: string; email: string; firstName: string; lastName: string; profileImage: string; }) {
+  async googleLogin(googleUser: {
+    googleId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    profileImage: string;
+  }) {
     // Google ID로 기존 사용자 조회
     let user = await this.prisma.user.findFirst({
       where: {
@@ -351,7 +376,12 @@ export class AuthService {
     };
   }
 
-  async completeGoogleSignup(email: string, nickname: string, googleId: string, profileImage?: string) {
+  async completeGoogleSignup(
+    email: string,
+    nickname: string,
+    googleId: string,
+    profileImage?: string,
+  ) {
     // 닉네임 중복 확인
     const existingNickname = await this.prisma.user.findFirst({
       where: { nickname },
@@ -432,7 +462,12 @@ export class AuthService {
     const verificationToken = await this.generateVerificationToken(user.id);
 
     // 이메일 발송
-    await this.emailService.sendVerificationEmail(user.email, user.nickname, verificationToken, frontendUrl);
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      user.nickname,
+      verificationToken,
+      frontendUrl,
+    );
 
     return {
       message: '인증 메일이 재발송되었습니다',
@@ -551,7 +586,11 @@ export class AuthService {
     };
   }
 
-  private async generateResetToken(userId: string, ipAddress?: string, userAgent?: string): Promise<string> {
+  private async generateResetToken(
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<string> {
     const token = randomBytes(32).toString('hex');
 
     await this.prisma.passwordReset.create({

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { PlaceQueryDto, ViewportQueryDto, NearestPlaceQueryDto } from './dto/place-query.dto';
 import { PlaceResponseDto, PlacesResponseDto } from './dto/place-response.dto';
 import { CreatePlaceDto } from './dto/create-place.dto';
@@ -12,6 +13,8 @@ import {
   PublicPlacesResponseDto,
   LabelCount,
 } from './dto/public-place-response.dto';
+import { getDistance } from 'geolib';
+import { distance as levenshteinDistance } from 'fastest-levenshtein';
 
 @Injectable()
 export class PlacesService {
@@ -114,17 +117,40 @@ export class PlacesService {
     createPlaceDto: CreatePlaceDto,
   ): Promise<PlaceDetailResponseDto> {
     try {
-      // 1. Check if place already exists (by externalId if provided)
-      let place;
+      // 1. Check for duplicates (only for user-generated places without externalId)
+      if (!createPlaceDto.externalId) {
+        const duplicates = await this.detectDuplicates(
+          createPlaceDto.name,
+          createPlaceDto.latitude,
+          createPlaceDto.longitude,
+        );
+
+        if (duplicates.length > 0) {
+          throw new ConflictException({
+            message: 'Duplicate place detected',
+            duplicates: duplicates.map(p => ({
+              id: p.id,
+              name: p.name,
+              address: p.address,
+              distance: p.distance,
+              similarity: p.similarity,
+            })),
+          });
+        }
+      }
+
+      // 2. Check if place already exists (by externalId if provided)
+      let place: Awaited<ReturnType<typeof this.prisma.place.findUnique>> = null;
       if (createPlaceDto.externalId) {
         place = await this.prisma.place.findUnique({
           where: { externalId: createPlaceDto.externalId },
         });
       }
 
-      // 2. Create place if it doesn't exist
-      if (!place) {
-        place = await this.prisma.place.create({
+      // 3. Create Place + UserPlace + ModerationQueue in transaction
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Create or reuse place
+        const createdPlace = place || await tx.place.create({
           data: {
             name: createPlaceDto.name,
             address: createPlaceDto.address,
@@ -137,23 +163,41 @@ export class PlacesService {
             externalId: createPlaceDto.externalId,
           },
         });
-      }
 
-      // 3. Create UserPlace
-      const userPlace = await this.prisma.userPlace.create({
-        data: {
-          userId,
-          placeId: place.id,
-          customName: createPlaceDto.customName,
-          customCategory: createPlaceDto.customCategory,
-          labels: JSON.stringify(createPlaceDto.labels || []),
-          note: createPlaceDto.note,
-          visited: createPlaceDto.visited || false,
-          photos: JSON.stringify([]),
-        },
+        // Create UserPlace
+        const userPlace = await tx.userPlace.create({
+          data: {
+            userId,
+            placeId: createdPlace.id,
+            customName: createPlaceDto.customName,
+            customCategory: createPlaceDto.customCategory,
+            labels: JSON.stringify(createPlaceDto.labels || []),
+            note: createPlaceDto.note,
+            visited: createPlaceDto.visited || false,
+            photos: JSON.stringify([]),
+          },
+        });
+
+        // Add to moderation queue (only for user-generated places)
+        if (!createPlaceDto.externalId) {
+          await tx.placeModerationQueue.create({
+            data: {
+              placeId: createdPlace.id,
+              userId,
+              status: 'pending',
+            },
+          });
+        }
+
+        return userPlace;
       });
 
-      return this.findOne(userId, userPlace.id);
+      // 4. Return with moderation status
+      const response = await this.findOne(userId, result.id);
+      return {
+        ...response,
+        moderationStatus: createPlaceDto.externalId ? undefined : 'pending',
+      };
     } catch (error) {
       // Prisma error handling
       const prismaError = error as { code?: string };
@@ -608,7 +652,7 @@ export class PlacesService {
     const placeIds = ftsResults.map((r) => r.place_id);
 
     // Build where clause for Place table
-    const where: any = {
+    const where: Prisma.PlaceWhereInput = {
       id: { in: placeIds },
     };
 
@@ -830,5 +874,53 @@ export class PlacesService {
       console.error('Public place creation error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Detects duplicate places using two-phase algorithm.
+   *
+   * Phase 1: Bounding box query (~100m radius) using database indexes.
+   * Phase 2: Application-level validation with Haversine distance + Levenshtein similarity.
+   *
+   * @param name - Place name for similarity comparison
+   * @param lat - Latitude coordinate
+   * @param lng - Longitude coordinate
+   * @returns Array of duplicate candidates with distance (meters) and similarity score (0-1)
+   */
+  private async detectDuplicates(name: string, lat: number, lng: number) {
+    // Phase 1: Bounding box query (D1 SQL)
+    const candidates = await this.prisma.place.findMany({
+      where: {
+        latitude: {
+          gte: lat - 0.001,
+          lte: lat + 0.001,
+        },
+        longitude: {
+          gte: lng - 0.001,
+          lte: lng + 0.001,
+        },
+      },
+    });
+
+    // Phase 2: Application-level validation (Haversine + Levenshtein)
+    const duplicates = candidates.filter(place => {
+      // Distance check (Haversine)
+      const distanceMeters = getDistance(
+        { lat, lng },
+        { lat: Number(place.latitude), lng: Number(place.longitude) },
+      );
+
+      // Similarity check (Levenshtein)
+      const maxLength = Math.max(name.length, place.name.length);
+      const similarity = 1 - (levenshteinDistance(name, place.name) / maxLength);
+
+      return distanceMeters <= 100 && similarity >= 0.8;
+    }).map(place => ({
+      ...place,
+      distance: getDistance({ lat, lng }, { lat: Number(place.latitude), lng: Number(place.longitude) }),
+      similarity: 1 - (levenshteinDistance(name, place.name) / Math.max(name.length, place.name.length)),
+    }));
+
+    return duplicates;
   }
 }

@@ -4,9 +4,7 @@ description: Validate feature readiness and guide final acceptance steps.
 
 **Path reference rule:** When you mention directories or files, provide either the absolute path or a path relative to the project root (for example, `kitty-specs/<feature>/tasks/`). Never refer to a folder by name alone.
 
-
-*Path: [.kittify/templates/commands/accept.md](.kittify/templates/commands/accept.md)*
-
+_Path: [.kittify/templates/commands/accept.md](.kittify/templates/commands/accept.md)_
 
 ## User Input
 

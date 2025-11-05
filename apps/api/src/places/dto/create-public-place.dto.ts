@@ -5,7 +5,6 @@ import {
   IsNumber,
   IsUrl,
   Length,
-  MaxLength,
   Min,
   Max,
   Matches,

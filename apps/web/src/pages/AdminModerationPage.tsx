@@ -75,7 +75,7 @@ export default function AdminModerationPage() {
             ].map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => handleStatusChange(tab.value as any)}
+                onClick={() => handleStatusChange(tab.value as 'pending' | 'approved' | 'rejected')}
                 className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
                   status === tab.value
                     ? 'bg-card shadow-sm ' + tab.color

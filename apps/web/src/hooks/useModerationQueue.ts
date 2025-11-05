@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { HTTPError } from 'ky';
 
 interface ModerationQueueItem {
   id: string;

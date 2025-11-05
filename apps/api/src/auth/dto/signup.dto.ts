@@ -1,4 +1,14 @@
-import { IsEmail, IsString, MinLength, Matches, Length, ValidateNested, IsBoolean, Equals, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  Matches,
+  Length,
+  ValidateNested,
+  IsBoolean,
+  Equals,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AgreementsDto {

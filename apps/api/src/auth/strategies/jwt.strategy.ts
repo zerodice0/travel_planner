@@ -22,7 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string; emailVerified: boolean }): Promise<JwtPayload> {
+  async validate(payload: {
+    sub: string;
+    email: string;
+    emailVerified: boolean;
+  }): Promise<JwtPayload> {
     // DB에서 최신 사용자 정보 조회 (emailVerified 상태 포함)
     // JWT 토큰은 오래될 수 있으므로, 항상 DB의 최신 값을 사용
     const user = await this.prisma.user.findUnique({
