@@ -11,10 +11,10 @@ subtasks:
   - "T033"
 title: "Frontend Place Addition UI"
 phase: "Phase 1 - Core Features"
-lane: "planned"
+lane: "doing"
 assignee: ""
-agent: ""
-shell_pid: ""
+agent: "claude"
+shell_pid: "41035"
 history:
   - timestamp: "2025-11-04T09:30:00Z"
     lane: "planned"
@@ -527,3 +527,4 @@ User clicks "Add Place" button
 ## Activity Log
 
 - 2025-11-04T09:30:00Z – system – lane=planned – Prompt created via /spec-kitty.tasks
+- 2025-11-05T04:10:08Z – claude – shell_pid=41035 – lane=doing – Started WP05: Frontend Place Addition UI implementation
