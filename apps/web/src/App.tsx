@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '#contexts/AuthContext';
 import { MapProviderProvider } from '#contexts/MapProviderContext';
 import { ThemeProvider } from '#contexts/ThemeContext';
 import ProtectedRoute from '#components/ProtectedRoute';
+import AdminRoute from '#components/AdminRoute';
 import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
 import { emailVerificationRequiredEvent } from '#lib/api';
 import LoginPage from '#pages/LoginPage';
@@ -25,6 +26,7 @@ import SearchPage from '#pages/SearchPage';
 import CategoryManagementPage from '#pages/CategoryManagementPage';
 import SettingsPage from '#pages/SettingsPage';
 import ProfileEditPage from '#pages/ProfileEditPage';
+import AdminModerationPage from '#pages/AdminModerationPage';
 
 // EmailVerificationModalWrapper to access user from AuthContext
 function EmailVerificationModalWrapper({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -157,6 +159,17 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Admin routes */}
+              <Route
+                path="/admin/moderation"
+                element={
+                  <AdminRoute>
+                    <AdminModerationPage />
+                  </AdminRoute>
+                }
+              />
+
               {/* 404 fallback - redirect to explore */}
               <Route path="*" element={<Navigate to="/explore" replace />} />
             </Routes>
