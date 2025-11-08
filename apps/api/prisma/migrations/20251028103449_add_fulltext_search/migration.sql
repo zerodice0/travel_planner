@@ -20,11 +20,9 @@ END;
 -- Trigger: Update
 CREATE TRIGGER IF NOT EXISTS places_fts_update AFTER UPDATE ON places
 BEGIN
-  UPDATE places_fts
-  SET name = new.name,
-      address = new.address,
-      description = COALESCE(new.description, '')
-  WHERE place_id = new.id;
+  DELETE FROM places_fts WHERE rowid = old.rowid;
+  INSERT INTO places_fts(rowid, place_id, name, address, description)
+  VALUES (new.rowid, new.id, new.name, new.address, COALESCE(new.description, ''));
 END;
 
 -- Trigger: Delete
@@ -36,5 +34,4 @@ END;
 -- Populate existing data
 INSERT INTO places_fts(place_id, name, address, description)
 SELECT id, name, address, COALESCE(description, '')
-FROM places
-WHERE id NOT IN (SELECT place_id FROM places_fts);
+FROM places;

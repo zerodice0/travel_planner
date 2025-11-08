@@ -3,6 +3,7 @@ import { X, MapPin, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
+import { QualityGuidelinesPanel } from '#components/map/QualityGuidelinesPanel';
 import { CATEGORIES, getCategoryLabel, getCategoryIcon } from '#utils/categoryConfig';
 import { useGoogleMap } from '#hooks/useGoogleMap';
 import type { CreatePublicPlaceData } from '#types/publicPlace';
@@ -369,6 +370,9 @@ export function ManualPlaceAddModal({
                 💡 지도를 클릭하여 선택한 위치에 장소를 추가합니다.
               </p>
             </div>
+
+            {/* Quality Guidelines */}
+            <QualityGuidelinesPanel />
 
             {/* Place Name */}
             <div>

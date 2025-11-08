@@ -2,8 +2,7 @@
 description: Execute the implementation planning workflow using the plan template to generate design artifacts.
 ---
 
-*Path: [.kittify/templates/commands/plan.md](.kittify/templates/commands/plan.md)*
-
+_Path: [.kittify/templates/commands/plan.md](.kittify/templates/commands/plan.md)_
 
 ## User Input
 
@@ -18,6 +17,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 Before proceeding with planning, verify you are in the correct working directory:
 
 **Check your current branch:**
+
 ```bash
 git branch --show-current
 ```
@@ -28,6 +28,7 @@ git branch --show-current
 **This command MUST run from a feature worktree, not the main repository.**
 
 If you're on the `main` branch:
+
 1. Check for available worktrees: `ls .worktrees/`
 2. Navigate to the appropriate feature worktree: `cd .worktrees/<feature-name>`
 3. Verify you're in the right place: `git branch --show-current` should show the feature branch
@@ -98,6 +99,7 @@ Planning requirements (scale to complexity):
    - For each integration → patterns task
 
 2. **Generate and dispatch research agents**:
+
    ```
    For each unknown in Technical Context:
      Task: "Research {unknown} for {feature context}"
@@ -133,7 +135,7 @@ Planning requirements (scale to complexity):
    - Add only new technology from current plan
    - Preserve manual additions between markers
 
-**Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
+**Output**: data-model.md, /contracts/\*, quickstart.md, agent-specific file
 
 ## Key rules
 

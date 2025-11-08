@@ -9,6 +9,7 @@ interface User {
   nickname: string;
   profileImage?: string;
   emailVerified: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {

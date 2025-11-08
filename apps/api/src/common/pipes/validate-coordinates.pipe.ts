@@ -1,8 +1,13 @@
 import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 
+interface CoordinateValue {
+  latitude: number;
+  longitude: number;
+}
+
 @Injectable()
 export class ValidateCoordinatesPipe implements PipeTransform {
-  transform(value: any) {
+  transform(value: CoordinateValue) {
     const { latitude, longitude } = value;
 
     // 한국 영역 범위 확인

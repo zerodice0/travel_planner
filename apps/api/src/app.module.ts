@@ -16,6 +16,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { HealthModule } from './health/health.module';
     ReviewsModule,
     NotificationsModule,
     HealthModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
