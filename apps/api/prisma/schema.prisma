@@ -8,52 +8,55 @@ datasource db {
 }
 
 model User {
-  id                 String                   @id @default(uuid())
-  email              String                   @unique
-  passwordHash       String                   @map("password_hash")
+  id                 String                 @id @default(uuid())
+  email              String                 @unique
+  passwordHash       String                 @map("password_hash")
   nickname           String
-  profileImage       String?                  @map("profile_image")
-  authProvider       String                   @default("email") @map("auth_provider")
-  emailVerified      Boolean                  @default(false) @map("email_verified")
-  isActive           Boolean                  @default(true) @map("is_active")
-  createdAt          DateTime                 @default(now()) @map("created_at")
-  updatedAt          DateTime                 @updatedAt @map("updated_at")
-  lastLoginAt        DateTime?                @map("last_login_at")
+  profileImage       String?                @map("profile_image")
+  authProvider       String                 @default("email") @map("auth_provider")
+  emailVerified      Boolean                @default(false) @map("email_verified")
+  isActive           Boolean                @default(true) @map("is_active")
+  isAdmin            Boolean                @default(false) @map("is_admin")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  lastLoginAt        DateTime?              @map("last_login_at")
   categories         Category[]
   emailVerifications EmailVerification[]
   lists              List[]
   notifications      Notification[]
   passwordResets     PasswordReset[]
+  reviewedPlaces     PlaceModerationQueue[] @relation("reviewer")
+  createdPlaces      PlaceModerationQueue[] @relation("creator")
+  reviewedReviews    Review[]               @relation("ReviewReviewer")
+  reports            Report[]
   refreshTokens      RefreshToken[]
   reviews            Review[]
   userPlaces         UserPlace[]
-  createdPlaces      PlaceModerationQueue[]   @relation("creator")
-  reviewedPlaces     PlaceModerationQueue[]   @relation("reviewer")
 
   @@index([email])
   @@map("users")
 }
 
 model Place {
-  id          String      @id @default(uuid())
-  name        String
-  address     String
-  phone       String?
-  latitude    Decimal
-  longitude   Decimal
-  category    String
-  description String?
-  externalUrl String?     @map("external_url")
-  externalId  String?     @unique @map("external_id")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  reviews     Review[]
-  userPlaces  UserPlace[]
+  id              String                @id @default(uuid())
+  name            String
+  address         String
+  phone           String?
+  latitude        Decimal
+  longitude       Decimal
+  category        String
+  description     String?
+  externalUrl     String?               @map("external_url")
+  externalId      String?               @unique @map("external_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
   moderationQueue PlaceModerationQueue?
+  reviews         Review[]
+  userPlaces      UserPlace[]
 
   @@index([category])
   @@index([externalId])
-  @@index([latitude, longitude], name: "spatial_index")
+  @@index([latitude, longitude], map: "places_spatial_index")
   @@map("places")
 }
 
@@ -63,27 +66,27 @@ model UserPlace {
   placeId        String      @map("place_id")
   customName     String?     @map("custom_name")
   customCategory String?     @map("custom_category")
-  labels         String      // JSON array stored as string
+  labels         String
   note           String?
   visited        Boolean     @default(false)
   visitedAt      DateTime?   @map("visited_at")
   visitNote      String?     @map("visit_note")
   rating         Int?
   estimatedCost  Int?        @map("estimated_cost")
-  photos         String      // JSON array stored as string
+  photos         String
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
-  place          Place       @relation(fields: [placeId], references: [id], onDelete: Restrict)
   placeLists     PlaceList[]
   reviews        Review[]
   user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place          Place       @relation(fields: [placeId], references: [id])
 
   @@unique([userId, placeId])
   @@index([userId])
   @@index([placeId])
   @@index([visited])
   @@index([customCategory])
-  @@index([createdAt], name: "rate_limit_index")
+  @@index([createdAt], map: "user_places_rate_limit_index")
   @@map("user_places")
 }
 
@@ -112,8 +115,8 @@ model PlaceList {
   order       Int       @default(0)
   addedAt     DateTime  @default(now()) @map("added_at")
   userPlaceId String    @map("user_place_id")
-  list        List      @relation(fields: [listId], references: [id], onDelete: Cascade)
   userPlace   UserPlace @relation(fields: [userPlaceId], references: [id], onDelete: Cascade)
+  list        List      @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@unique([userPlaceId, listId])
   @@index([userPlaceId])
@@ -198,20 +201,42 @@ model Review {
   placeId     String    @map("place_id")
   content     String
   rating      Int?
-  photos      String    // JSON array stored as string
+  photos      String
   isPublic    Boolean   @default(true) @map("is_public")
   likeCount   Int       @default(0) @map("like_count")
   reportCount Int       @default(0) @map("report_count")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  place       Place     @relation(fields: [placeId], references: [id], onDelete: Restrict)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewerId  String?   @map("reviewer_id")
+  reviewNotes String?   @map("review_notes")
   userPlace   UserPlace @relation(fields: [userPlaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place       Place     @relation(fields: [placeId], references: [id])
+  reviewer    User?     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
 
   @@index([placeId, isPublic])
   @@index([userId])
   @@index([userPlaceId])
+  @@index([reportCount])
   @@map("reviews")
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  reviewId    String   @map("review_id")
+  userId      String   @map("user_id")
+  reason      String
+  description String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reports")
 }
 
 model Notification {
@@ -230,6 +255,23 @@ model Notification {
   @@map("notifications")
 }
 
+model Report {
+  id          String   @id @default(uuid())
+  reviewId    String   @map("review_id")
+  userId      String   @map("user_id")
+  reason      String
+  description String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reports")
+}
+
 model PlaceModerationQueue {
   id          String    @id @default(uuid())
   placeId     String    @unique @map("place_id")
@@ -240,11 +282,49 @@ model PlaceModerationQueue {
   reviewNotes String?   @map("review_notes")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewer    User?     @relation("reviewer", fields: [reviewerId], references: [id])
+  user        User      @relation("creator", fields: [userId], references: [id], onDelete: Cascade)
   place       Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, name: "creator")
-  reviewer    User?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull, name: "reviewer")
 
   @@index([status])
   @@index([createdAt])
   @@map("place_moderation_queue")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model places_fts {
+  place_id    Unsupported("")?
+  name        Unsupported("")?
+  address     Unsupported("")?
+  description Unsupported("")?
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model places_fts_config {
+  k Unsupported("")  @id
+  v Unsupported("")?
+
+  @@ignore
+}
+
+model places_fts_data {
+  id    Int    @id @default(autoincrement())
+  block Bytes?
+}
+
+model places_fts_docsize {
+  id Int    @id @default(autoincrement())
+  sz Bytes?
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model places_fts_idx {
+  segid Unsupported("")
+  term  Unsupported("")
+  pgno  Unsupported("")?
+
+  @@id([segid, term])
+  @@ignore
 }
