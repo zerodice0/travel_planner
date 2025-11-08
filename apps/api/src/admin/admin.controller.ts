@@ -159,6 +159,7 @@ export class AdminController {
         reviewerId: string;
         reviewNotes?: string;
         status?: 'approved' | 'rejected' | 'hidden';
+        isPublic?: boolean;
       } = {
         reviewedAt: new Date(),
         reviewerId: req.user.userId,
