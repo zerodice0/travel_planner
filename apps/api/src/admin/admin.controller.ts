@@ -7,12 +7,12 @@ import {
   Query,
   UseGuards,
   Request,
-  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReviewPlaceDto, ReviewReviewDto, ModerationStatsDto } from './dto';
 
 interface RequestWithUser extends Request {
   user: {
@@ -27,8 +27,8 @@ interface RequestWithUser extends Request {
 export class AdminController {
   constructor(private prisma: PrismaService) {}
 
-  @Get()
-  async getQueue(
+  @Get('places')
+  async getPlaceQueue(
     @Query('status') status: string = 'pending',
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
@@ -65,19 +65,60 @@ export class AdminController {
     };
   }
 
-  @Patch(':id')
-  async review(
+  @Get('reviews')
+  async getReviewQueue(
+    @Query('status') status: string = 'pending',
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('sortBy') sortBy: string = 'createdAt',
+    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'asc',
+  ) {
+    const pageNum = Number(page);
+    const limitNum = Math.min(Number(limit), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [items, total] = await Promise.all([
+      this.prisma.review.findMany({
+        where: {
+          reportCount: { gt: 0 },
+          ...(status === 'pending' && { isPublic: true }),
+        },
+        include: {
+          user: { select: { id: true, nickname: true, email: true } },
+          place: { select: { id: true, name: true } },
+          userPlace: { select: { id: true, customName: true } },
+        },
+        skip,
+        take: limitNum,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.review.count({
+        where: {
+          reportCount: { gt: 0 },
+          ...(status === 'pending' && { isPublic: true }),
+        },
+      }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  @Patch('places/:id')
+  async reviewPlace(
     @Param('id') id: string,
-    @Body() dto: { status: 'approved' | 'rejected'; reviewNotes?: string },
+    @Body() dto: ReviewPlaceDto,
     @Request() req: RequestWithUser,
   ) {
-    // Validate reviewNotes required for rejection
-    if (dto.status === 'rejected' && !dto.reviewNotes) {
-      throw new BadRequestException('reviewNotes is required when rejecting');
-    }
-
     try {
-      return await this.prisma.placeModerationQueue.update({
+      const result = await this.prisma.placeModerationQueue.update({
         where: { id },
         data: {
           status: dto.status,
@@ -91,6 +132,11 @@ export class AdminController {
           reviewer: { select: { id: true, nickname: true } },
         },
       });
+
+      // If approved, you could trigger additional actions here
+      // e.g., send notification to user, update place status, etc.
+
+      return result;
     } catch (error) {
       const prismaError = error as { code?: string };
       if (prismaError.code === 'P2025') {
@@ -99,5 +145,86 @@ export class AdminController {
       }
       throw error;
     }
+  }
+
+  @Patch('reviews/:id')
+  async reviewReview(
+    @Param('id') id: string,
+    @Body() dto: ReviewReviewDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      const updateData: {
+        reviewedAt: Date;
+        reviewerId: string;
+        reviewNotes?: string;
+        status?: 'approved' | 'rejected' | 'hidden';
+      } = {
+        reviewedAt: new Date(),
+        reviewerId: req.user.userId,
+        reviewNotes: dto.reviewNotes,
+      };
+
+      // Handle different statuses
+      if (dto.status === 'hidden') {
+        updateData.isPublic = false;
+      }
+
+      const result = await this.prisma.review.update({
+        where: { id },
+        data: updateData,
+        include: {
+          user: { select: { id: true, nickname: true, email: true } },
+          place: { select: { id: true, name: true } },
+          userPlace: { select: { id: true, customName: true } },
+        },
+      });
+
+      // Reset report count when review is processed
+      // Since dto.status can only be 'approved' | 'rejected' | 'hidden',
+      // any status update means the review has been processed
+      await this.prisma.review.update({
+        where: { id },
+        data: { reportCount: 0 },
+      });
+
+      return result;
+    } catch (error) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === 'P2025') {
+        throw new NotFoundException('Review not found');
+      }
+      throw error;
+    }
+  }
+
+  @Get('stats')
+  async getModerationStats(): Promise<ModerationStatsDto> {
+    const [pendingPlaces, pendingReviews, totalPlaces, totalReviews] = await Promise.all([
+      this.prisma.placeModerationQueue.count({
+        where: { status: 'pending' },
+      }),
+      this.prisma.review.count({
+        where: {
+          reportCount: { gt: 0 },
+          isPublic: true,
+        },
+      }),
+      this.prisma.placeModerationQueue.count(),
+      this.prisma.review.count({
+        where: { reportCount: { gt: 0 } },
+      }),
+    ]);
+
+    return {
+      places: {
+        pending: pendingPlaces,
+        total: totalPlaces,
+      },
+      reviews: {
+        pending: pendingReviews,
+        total: totalReviews,
+      },
+    };
   }
 }
