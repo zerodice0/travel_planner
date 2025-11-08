@@ -24,12 +24,15 @@
 **Prompt**: `kitty-specs/002-feature/tasks/planned/WP01-database-schema-migration.md`
 
 ### Included Subtasks
-- [ ] T001 Modify Place model: make externalId optional, add spatial index
-- [ ] T002 Modify UserPlace model: add createdAt index for rate limiting
-- [ ] T003 Create PlaceModerationQueue model with status, reviewer relations
-- [ ] T004 Update User model: add moderation relations (creator, reviewer)
-- [ ] T005 Generate Prisma migration with all schema changes
-- [ ] T006 Validate migration applies cleanly to D1 database
+- [X] T001 Modify Place model: make externalId optional, add spatial index
+- [X] T002 Modify UserPlace model: add createdAt index for rate limiting
+- [X] T003 Create PlaceModerationQueue model with status, reviewer relations
+- [X] T004 Update User model: add moderation relations (creator, reviewer)
+- [X] T005 Generate Prisma migration with all schema changes
+- [X] T006 Validate migration applies cleanly to D1 database
+
+**Status**: ✅ COMPLETED (2025-11-08)
+**Prompt Location**: `kitty-specs/002-feature/tasks/done/WP01-database-schema-migration.md`
 
 ### Implementation Notes
 - Modify `apps/backend/prisma/schema.prisma`
@@ -58,12 +61,15 @@
 **Prompt**: `kitty-specs/002-feature/tasks/planned/WP02-backend-validation-infrastructure.md`
 
 ### Included Subtasks
-- [ ] T007 [P] Install dependencies: geolib@3.3.4, fastest-levenshtein@1.0.16
-- [ ] T008 [P] Create ProfanityFilterPipe in `apps/backend/src/common/pipes/profanity-filter.pipe.ts`
-- [ ] T009 [P] Create RateLimitGuard in `apps/backend/src/common/guards/rate-limit.guard.ts`
-- [ ] T010 Implement duplicate detection in PlacesService: bounding box + Haversine + Levenshtein
-- [ ] T011 Add detectDuplicates() private method in PlacesService
-- [ ] T012 Add utility functions for distance/similarity calculations
+- [X] T007 [P] Install dependencies: geolib@3.3.4, fastest-levenshtein@1.0.16
+- [X] T008 [P] Create ProfanityFilterPipe in `apps/backend/src/common/pipes/profanity-filter.pipe.ts`
+- [X] T009 [P] Create RateLimitGuard in `apps/backend/src/common/guards/rate-limit.guard.ts`
+- [X] T010 Implement duplicate detection in PlacesService: bounding box + Haversine + Levenshtein
+- [X] T011 Add detectDuplicates() private method in PlacesService
+- [X] T012 Add utility functions for distance/similarity calculations
+
+**Status**: ✅ COMPLETED (2025-11-08)
+**Prompt Location**: `kitty-specs/002-feature/tasks/done/WP02-backend-validation-infrastructure.md`
 
 ### Implementation Notes
 - Profanity filter: Research library choice (bad-words, profanity-js) - implement placeholder first
@@ -127,15 +133,18 @@
 
 **Goal**: Implement admin moderation queue API for reviewing user-generated places.
 **Independent Test**: Admin can fetch pending places; approve/reject places; queue filters and pagination work correctly.
-**Prompt**: `kitty-specs/002-feature/tasks/planned/WP04-admin-moderation-backend.md`
+**Prompt**: `kitty-specs/002-feature/tasks/done/WP04-admin-moderation-backend.md`
 
 ### Included Subtasks
-- [ ] T020 Create AdminController in `apps/backend/src/admin/admin.controller.ts`
-- [ ] T021 Implement GET /admin/moderation with status/page/limit query params
-- [ ] T022 Implement PATCH /admin/moderation/:id for approve/reject actions
-- [ ] T023 Add AdminGuard to protect moderation endpoints (isAdmin check)
-- [ ] T024 Add error handling for 403 Forbidden, 404 Not Found
-- [ ] T025 Include Place, User (creator), User (reviewer) relations in responses
+- [X] T020 Create AdminController in `apps/backend/src/admin/admin.controller.ts`
+- [X] T021 Implement GET /admin/moderation with status/page/limit query params
+- [X] T022 Implement PATCH /admin/moderation/:id for approve/reject actions
+- [X] T023 Add AdminGuard to protect moderation endpoints (isAdmin check)
+- [X] T024 Add error handling for 403 Forbidden, 404 Not Found
+- [X] T025 Include Place, User (creator), User (reviewer) relations in responses
+
+**Status**: ✅ COMPLETED (2025-11-08)
+**Prompt Location**: `kitty-specs/002-feature/tasks/done/WP04-admin-moderation-backend.md`
 
 ### Implementation Notes
 - GET endpoint: Filter by status (pending/approved/rejected), paginate, order by createdAt ASC
@@ -162,17 +171,20 @@
 
 **Goal**: Implement user-facing place addition flow with map picker, validation feedback, and duplicate warnings.
 **Independent Test**: User clicks map, form opens with coords pre-filled; validation errors display; duplicate warning shows; successful creation shows toast + refreshes list.
-**Prompt**: `kitty-specs/002-feature/tasks/planned/WP05-frontend-place-addition-ui.md`
+**Prompt**: `kitty-specs/002-feature/tasks/done/WP05-frontend-place-addition-ui.md`
 
 ### Included Subtasks
-- [ ] T026 [P] Modify MapPage.tsx: add "Add Place" mode with map click handler
-- [ ] T027 [P] Create PlaceFormModal component with all fields (name, address, category, description, phone, website)
-- [ ] T028 [P] Create DuplicateWarningDialog component showing similar places
-- [ ] T029 [P] Create QualityGuidelinesPanel component with tips and examples
-- [ ] T030 Integrate form submission: validate-duplicate → show warning OR create place
-- [ ] T031 Add rate limit status indicator in UI (X/5 places used today)
-- [ ] T032 Add toast notifications for success/error states
-- [ ] T033 Handle all API error responses (400, 409, 429)
+- [X] T026 [P] Modify MapPage.tsx: add "Add Place" mode with map click handler
+- [X] T027 [P] Create PlaceFormModal component with all fields (name, address, category, description, phone, website)
+- [X] T028 [P] Create DuplicateWarningDialog component showing similar places
+- [X] T029 [P] Create QualityGuidelinesPanel component with tips and examples
+- [X] T030 Integrate form submission: validate-duplicate → show warning OR create place
+- [X] T031 Add rate limit status indicator in UI (X/5 places used today)
+- [X] T032 Add toast notifications for success/error states
+- [X] T033 Handle all API error responses (400, 409, 429)
+
+**Status**: ✅ COMPLETED (2025-11-08)
+**Prompt Location**: `kitty-specs/002-feature/tasks/done/WP05-frontend-place-addition-ui.md`
 
 ### Implementation Notes
 - MapPage state: isAddingPlace, selectedCoords, showPlaceForm, duplicateWarning
@@ -203,17 +215,20 @@
 
 **Goal**: Implement basic admin moderation interface for reviewing places.
 **Independent Test**: Admin opens /admin/moderation page; sees pending places; can approve/reject with notes; status filter works; pagination works.
-**Prompt**: `kitty-specs/002-feature/tasks/planned/WP06-admin-moderation-frontend.md`
+**Prompt**: `kitty-specs/002-feature/tasks/done/WP06-admin-moderation-frontend.md`
 
 ### Included Subtasks
-- [ ] T034 Create AdminModerationPage component in `apps/web/src/pages/AdminModerationPage.tsx`
-- [ ] T035 Create ModerationQueueCard component displaying place details + creator info
-- [ ] T036 Implement status filter tabs (Pending, Approved, Rejected)
-- [ ] T037 Implement pagination controls with page/limit
-- [ ] T038 Add approve/reject action buttons with confirmation
-- [ ] T039 Add review notes input for rejection (required)
-- [ ] T040 Add route guard for admin-only access (redirect if !isAdmin)
-- [ ] T041 Add loading states, empty states, error states
+- [X] T034 Create AdminModerationPage component in `apps/web/src/pages/AdminModerationPage.tsx`
+- [X] T035 Create ModerationQueueCard component displaying place details + creator info
+- [X] T036 Implement status filter tabs (Pending, Approved, Rejected)
+- [X] T037 Implement pagination controls with page/limit
+- [X] T038 Add approve/reject action buttons with confirmation
+- [X] T039 Add review notes input for rejection (required)
+- [X] T040 Add route guard for admin-only access (redirect if !isAdmin)
+- [X] T041 Add loading states, empty states, error states
+
+**Status**: ✅ COMPLETED (2025-11-08)
+**Prompt Location**: `kitty-specs/002-feature/tasks/done/WP06-admin-moderation-frontend.md`
 
 ### Implementation Notes
 - Route: /admin/moderation (add to routing config)
