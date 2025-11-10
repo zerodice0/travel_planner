@@ -49,6 +49,7 @@ export function PlaceAddModal({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set());
   const [listPlaces, setListPlaces] = useState<Place[]>([]);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const modalRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -211,6 +212,7 @@ export function PlaceAddModal({
       setHasUnsavedChanges(false);
       setShowCloseConfirm(false);
       setSelectedLists(new Set());
+      setValidationErrors({});
     }
   }, [isOpen, searchResult, poiPlaceDetails]);
 
@@ -314,7 +316,20 @@ export function PlaceAddModal({
       return;
     }
 
+    if (newLabel.length < 1) {
+      toast.error('라벨은 1자 이상 입력해주세요.');
+      return;
+    }
+
     if (labels.includes(newLabel.trim())) {
+      toast.error('이미 추가된 라벨입니다.');
+      return;
+    }
+
+    // Check for duplicate labels (case-insensitive)
+    const lowerNewLabel = newLabel.trim().toLowerCase();
+    const hasDuplicate = labels.some(label => label.toLowerCase() === lowerNewLabel);
+    if (hasDuplicate) {
       toast.error('이미 추가된 라벨입니다.');
       return;
     }
@@ -322,10 +337,75 @@ export function PlaceAddModal({
     setLabels([...labels, newLabel.trim()]);
     setNewLabel('');
     setIsAddingLabel(false);
+    // Clear label validation error if it exists
+    if (validationErrors.labels) {
+      setValidationErrors(prev => {
+        const { labels, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const handleRemoveLabel = (labelToRemove: string) => {
     setLabels(labels.filter((label) => label !== labelToRemove));
+    // Clear validation error when labels are modified
+    if (validationErrors.labels) {
+      setValidationErrors(prev => {
+        const { labels, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  // Validation function
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Validate category
+    if (!category) {
+      errors.category = '카테고리를 선택해주세요.';
+    }
+
+    // Validate custom name if provided
+    if (customName.trim()) {
+      if (customName.length > 100) {
+        errors.customName = '별칭은 100자 이하로 입력해주세요.';
+      }
+      if (customName.length < 2) {
+        errors.customName = '별칭은 2자 이상으로 입력해주세요.';
+      }
+    }
+
+    // Validate note if provided
+    if (note.trim() && note.length > 2000) {
+      errors.note = '메모는 2000자 이하로 입력해주세요.';
+    }
+
+    // Validate coordinates
+    const placeSource = searchResult || poiPlaceDetails;
+    if (placeSource) {
+      if (typeof placeSource.latitude !== 'number' || isNaN(placeSource.latitude)) {
+        errors.latitude = '유효한 위도 값을 입력해주세요.';
+      } else if (placeSource.latitude < -90 || placeSource.latitude > 90) {
+        errors.latitude = '위도는 -90에서 90 사이의 값이어야 합니다.';
+      }
+
+      if (typeof placeSource.longitude !== 'number' || isNaN(placeSource.longitude)) {
+        errors.longitude = '유효한 경도 값을 입력해주세요.';
+      } else if (placeSource.longitude < -180 || placeSource.longitude > 180) {
+        errors.longitude = '경도는 -180에서 180 사이의 값이어야 합니다.';
+      }
+    }
+
+    // Validate labels
+    labels.forEach((label) => {
+      if (label.length < 1 || label.length > 20) {
+        errors.labels = '라벨은 1자 이상 20자 이하로 입력해주세요.';
+      }
+    });
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,7 +413,16 @@ export function PlaceAddModal({
 
     // Get place data from either searchResult or poiPlaceDetails
     const placeSource = searchResult || poiPlaceDetails;
-    if (!placeSource) return;
+    if (!placeSource) {
+      toast.error('장소 정보가 없습니다.');
+      return;
+    }
+
+    // Validate form before submission
+    if (!validateForm()) {
+      toast.error('입력 정보를 확인해주세요.');
+      return;
+    }
 
     const data: CreatePlaceData = {
       name: placeSource.name,
@@ -350,10 +439,19 @@ export function PlaceAddModal({
       externalId: (searchResult?.id || poiPlaceDetails?.placeId)?.substring(0, 255),
     };
 
-    await onConfirm(
-      data,
-      selectedLists.size > 0 ? Array.from(selectedLists) : undefined
-    );
+    try {
+      await onConfirm(
+        data,
+        selectedLists.size > 0 ? Array.from(selectedLists) : undefined
+      );
+      // Reset validation errors on success
+      setValidationErrors({});
+    } catch (error) {
+      // Validation errors from API
+      console.error('Place creation failed:', error);
+      // Don't reset validation errors on API failure
+      // They might be related to server-side validation
+    }
   };
 
   if (!isOpen || (!searchResult && !poiPlaceDetails)) return null;
@@ -427,14 +525,25 @@ export function PlaceAddModal({
           {/* Category Selection */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              🏷️ 카테고리
+              🏷️ 카테고리 <span className="text-red-500">*</span>
             </label>
             <div className="relative" ref={categoryDropdownRef}>
               <button
                 type="button"
-                onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                onClick={() => {
+                  setShowCategoryDropdown(!showCategoryDropdown);
+                  // Clear validation error when user interacts
+                  if (validationErrors.category) {
+                    setValidationErrors(prev => {
+                      const { category, ...rest } = prev;
+                      return rest;
+                    });
+                  }
+                }}
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-background border border-input rounded-lg hover:bg-muted transition-colors flex items-center justify-between disabled:opacity-50"
+                className={`w-full px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors flex items-center justify-between disabled:opacity-50 ${
+                  validationErrors.category ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-input'
+                }`}
               >
                 <div className="flex items-center gap-2">
                   <CategoryIcon className="w-5 h-5 text-muted-foreground" />
@@ -458,6 +567,13 @@ export function PlaceAddModal({
                         onClick={() => {
                           setCategory(cat.value);
                           setShowCategoryDropdown(false);
+                          // Clear validation error
+                          if (validationErrors.category) {
+                            setValidationErrors(prev => {
+                              const { category, ...rest } = prev;
+                              return rest;
+                            });
+                          }
                         }}
                         className={`w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-3 ${
                           category === cat.value ? 'bg-primary/10 text-primary' : ''
@@ -471,6 +587,9 @@ export function PlaceAddModal({
                 </div>
               )}
             </div>
+            {validationErrors.category && (
+              <p className="text-sm text-red-500 mt-1">{validationErrors.category}</p>
+            )}
           </div>
 
           {/* Custom Name */}
@@ -481,16 +600,34 @@ export function PlaceAddModal({
             <Input
               type="text"
               value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
+              onChange={(e) => {
+                setCustomName(e.target.value);
+                // Clear validation error when user types
+                if (validationErrors.customName) {
+                  setValidationErrors(prev => {
+                    const { customName, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
               onKeyDown={handleKeyDown}
               placeholder="예: 우리 단골 카페, 야경 명소"
               maxLength={100}
               disabled={isSubmitting}
               fullWidth
+              className={validationErrors.customName ? 'border-red-500 focus:ring-2 focus:ring-red-500' : ''}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              자신만의 이름으로 장소를 구분할 수 있습니다
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-muted-foreground">
+                자신만의 이름으로 장소를 구분할 수 있습니다
+              </p>
+              <p className={`text-xs ${customName.length > 100 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                {customName.length}/100
+              </p>
+            </div>
+            {validationErrors.customName && (
+              <p className="text-sm text-red-500 mt-1">{validationErrors.customName}</p>
+            )}
           </div>
 
           {/* Labels */}
@@ -565,7 +702,16 @@ export function PlaceAddModal({
             </label>
             <textarea
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => {
+                setNote(e.target.value);
+                // Clear validation error when user types
+                if (validationErrors.note) {
+                  setValidationErrors(prev => {
+                    const { note, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
               onKeyDown={(e) => {
                 // Allow Shift+Enter for line breaks, but prevent Enter alone from submitting
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -576,14 +722,21 @@ export function PlaceAddModal({
               maxLength={2000}
               rows={4}
               disabled={isSubmitting}
-              className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50 ${
+                validationErrors.note ? 'border-red-500' : 'border-input'
+              }`}
             />
             <div className="flex items-center justify-between mt-1">
               <p className="text-xs text-muted-foreground">
                 방문 계획, 추천 이유 등을 기록하세요
               </p>
-              <p className="text-xs text-muted-foreground">{note.length}/2000</p>
+              <p className={`text-xs ${note.length > 2000 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                {note.length}/2000
+              </p>
             </div>
+            {validationErrors.note && (
+              <p className="text-sm text-red-500 mt-1">{validationErrors.note}</p>
+            )}
           </div>
 
           {/* List Selection */}

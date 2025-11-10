@@ -53,6 +53,7 @@ export function ManualPlaceAddModal({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const modalRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -87,6 +88,7 @@ export function ManualPlaceAddModal({
       setShowCategoryDropdown(false);
       setHasUnsavedChanges(false);
       setShowCloseConfirm(false);
+      setValidationErrors({});
 
       // Auto-fill address using Google Maps Reverse Geocoding
       performReverseGeocode(initialLocation.lat, initialLocation.lng);
@@ -107,6 +109,7 @@ export function ManualPlaceAddModal({
       setShowCategoryDropdown(false);
       setHasUnsavedChanges(false);
       setShowCloseConfirm(false);
+      setValidationErrors({});
     }
   }, [isOpen, initialLocation]);
 
@@ -275,22 +278,73 @@ export function ManualPlaceAddModal({
     }
   };
 
+  // Validation function
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Validate name
+    if (!formData.name.trim()) {
+      errors.name = '장소 이름을 입력해주세요.';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = '장소 이름은 2자 이상 입력해주세요.';
+    } else if (formData.name.trim().length > 100) {
+      errors.name = '장소 이름은 100자 이하로 입력해주세요.';
+    }
+
+    // Validate address
+    if (!formData.address.trim()) {
+      errors.address = '주소를 입력해주세요.';
+    } else if (formData.address.trim().length < 5) {
+      errors.address = '주소는 5자 이상 입력해주세요.';
+    } else if (formData.address.trim().length > 200) {
+      errors.address = '주소는 200자 이하로 입력해주세요.';
+    }
+
+    // Validate coordinates
+    if (typeof formData.latitude !== 'number' || isNaN(formData.latitude)) {
+      errors.latitude = '유효한 위도 값을 입력해주세요.';
+    } else if (formData.latitude < -90 || formData.latitude > 90) {
+      errors.latitude = '위도는 -90에서 90 사이의 값이어야 합니다.';
+    }
+
+    if (typeof formData.longitude !== 'number' || isNaN(formData.longitude)) {
+      errors.longitude = '유효한 경도 값을 입력해주세요.';
+    } else if (formData.longitude < -180 || formData.longitude > 180) {
+      errors.longitude = '경도는 -180에서 180 사이의 값이어야 합니다.';
+    }
+
+    // Validate phone if provided
+    if (formData.phone && formData.phone.trim()) {
+      const phoneRegex = /^[0-9+\-()\s]+$/;
+      if (!phoneRegex.test(formData.phone.trim())) {
+        errors.phone = '유효한 전화번호를 입력해주세요.';
+      }
+    }
+
+    // Validate description if provided
+    if (formData.description && formData.description.trim().length > 1000) {
+      errors.description = '설명은 1000자 이하로 입력해주세요.';
+    }
+
+    // Validate external URL if provided
+    if (formData.externalUrl && formData.externalUrl.trim()) {
+      try {
+        new URL(formData.externalUrl.trim());
+      } catch {
+        errors.externalUrl = '유효한 URL을 입력해주세요.';
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (!formData.name.trim()) {
-      toast.error('장소 이름을 입력해주세요');
-      return;
-    }
-
-    if (!formData.address.trim()) {
-      toast.error('주소를 입력해주세요');
-      return;
-    }
-
-    if (!formData.latitude || !formData.longitude) {
-      toast.error('유효한 좌표를 입력해주세요');
+    // Validate form before submission
+    if (!validateForm()) {
+      toast.error('입력 정보를 확인해주세요.');
       return;
     }
 
@@ -305,7 +359,14 @@ export function ManualPlaceAddModal({
       externalId: formData.externalId?.trim() || undefined,
     };
 
-    await onConfirm(data);
+    try {
+      await onConfirm(data);
+      // Reset validation errors on success
+      setValidationErrors({});
+    } catch (error) {
+      // Don't reset validation errors on API failure
+      console.error('Place creation failed:', error);
+    }
   };
 
   if (!isOpen) return null;
@@ -382,14 +443,35 @@ export function ManualPlaceAddModal({
               <Input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  // Clear validation error when user types
+                  if (validationErrors.name) {
+                    setValidationErrors(prev => {
+                      const { name, ...rest } = prev;
+                      return rest;
+                    });
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="예: 맛있는 식당, 아름다운 공원"
                 maxLength={100}
                 disabled={isSubmitting}
                 required
                 fullWidth
+                className={validationErrors.name ? 'border-red-500 focus:ring-2 focus:ring-red-500' : ''}
               />
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">
+                  장소의 이름을 입력해주세요
+                </p>
+                <p className={`text-xs ${formData.name.length > 100 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {formData.name.length}/100
+                </p>
+              </div>
+              {validationErrors.name && (
+                <p className="text-sm text-red-500 mt-1">{validationErrors.name}</p>
+              )}
             </div>
 
             {/* Address */}
@@ -401,13 +483,23 @@ export function ManualPlaceAddModal({
                 <Input
                   type="text"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, address: e.target.value });
+                    // Clear validation error when user types
+                    if (validationErrors.address) {
+                      setValidationErrors(prev => {
+                        const { address, ...rest } = prev;
+                        return rest;
+                      });
+                    }
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={isLoadingAddress ? '주소 조회 중...' : '주소를 입력하세요'}
                   maxLength={500}
                   disabled={isSubmitting || isLoadingAddress}
                   required
                   fullWidth
+                  className={validationErrors.address ? 'border-red-500 focus:ring-2 focus:ring-red-500' : ''}
                 />
                 {isLoadingAddress && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -415,9 +507,17 @@ export function ManualPlaceAddModal({
                   </div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                위치 기반으로 자동 입력되었습니다 (수정 가능)
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">
+                  위치 기반으로 자동 입력되었습니다 (수정 가능)
+                </p>
+                <p className={`text-xs ${formData.address.length > 200 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {formData.address.length}/200
+                </p>
+              </div>
+              {validationErrors.address && (
+                <p className="text-sm text-red-500 mt-1">{validationErrors.address}</p>
+              )}
             </div>
 
             {/* Category Selection */}
@@ -478,13 +578,27 @@ export function ManualPlaceAddModal({
               <input
                 type="tel"
                 value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  // Clear validation error when user types
+                  if (validationErrors.phone) {
+                    setValidationErrors(prev => {
+                      const { phone, ...rest } = prev;
+                      return rest;
+                    });
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="예: 02-1234-5678"
                 maxLength={20}
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50 ${
+                  validationErrors.phone ? 'border-red-500' : 'border-input'
+                }`}
               />
+              {validationErrors.phone && (
+                <p className="text-sm text-red-500 mt-1">{validationErrors.phone}</p>
+              )}
             </div>
 
             {/* Description (Optional) */}
@@ -494,7 +608,16 @@ export function ManualPlaceAddModal({
               </label>
               <textarea
                 value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  // Clear validation error when user types
+                  if (validationErrors.description) {
+                    setValidationErrors(prev => {
+                      const { description, ...rest } = prev;
+                      return rest;
+                    });
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -504,43 +627,81 @@ export function ManualPlaceAddModal({
                 maxLength={2000}
                 rows={4}
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50 ${
+                  validationErrors.description ? 'border-red-500' : 'border-input'
+                }`}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formData.description?.length || 0}/2000
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">
+                  장소에 대한 추가 정보를 입력하세요
+                </p>
+                <p className={`text-xs ${(formData.description?.length || 0) > 1000 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {formData.description?.length || 0}/1000
+                </p>
+              </div>
+              {validationErrors.description && (
+                <p className="text-sm text-red-500 mt-1">{validationErrors.description}</p>
+              )}
             </div>
 
             {/* Coordinates (Read-only display) */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                🌐 좌표
+                🌐 좌표 <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.latitude}
-                  onChange={(e) =>
-                    setFormData({ ...formData, latitude: parseFloat(e.target.value) })
-                  }
-                  placeholder="위도"
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.longitude}
-                  onChange={(e) =>
-                    setFormData({ ...formData, longitude: parseFloat(e.target.value) })
-                  }
-                  placeholder="경도"
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50"
-                />
+                <div>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.latitude}
+                    onChange={(e) => {
+                      setFormData({ ...formData, latitude: parseFloat(e.target.value) });
+                      // Clear validation error when user types
+                      if (validationErrors.latitude) {
+                        setValidationErrors(prev => {
+                          const { latitude, ...rest } = prev;
+                          return rest;
+                        });
+                      }
+                    }}
+                    placeholder="위도"
+                    disabled={isSubmitting}
+                    required
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50 ${
+                      validationErrors.latitude ? 'border-red-500' : 'border-input'
+                    }`}
+                  />
+                  {validationErrors.latitude && (
+                    <p className="text-sm text-red-500 mt-1">{validationErrors.latitude}</p>
+                  )}
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.longitude}
+                    onChange={(e) => {
+                      setFormData({ ...formData, longitude: parseFloat(e.target.value) });
+                      // Clear validation error when user types
+                      if (validationErrors.longitude) {
+                        setValidationErrors(prev => {
+                          const { longitude, ...rest } = prev;
+                          return rest;
+                        });
+                      }
+                    }}
+                    placeholder="경도"
+                    disabled={isSubmitting}
+                    required
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground bg-background placeholder:text-muted-foreground disabled:opacity-50 ${
+                      validationErrors.longitude ? 'border-red-500' : 'border-input'
+                    }`}
+                  />
+                  {validationErrors.longitude && (
+                    <p className="text-sm text-red-500 mt-1">{validationErrors.longitude}</p>
+                  )}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 클릭한 위치의 좌표입니다
