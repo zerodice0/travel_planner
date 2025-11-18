@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Search, MapPin, Navigation, Menu, Plus, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { HTTPError } from 'ky';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
@@ -29,12 +31,11 @@ import PlaceListSidebar from '#components/map/PlaceListSidebar';
 import { MapZoomControl } from '#components/map/MapZoomControl';
 import { MapTypeControl } from '#components/map/MapTypeControl';
 import AppLayout from '#components/layout/AppLayout';
-import { placesApi, publicPlacesApi, listsApi } from '#lib/api';
 import { useMapProvider } from '#contexts/MapProviderContext';
 import type { Place, CreatePlaceData } from '#types/place';
-import type { PublicPlace, CreatePublicPlaceData } from '#types/publicPlace';
+import type { CreatePublicPlaceData } from '#types/publicPlace';
 import type { BaseMarkerManager, SearchResult } from '#types/map';
-import type { List, ListPlaceItem } from '#types/list';
+import type { List } from '#types/list';
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // Seoul City Hall
 
@@ -45,17 +46,49 @@ export default function MapPage() {
   // 탭 상태 (탐색/내 장소)
   const [activeTab, setActiveTab] = useState<PlaceViewTab>('explore');
 
-  // 장소 상태 (탭별로 분리)
-  const [places, setPlaces] = useState<Place[]>([]); // 내 장소
-  const [publicPlaces, setPublicPlaces] = useState<PublicPlace[]>([]); // 공개 장소
-
   // 목록 상태
-  const [lists, setLists] = useState<List[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
-
+  const [selectedListId, setSelectedListId] = useState<Id<"lists"> | null>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>(''); // 단일 선택으로 변경
+
+  // ==================== Convex Queries ====================
+
+  // 공개 장소 조회 (탐색 탭)
+  const publicPlacesData = useQuery(
+    api.places.listPublicPlaces,
+    activeTab === 'explore'
+      ? { limit: 100, category: selectedCategory || undefined }
+      : 'skip'
+  );
+
+  // 내 장소 조회 (내 장소 탭 - 전체 또는 특정 목록)
+  const myPlacesData = useQuery(
+    api.places.listMyPlaces,
+    activeTab === 'my-places' && isAuthenticated && !selectedListId
+      ? {}
+      : 'skip'
+  );
+
+  // 선택된 목록의 장소 조회
+  const selectedListData = useQuery(
+    api.lists.getListWithPlaces,
+    activeTab === 'my-places' && isAuthenticated && selectedListId
+      ? { listId: selectedListId }
+      : 'skip'
+  );
+
+  // 내 목록 조회
+  const listsData = useQuery(
+    api.lists.myLists,
+    isAuthenticated ? {} : 'skip'
+  );
+
+  // ==================== Convex Mutations ====================
+
+  const addPlaceMutation = useMutation(api.places.addPlace);
+  const deletePlaceMutation = useMutation(api.places.deleteMyPlace);
+  const addPlaceToListMutation = useMutation(api.lists.addPlaceToList);
   const [currentLocation, setCurrentLocation] = useState<{
     lat: number;
     lng: number;
@@ -84,21 +117,22 @@ export default function MapPage() {
   const [showEmptyNotice, setShowEmptyNotice] = useState(true);
   const [toolbarHeight, setToolbarHeight] = useState(176); // 동적으로 계산될 상단 툴바 높이 (검색바 + 탭 + 카테고리 필터)
 
-  // WP05: Duplicate validation and rate limit
-  const [duplicateWarning, setDuplicateWarning] = useState<Array<{
-    id: string;
-    name: string;
-    address: string;
-    distance: number;
-    similarity: number;
-  }>>([]);
-  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
-  const [pendingPlaceData, setPendingPlaceData] = useState<CreatePublicPlaceData | null>(null);
-  const [rateLimitStatus, setRateLimitStatus] = useState<{
-    limit: number;
-    used: number;
-    remaining: number;
-  }>({ limit: 5, used: 0, remaining: 5 });
+  // WP05: Duplicate validation (향후 Convex로 마이그레이션 예정)
+  // const [duplicateWarning, setDuplicateWarning] = useState<Array<{
+  //   id: string;
+  //   name: string;
+  //   address: string;
+  //   distance: number;
+  //   similarity: number;
+  // }>>([]);
+  // const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+  // const [pendingPlaceData, setPendingPlaceData] = useState<CreatePublicPlaceData | null>(null);
+  // Rate limit은 향후 Convex로 마이그레이션 예정
+  // const [rateLimitStatus, setRateLimitStatus] = useState<{
+  //   limit: number;
+  //   used: number;
+  //   remaining: number;
+  // }>({ limit: 5, used: 0, remaining: 5 });
 
   // WP05 T026: Add Place Mode
   const [isAddPlaceMode, setIsAddPlaceMode] = useState(false);
@@ -236,12 +270,13 @@ export default function MapPage() {
     }
   }, [map, isLoaded, getMapType]);
 
-  // Re-render markers when places or category change
+  // Re-render markers when places or category change (displayPlaces는 하단에서 정의됨)
   useEffect(() => {
     if (markerManagerRef.current && isLoaded) {
       renderPlaceMarkers();
     }
-  }, [places, selectedCategory, isLoaded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicPlaces, myPlaces, selectedCategory, isLoaded]);
 
   // Track viewport bounds for place filtering
   useEffect(() => {
@@ -447,87 +482,87 @@ export default function MapPage() {
     };
   }, [map, isLoaded, isAuthenticated, activeTab, user, isAddPlaceMode]);
 
-  const loadPlaces = useCallback(async () => {
-    try {
-      if (activeTab === 'explore') {
-        // 공개 장소 로드
-        const data = await publicPlacesApi.getAll({
-          limit: 100,
-          category: selectedCategory || undefined
-        });
-        setPublicPlaces(data.places);
-      } else {
-        // 내 목록 탭 - 인증된 사용자만
-        if (isAuthenticated) {
-          if (selectedListId) {
-            // 선택된 목록의 장소만 로드
-            const data = await listsApi.getPlaces(selectedListId);
-            // ListPlaceItem을 Place로 변환
-            const placesData: Place[] = data.places.map((item: ListPlaceItem) => ({
-              id: item.id,
-              name: item.name,
-              address: item.address,
-              category: item.category,
-              latitude: item.latitude,
-              longitude: item.longitude,
-              visited: item.visited,
-              createdAt: new Date().toISOString(), // API에서 제공하지 않으므로 임시값
-            }));
-            setPlaces(placesData);
-          } else {
-            // 전체 장소 로드
-            const data = await placesApi.getAll();
-            setPlaces(data.places);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load places:', error);
-      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
-      if (error instanceof HTTPError && error.response.status === 401) {
-        return;
-      }
-      toast.error('장소 목록을 불러오는데 실패했습니다');
+  // ==================== 데이터 변환 (Convex → UI 형식) ====================
+
+  // 공개 장소를 Place 타입으로 변환
+  const publicPlaces = useMemo<Place[]>(() => {
+    if (!publicPlacesData) return [];
+    return publicPlacesData.map((p: any): Place => ({
+      id: p._id,
+      name: p.name,
+      address: p.address,
+      phone: p.phone,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      category: p.category,
+      description: p.description,
+      externalUrl: p.externalUrl,
+      externalId: p.externalId,
+      visited: false, // 공개 장소는 방문 여부 없음
+      createdAt: new Date(p.createdAt).toISOString(),
+    }));
+  }, [publicPlacesData]);
+
+  // 내 장소를 Place 타입으로 변환
+  const myPlaces = useMemo<Place[]>(() => {
+    if (selectedListData) {
+      // 선택된 목록의 장소
+      return selectedListData.places
+        .filter((p: any) => p.place && p.userPlace)
+        .map((p: any): Place => ({
+          id: p.userPlace!._id,
+          name: p.userPlace!.customName || p.place!.name,
+          address: p.place!.address,
+          phone: p.place!.phone,
+          latitude: p.place!.latitude,
+          longitude: p.place!.longitude,
+          category: p.place!.category,
+          description: p.place!.description,
+          externalUrl: p.place!.externalUrl,
+          externalId: p.place!.externalId,
+          visited: p.userPlace!.visited,
+          createdAt: new Date(p.userPlace!.createdAt).toISOString(),
+        }));
+    } else if (myPlacesData) {
+      // 전체 내 장소
+      return myPlacesData
+        .filter((up: any) => up.place)
+        .map((up: any): Place => ({
+          id: up._id,
+          name: up.customName || up.place!.name,
+          address: up.place!.address,
+          phone: up.place!.phone,
+          latitude: up.place!.latitude,
+          longitude: up.place!.longitude,
+          category: up.place!.category,
+          description: up.place!.description,
+          externalUrl: up.place!.externalUrl,
+          externalId: up.place!.externalId,
+          visited: up.visited,
+          createdAt: new Date(up.createdAt).toISOString(),
+        }));
     }
-  }, [activeTab, selectedCategory, selectedListId, isAuthenticated]);
+    return [];
+  }, [myPlacesData, selectedListData]);
 
-  // Load places when tab, category, or authentication status changes
+  // 목록 데이터를 List 타입으로 변환
+  const lists = useMemo<List[]>(() => {
+    if (!listsData) return [];
+    return listsData.map((list: any): List => ({
+      id: list._id,
+      name: list.name,
+      description: list.description,
+      isPublic: list.isPublic,
+      itemCount: list.itemCount,
+      createdAt: new Date(list.createdAt).toISOString(),
+      updatedAt: new Date(list.updatedAt).toISOString(),
+    }));
+  }, [listsData]);
+
+  // placesRef 업데이트 (검색에 사용)
   useEffect(() => {
-    loadPlaces();
-  }, [loadPlaces]);
-
-  // Update placesRef when places change
-  useEffect(() => {
-    placesRef.current = places;
-  }, [places]);
-
-  // Load lists for authenticated users (needed for both tabs)
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadLists();
-    }
-  }, [isAuthenticated]);
-
-  // WP05: Load rate limit status for authenticated users
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchRateLimitStatus();
-    }
-  }, [isAuthenticated]);
-
-  const loadLists = async () => {
-    try {
-      const data = await listsApi.getAll({ sort: 'updatedAt' });
-      setLists(data.lists);
-    } catch (error) {
-      console.error('Failed to load lists:', error);
-      // 401 에러는 tokenExpiredEvent가 처리하므로 토스트 제외
-      if (error instanceof HTTPError && error.response.status === 401) {
-        return;
-      }
-      toast.error('목록을 불러오는데 실패했습니다');
-    }
-  };
+    placesRef.current = activeTab === 'explore' ? publicPlaces : myPlaces;
+  }, [activeTab, publicPlaces, myPlaces]);
 
   const getCurrentPosition = async (showToast = false) => {
     if (!navigator.geolocation) {
@@ -677,7 +712,7 @@ export default function MapPage() {
     func: T,
     delay: number,
   ): ((...args: Parameters<T>) => void) => {
-    let timeoutId: number;
+    let timeoutId: ReturnType<typeof setTimeout>;
     return (...args: Parameters<T>) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => func(...args), delay);
@@ -767,15 +802,31 @@ export default function MapPage() {
         return;
       }
 
-      // Add to my places (automatically creates public place if needed)
-      const newPlace = await placesApi.create(data);
+      // Convex mutation으로 장소 추가
+      const result = await addPlaceMutation({
+        name: data.name,
+        address: data.address,
+        phone: data.phone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        category: data.category,
+        description: data.description,
+        externalUrl: data.externalUrl,
+        externalId: data.externalId,
+        customName: data.customName,
+        labels: data.labels,
+        // memo는 CreatePlaceData에 없으므로 제거
+      });
 
       // Add to selected lists if any
       const displayName = data.customName || data.name;
       if (selectedListIds && selectedListIds.length > 0) {
         await Promise.all(
           selectedListIds.map(listId =>
-            listsApi.addPlaces(listId, [newPlace.id])
+            addPlaceToListMutation({
+              listId: listId as Id<"lists">,
+              userPlaceId: result.userPlaceId,
+            })
           )
         );
         toast.success(
@@ -792,15 +843,12 @@ export default function MapPage() {
       setSearchKeyword('');
       setSelectedSearchResultId(null);
       removeTempMarker();
-      // Phase 1: removePOIMarker() removed - no longer needed as POI clicks are disabled
 
-      // Add marker immediately (don't wait for state update)
-      if (markerManagerRef.current && activeTab === 'my-places') {
-        await markerManagerRef.current.addMarker(newPlace);
-      }
+      // Convex가 자동으로 데이터를 업데이트하므로 수동 reload 불필요
+      // 마커는 useEffect에서 자동으로 다시 렌더링됨
 
       // Navigate to the new place on map
-      if (newPlace && markerManagerRef.current) {
+      if (markerManagerRef.current) {
         markerManagerRef.current.panTo(latitude, longitude);
 
         // Adjust for sidebar if visible on desktop
@@ -817,30 +865,20 @@ export default function MapPage() {
         // Set zoom level for better view
         markerManagerRef.current.setZoom(17);
 
-        // Show InfoWindow immediately (marker already exists)
-        markerManagerRef.current.showInfoWindow(newPlace.id);
-        setSelectedPlaceId(newPlace.id);
+        // Show InfoWindow (userPlaceId를 문자열로 변환)
+        const userPlaceIdStr = result.userPlaceId;
+        setSelectedPlaceId(userPlaceIdStr);
+        // 마커가 렌더링될 때까지 대기
+        setTimeout(() => {
+          markerManagerRef.current?.showInfoWindow(userPlaceIdStr);
+        }, 300);
       }
-
-      // Reload places in background for list synchronization
-      loadPlaces();
     } catch (error: unknown) {
       console.error('Failed to add place:', error);
 
-      // Type-safe error handling
+      // Convex 에러 처리
       if (error instanceof Error) {
         toast.error(`장소 추가 실패: ${error.message}`);
-      } else if (typeof error === 'object' && error !== null) {
-        // Type guard for API error structure
-        const apiError = error as { response?: { data?: { message?: string | string[] } } };
-        if (apiError.response?.data?.message) {
-          const errorMessage = Array.isArray(apiError.response.data.message)
-            ? apiError.response.data.message.join(', ')
-            : apiError.response.data.message;
-          toast.error(`장소 추가 실패: ${errorMessage}`);
-        } else {
-          toast.error('장소 추가에 실패했습니다');
-        }
       } else {
         toast.error('장소 추가에 실패했습니다');
       }
@@ -1031,7 +1069,10 @@ export default function MapPage() {
 
     setIsDeleting(true);
     try {
-      await placesApi.delete(placeToDelete.id);
+      // Convex mutation으로 장소 삭제 (userPlaceId 사용)
+      await deletePlaceMutation({
+        userPlaceId: placeToDelete.id as Id<"userPlaces">,
+      });
       toast.success('장소가 삭제되었습니다');
 
       // 삭제된 장소가 선택되어 있었다면 선택 해제
@@ -1043,11 +1084,15 @@ export default function MapPage() {
       setIsDeleteDialogOpen(false);
       setPlaceToDelete(null);
 
-      // 목록 새로고침 (마커도 자동으로 다시 렌더링됨)
-      await loadPlaces();
+      // Convex가 자동으로 데이터를 업데이트하므로 수동 reload 불필요
+      // 마커는 useEffect에서 자동으로 다시 렌더링됨
     } catch (error) {
       console.error('Failed to delete place:', error);
-      toast.error('장소 삭제에 실패했습니다');
+      if (error instanceof Error) {
+        toast.error(`장소 삭제 실패: ${error.message}`);
+      } else {
+        toast.error('장소 삭제에 실패했습니다');
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -1058,19 +1103,11 @@ export default function MapPage() {
     setPlaceToDelete(null);
   };
 
-  // WP05: Fetch rate limit status
-  const fetchRateLimitStatus = async () => {
-    if (!isAuthenticated) return;
-
-    try {
-      const status = await placesApi.getRateLimitStatus();
-      setRateLimitStatus(status);
-    } catch (error) {
-      console.error('Failed to fetch rate limit status:', error);
-    }
-  };
+  // WP05: Rate limit은 아직 Convex로 마이그레이션되지 않음
+  // TODO: Convex에 rate limit 기능 추가 필요
 
   // Manual Place Add Handlers (WP05: with duplicate validation)
+  // TODO: 공개 장소 생성 API를 Convex로 마이그레이션 필요
   const handleManualPlaceAdd = async (data: CreatePublicPlaceData) => {
     setIsAddingPlace(true);
     try {
@@ -1093,52 +1130,48 @@ export default function MapPage() {
         return;
       }
 
-      // WP05: Check for duplicates (only for user-generated places without externalId)
-      if (!data.externalId) {
-        const dupCheck = await placesApi.validateDuplicate({
-          name: data.name,
-          latitude,
-          longitude,
-        });
+      // Convex mutation으로 직접 내 장소에 추가
+      // 공개 장소 생성 로직은 백엔드에서 자동 처리
+      await addPlaceMutation({
+        name: data.name,
+        address: data.address,
+        phone: data.phone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        category: data.category,
+        description: data.description,
+        externalUrl: data.externalUrl,
+        externalId: data.externalId,
+      });
 
-        if (dupCheck.hasDuplicates) {
-          // Show duplicate warning dialog
-          setDuplicateWarning(dupCheck.duplicates);
-          setPendingPlaceData(data);
-          setIsDuplicateDialogOpen(true);
-          return; // Wait for user decision
+      toast.success(`✨ "${data.name}"이(가) 내 장소에 추가되었습니다`);
+
+      // Close modal
+      setShowManualAddModal(false);
+      setManualAddLocation(null);
+
+      // Navigate to the new place on map
+      if (markerManagerRef.current) {
+        markerManagerRef.current.panTo(latitude, longitude);
+
+        // Adjust for sidebar if visible on desktop
+        const isDesktop = window.innerWidth >= 768;
+        if (isPlaceListVisible && isDesktop) {
+          const SIDEBAR_WIDTH = 320;
+          const offsetX = SIDEBAR_WIDTH / 2;
+          const googleMap = map as google.maps.Map;
+          if (googleMap && googleMap.panBy) {
+            setTimeout(() => googleMap.panBy(-offsetX, 0), 100);
+          }
         }
-      }
 
-      // No duplicates or user-generated, proceed with creation
-      await createPlaceDirectly(data);
+        // Set zoom level for better view
+        markerManagerRef.current.setZoom(17);
+      }
     } catch (error: unknown) {
       console.error('Failed to add place:', error);
 
-      if (error instanceof HTTPError) {
-        const errorData = await error.response.json();
-
-        // WP05: Handle specific error codes
-        if (error.response.status === 400) {
-          const errorMessage = Array.isArray(errorData.message)
-            ? errorData.message.join(', ')
-            : errorData.message || '입력 정보가 올바르지 않습니다';
-          toast.error(`입력 오류: ${errorMessage}`);
-        } else if (error.response.status === 409) {
-          // Duplicate error from backend
-          setDuplicateWarning(errorData.duplicates || []);
-          setPendingPlaceData(data);
-          setIsDuplicateDialogOpen(true);
-        } else if (error.response.status === 429) {
-          // Rate limit exceeded
-          toast.error(`일일 추가 한도 초과 (${errorData.used || 0}/${errorData.limit || 5})`);
-        } else {
-          const errorMessage = Array.isArray(errorData.message)
-            ? errorData.message.join(', ')
-            : errorData.message || '장소 추가에 실패했습니다';
-          toast.error(`장소 추가 실패: ${errorMessage}`);
-        }
-      } else if (error instanceof Error) {
+      if (error instanceof Error) {
         toast.error(`장소 추가 실패: ${error.message}`);
       } else {
         toast.error('장소 추가에 실패했습니다');
@@ -1148,84 +1181,8 @@ export default function MapPage() {
     }
   };
 
-  // WP05: Create place directly (after validation or user override)
-  const createPlaceDirectly = async (data: CreatePublicPlaceData) => {
-    const latitude = Number(data.latitude);
-    const longitude = Number(data.longitude);
-
-    // Create public place first
-    await publicPlacesApi.create(data);
-
-    // Then add to my places
-    const createData: CreatePlaceData = {
-      name: data.name,
-      address: data.address,
-      phone: data.phone,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      category: data.category,
-      description: data.description,
-      externalUrl: data.externalUrl,
-      externalId: data.externalId,
-    };
-
-    const newPlace = await placesApi.create(createData);
-
-    toast.success(`✨ "${data.name}"이(가) 내 장소에 추가되었습니다. 검토 후 승인됩니다.`);
-
-    // Close modals
-    setShowManualAddModal(false);
-    setManualAddLocation(null);
-    setIsDuplicateDialogOpen(false);
-    setPendingPlaceData(null);
-
-    // Add marker immediately
-    if (markerManagerRef.current && activeTab === 'my-places') {
-      await markerManagerRef.current.addMarker(newPlace);
-    }
-
-    // Navigate to the new place on map
-    if (newPlace && markerManagerRef.current) {
-      markerManagerRef.current.panTo(latitude, longitude);
-
-      // Adjust for sidebar if visible on desktop
-      const isDesktop = window.innerWidth >= 768;
-      if (isPlaceListVisible && isDesktop) {
-        const SIDEBAR_WIDTH = 320;
-        const offsetX = SIDEBAR_WIDTH / 2;
-        const googleMap = map as google.maps.Map;
-        if (googleMap && googleMap.panBy) {
-          setTimeout(() => googleMap.panBy(-offsetX, 0), 100);
-        }
-      }
-
-      // Set zoom level for better view
-      markerManagerRef.current.setZoom(17);
-
-      // Show InfoWindow immediately
-      markerManagerRef.current.showInfoWindow(newPlace.id);
-      setSelectedPlaceId(newPlace.id);
-    }
-
-    // Reload places and rate limit status
-    loadPlaces();
-    fetchRateLimitStatus();
-  };
-
-  // WP05: Handle "Add Anyway" in duplicate warning dialog
-  const handleAddAnyway = async () => {
-    if (!pendingPlaceData) return;
-
-    setIsAddingPlace(true);
-    try {
-      await createPlaceDirectly(pendingPlaceData);
-    } catch (error: unknown) {
-      console.error('Failed to add place:', error);
-      toast.error('장소 추가에 실패했습니다');
-    } finally {
-      setIsAddingPlace(false);
-    }
-  };
+  // WP05: 중복 검증 및 직접 생성 기능은 향후 Convex로 마이그레이션 예정
+  // 현재는 간단히 addPlaceMutation만 사용
 
   const handleCloseManualAddModal = () => {
     setShowManualAddModal(false);
@@ -1251,10 +1208,7 @@ export default function MapPage() {
     setShowEmptyNotice(true); // Empty notice 다시 표시
     removeTempMarker();
 
-    // 탭별로 장소 다시 로드
-    setTimeout(() => {
-      loadPlaces();
-    }, 0);
+    // Convex useQuery가 자동으로 데이터를 업데이트하므로 수동 로드 불필요
   };
 
   const handleLoginRequired = () => {
@@ -1306,11 +1260,10 @@ export default function MapPage() {
   // Calculate display places based on active tab
   const displayPlaces = useMemo((): Place[] => {
     if (activeTab === 'explore') {
-      // PublicPlace를 Place로 변환 (공통 필드만 사용)
-      return publicPlaces.map(p => p as unknown as Place);
+      return publicPlaces;
     }
-    return places;
-  }, [activeTab, publicPlaces, places]);
+    return myPlaces;
+  }, [activeTab, publicPlaces, myPlaces]);
 
   // Calculate filtered places
   const filteredPlaces = useMemo(() => {
@@ -1433,8 +1386,8 @@ export default function MapPage() {
             onLoginRequired={handleLoginRequired}
           />
 
-          {/* WP05: Rate Limit Indicator */}
-          {isAuthenticated && (
+          {/* WP05: Rate Limit Indicator - TODO: Convex 마이그레이션 후 활성화 */}
+          {/* {isAuthenticated && (
             <div className="px-4 py-2 bg-blue-50 border-y border-blue-200">
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-blue-700">
@@ -1452,7 +1405,7 @@ export default function MapPage() {
                 )}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Category Filter Tabs */}
           <CategoryFilter
@@ -1799,16 +1752,16 @@ export default function MapPage() {
           />
         )}
 
-        {/* WP05: Duplicate Warning Dialog */}
-        <DuplicateWarningDialog
+        {/* WP05: Duplicate Warning Dialog - TODO: Convex 마이그레이션 후 활성화 */}
+        {/* <DuplicateWarningDialog
           isOpen={isDuplicateDialogOpen}
           onClose={() => {
             setIsDuplicateDialogOpen(false);
             setPendingPlaceData(null);
           }}
-          onAddAnyway={handleAddAnyway}
+          onAddAnyway={() => {}}
           duplicates={duplicateWarning}
-        />
+        /> */}
       </div>
     </AppLayout>
   );

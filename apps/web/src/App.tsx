@@ -1,20 +1,11 @@
-import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from '#contexts/AuthContext';
 import { MapProviderProvider } from '#contexts/MapProviderContext';
 import { ThemeProvider } from '#contexts/ThemeContext';
 import ProtectedRoute from '#components/ProtectedRoute';
 import AdminRoute from '#components/AdminRoute';
-import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
-import { emailVerificationRequiredEvent } from '#lib/api';
 import LoginPage from '#pages/LoginPage';
 import SignupPage from '#pages/SignupPage';
-import GoogleSignupPage from '#pages/GoogleSignupPage';
-import AuthCallbackPage from '#pages/AuthCallbackPage';
-import EmailVerificationPage from '#pages/EmailVerificationPage';
-import ForgotPasswordPage from '#pages/ForgotPasswordPage';
-import ResetPasswordPage from '#pages/ResetPasswordPage';
 import ExplorePage from '#pages/ExplorePage';
 import PublicPlaceDetailPage from '#pages/PublicPlaceDetailPage';
 import StatsPage from '#pages/StatsPage';
@@ -28,62 +19,40 @@ import SettingsPage from '#pages/SettingsPage';
 import ProfileEditPage from '#pages/ProfileEditPage';
 import AdminModerationPage from '#pages/AdminModerationPage';
 
-// EmailVerificationModalWrapper to access user from AuthContext
-function EmailVerificationModalWrapper({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { user } = useAuth();
-
-  if (!user) return null;
-
-  return (
-    <EmailVerificationRequiredModal
-      isOpen={isOpen}
-      onClose={onClose}
-      userEmail={user.email}
-    />
-  );
-}
-
-// RootRedirect removed - HomePage now handles both authenticated and unauthenticated users
-
+/**
+ * App Component - Main application router with Clerk authentication
+ *
+ * Purpose: Configure application routing and global providers
+ * Uses Clerk for authentication (ClerkProvider configured in main.tsx)
+ *
+ * Key Changes from Legacy Auth:
+ * - Removed AuthProvider (replaced by Clerk's ClerkProvider in main.tsx)
+ * - Removed custom auth routes (Google signup, email verification, password reset)
+ * - Clerk handles all authentication flows internally
+ * - ProtectedRoute and AdminRoute now use Clerk's SignedIn/SignedOut components
+ */
 function App() {
-  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
-
-  useEffect(() => {
-    const handleEmailVerificationRequired = () => {
-      setShowEmailVerificationModal(true);
-    };
-
-    emailVerificationRequiredEvent.addEventListener('required', handleEmailVerificationRequired);
-
-    return () => {
-      emailVerificationRequiredEvent.removeEventListener('required', handleEmailVerificationRequired);
-    };
-  }, []);
-
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <MapProviderProvider>
-            <Toaster position="top-center" />
-            <EmailVerificationModalWrapper
-              isOpen={showEmailVerificationModal}
-              onClose={() => setShowEmailVerificationModal(false)}
-            />
-            <div className="min-h-screen bg-background">
+        <MapProviderProvider>
+          <Toaster position="top-center" />
+          <div className="min-h-screen bg-background">
             <Routes>
               {/* Splash/Onboarding redirects (deprecated) */}
               <Route path="/splash" element={<Navigate to="/explore" replace />} />
               <Route path="/onboarding" element={<Navigate to="/explore" replace />} />
 
-              {/* Auth routes */}
+              {/* Auth routes - Clerk components */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
-              <Route path="/signup/google" element={<GoogleSignupPage />} />
-              <Route path="/auth/callback" element={<AuthCallbackPage />} />
-              <Route path="/verify-email" element={<EmailVerificationPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+              {/* Legacy auth routes - redirect to Clerk equivalents */}
+              <Route path="/signup/google" element={<Navigate to="/signup" replace />} />
+              <Route path="/auth/callback" element={<Navigate to="/map" replace />} />
+              <Route path="/verify-email" element={<Navigate to="/signup" replace />} />
+              <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+              <Route path="/reset-password" element={<Navigate to="/login" replace />} />
 
               {/* Public routes */}
               <Route path="/explore" element={<ExplorePage />} />
@@ -95,6 +64,8 @@ function App() {
 
               {/* Map page (hybrid: public explore + authenticated my places) */}
               <Route path="/map" element={<MapPage />} />
+
+              {/* Protected routes - require Clerk authentication */}
               <Route
                 path="/places/:id"
                 element={
@@ -173,9 +144,8 @@ function App() {
               {/* 404 fallback - redirect to explore */}
               <Route path="*" element={<Navigate to="/explore" replace />} />
             </Routes>
-            </div>
-          </MapProviderProvider>
-        </AuthProvider>
+          </div>
+        </MapProviderProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

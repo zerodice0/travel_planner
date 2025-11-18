@@ -1,77 +1,55 @@
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '#contexts/AuthContext';
-import { LoginDialog } from '#components/LoginDialog';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '#hooks/useAuth';
 
 interface AdminRouteProps {
   children: React.ReactNode;
 }
 
 /**
- * AdminRoute
+ * AdminRoute - Clerk-based admin route protection
  *
  * Purpose: Route guard for admin-only pages
  * Use case: Protect admin moderation interface from non-admin users
  *
  * Features:
- * - Check if user is authenticated
- * - Check if user has admin privileges
- * - Redirect non-authenticated users to login
+ * - Check if user is authenticated (via Clerk)
+ * - Check if user has admin privileges (via Clerk publicMetadata)
+ * - Redirect non-authenticated users to sign-in
  * - Redirect non-admin users to home with error toast
  * - NO window.confirm usage (CLAUDE.md compliant)
  */
 export default function AdminRoute({ children }: AdminRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-          <p className="mt-2 text-muted-foreground">로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated
-  if (!isAuthenticated) {
-    return (
-      <LoginDialog
-        isOpen={true}
-        onClose={() => {
-          navigate('/explore', { replace: true });
-        }}
-        onLoginSuccess={() => {
-          // After login, auth context will update and re-render
-          // Then the admin check below will run
-        }}
-        title="로그인이 필요합니다"
-        message="관리자 페이지에 접근하려면 로그인이 필요합니다."
-      />
-    );
-  }
-
-  // Authenticated but not admin
-  if (!user?.isAdmin) {
-    // Use effect to show toast and redirect
-    useEffect(() => {
+  // Check admin status after user is loaded
+  useEffect(() => {
+    if (!isLoading && user && !user.isAdmin) {
       toast.error('관리자 권한이 필요합니다');
-      navigate('/', { replace: true });
-    }, []);
+      navigate('/explore', { replace: true });
+    }
+  }, [isLoading, user, navigate]);
 
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">권한 확인 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Authenticated and admin
-  return <>{children}</>;
+  return (
+    <>
+      <SignedIn>
+        {isLoading ? (
+          <div className="flex min-h-screen items-center justify-center">
+            <div className="text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
+              <p className="mt-2 text-muted-foreground">권한 확인 중...</p>
+            </div>
+          </div>
+        ) : user?.isAdmin ? (
+          children
+        ) : null}
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
+  );
 }
