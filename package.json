@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev": "turbo run dev --filter=@travel-planner/web",
+    "dev:convex": "npx convex dev",
+    "dev:legacy": "docker-compose -f docker-compose.dev.yml up",
     "dev:local": "turbo run dev",
     "dev:docker": "docker-compose -f docker-compose.dev.yml up",
     "dev:detached": "docker-compose -f docker-compose.dev.yml up -d",

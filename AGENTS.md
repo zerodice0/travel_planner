@@ -1,21 +1,153 @@
-# Repository Guidelines
+# Travel Planner Development Guidelines
 
-## Project Structure & Module Organization
+## 언어 요구사항 (Language Requirements)
 
-The monorepo uses pnpm workspaces. App-specific code lives under `apps`: `apps/web/src` hosts the React client (pages in `pages`, UI in `components`, shared hooks and utilities in `hooks` and `lib`), while `apps/api/src` contains the NestJS backend (feature modules per domain, Prisma access under `prisma`). Shared docs and operational notes stay in `docs`, and workspace-level configs such as `turbo.json` and `.prettierrc` live at the root. Generated build artifacts (Vite, Nest) sit in each app’s `dist` directory.
+**모든 사용자 대면 메시지, 응답, 설명은 항상 한국어로 작성해야 합니다.**
 
-## Build, Test, and Development Commands
+All user-facing messages, responses, and explanations must always be written in Korean.
 
-Run `pnpm install` once per clone. Use `pnpm dev` to start both apps via Turbo. Target a single surface with `pnpm --filter @travel-planner/web dev` for the Vite dev server or `pnpm --filter @travel-planner/api dev` for the Nest watch server. Ship-ready builds use `pnpm build`, while `pnpm --filter ... build` narrows scope. Keep linters clean with `pnpm lint`, ensure types with `pnpm typecheck`, and manage database migrations through `pnpm --filter @travel-planner/api prisma:migrate` followed by `prisma:generate` when the schema changes.
+---
 
-## Coding Style & Naming Conventions
+## Active Technologies
 
-TypeScript is required across the workspace. Prettier enforces two-space indentation, semicolons, 100-character lines, and single quotes; run it before committing or via IDE formatting on save. Follow ESLint rules defined in each app (`eslint.config.js`), keeping React components PascalCase, hooks prefixed with `use`, and Nest modules/services named `<Feature>Module` and `<Feature>Service`. Co-locate component styles using Tailwind utility classes, and avoid untyped `any` unless a TODO explains the rationale.
+- **Frontend**: React 19 + Vite + TypeScript
+- **Backend**: Convex (Serverless Backend)
+- **Authentication**: Clerk
+- **Maps**: Google Maps API
+- **Styling**: Tailwind CSS
+- **Package Manager**: pnpm
+- **Monorepo**: Turborepo
+
+## Project Structure
+
+```
+travel-planner/
+├── apps/
+│   └── web/              # React 프론트엔드
+│       ├── src/
+│       │   ├── components/  # UI 컴포넌트
+│       │   ├── pages/       # 페이지 컴포넌트
+│       │   ├── contexts/    # React Context
+│       │   ├── hooks/       # Custom Hooks
+│       │   ├── lib/         # 유틸리티 라이브러리
+│       │   ├── types/       # TypeScript 타입 정의
+│       │   └── utils/       # 헬퍼 함수
+│       └── vite.config.ts
+├── convex/               # Convex 백엔드 함수
+│   ├── _generated/
+│   ├── places.ts
+│   ├── lists.ts
+│   └── schema.ts
+├── docs/                 # 프로젝트 문서
+└── turbo.json
+```
+
+## Commands
+
+### Development
+
+- `pnpm install` - 의존성 설치
+- `pnpm dev` - 개발 서버 실행 (Turborepo)
+- `pnpm --filter @travel-planner/web dev` - 프론트엔드만 실행
+
+### Build
+
+- `pnpm build` - 전체 빌드
+- `pnpm --filter @travel-planner/web build` - 프론트엔드만 빌드
+
+### Linting & Type Checking
+
+- `pnpm lint` - ESLint 실행
+- `pnpm typecheck` - TypeScript 타입 체크
+
+### Convex
+
+- `npx convex dev` - Convex 개발 모드
+- `npx convex deploy` - Convex 배포
+
+## Code Style
+
+### TypeScript
+
+- 모든 코드는 TypeScript로 작성
+- `any` 사용 금지 (불가피한 경우 주석으로 설명)
+- Strict mode 활성화
+
+### Formatting
+
+- Prettier 사용 (2 spaces, single quotes, semicolons)
+- 저장 시 자동 포맷 권장
+
+### Naming Conventions
+
+- React 컴포넌트: PascalCase (`MapPage`, `PlaceCard`)
+- Hooks: `use` 접두사 (`useGoogleMap`, `useAuth`)
+- 파일명: 컴포넌트는 PascalCase, 유틸리티는 camelCase
+- CSS 클래스: Tailwind utility classes 사용
+
+### Import Order
+
+1. React 관련
+2. 외부 라이브러리
+3. Convex 관련
+4. 내부 컴포넌트 (`#components/...`)
+5. Contexts, Hooks, Utils (`#contexts/...`, `#hooks/...`, `#utils/...`)
+6. 타입 (`#types/...`)
+
+### Path Aliases
+
+프로젝트는 다음 path aliases를 사용합니다:
+
+- `#components/*` → `./src/components/*`
+- `#pages/*` → `./src/pages/*`
+- `#contexts/*` → `./src/contexts/*`
+- `#hooks/*` → `./src/hooks/*`
+- `#lib/*` → `./src/lib/*`
+- `#types/*` → `./src/types/*`
+- `#utils/*` → `./src/utils/*`
+- `#constants/*` → `./src/constants/*`
+- `@convex/*` → `../../convex/*`
 
 ## Testing Guidelines
 
-Add backend unit and integration specs with Jest and `@nestjs/testing`, organizing files as `*.spec.ts` beside the code under `apps/api/src`. Frontend interaction tests should rely on Vitest plus React Testing Library once introduced; place them under `apps/web/src/__tests__`. Seed data through `pnpm --filter @travel-planner/api prisma:seed` before running integration suites. Treat high-risk changes as requiring both automated coverage and manual map flow verification.
+- 단위 테스트: Vitest 사용 예정
+- 통합 테스트: React Testing Library
+- E2E 테스트: Playwright (향후 도입 예정)
+- 주요 기능 변경 시 수동 테스트 필수
 
 ## Commit & Pull Request Guidelines
 
-Match the conventional short prefix used in the history (e.g., `feat:`, `fix:`, `chore:`) followed by a concise, imperative summary; include localized context when helpful. Before opening a PR, run lint, typecheck, and relevant tests, and attach screenshots or screencasts for UI changes. Reference related issues with `Closes #id`, highlight any schema or config migrations, and request review from domain owners when touching shared modules.
+### Commit Message Format
+
+```
+<type>: <subject>
+
+<body>
+```
+
+### Types
+
+- `feat`: 새로운 기능
+- `fix`: 버그 수정
+- `refactor`: 코드 리팩토링
+- `style`: 코드 스타일 변경 (포맷, 세미콜론 등)
+- `docs`: 문서 변경
+- `test`: 테스트 추가/수정
+- `chore`: 빌드, 설정 변경
+
+### PR Checklist
+
+- [ ] Lint 통과 (`pnpm lint`)
+- [ ] Type check 통과 (`pnpm typecheck`)
+- [ ] Build 성공 (`pnpm build`)
+- [ ] UI 변경 시 스크린샷 첨부
+- [ ] Breaking changes 명시
+
+## Recent Changes
+
+- 2025-01: Convex 백엔드 마이그레이션 완료
+- 2025-01: Cloudflare Pages 배포 준비 완료
+- 2025-01: TypeScript path aliases 구성 (`@convex/*`)
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->
