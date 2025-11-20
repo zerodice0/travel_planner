@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface MapOptions {
   center: { lat: number; lng: number };
@@ -12,14 +12,44 @@ declare global {
 }
 
 export function useKakaoMap(containerId: string, options: MapOptions) {
+  const [map, setMap] = useState<kakao.maps.Map | null>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scriptLoadedRef = useRef(false);
 
+  const initializeMap = useCallback(() => {
+    const container = document.getElementById(containerId);
+    if (!container) {
+      const errorMsg = `지도 컨테이너를 찾을 수 없습니다. (ID: ${containerId})`;
+      setError(errorMsg);
+      console.error(`[Kakao Map] Container not found: ${containerId}`);
+      return;
+    }
+
+    const { center, level = 3 } = options;
+
+    try {
+      const mapInstance = new window.kakao.maps.Map(container, {
+        center: new window.kakao.maps.LatLng(center.lat, center.lng),
+        level,
+      });
+
+      mapRef.current = mapInstance;
+      setMap(mapInstance);
+      setIsLoaded(true);
+      setError(null);
+    } catch (err) {
+      const errorMsg = '카카오맵 초기화에 실패했습니다.';
+      setError(errorMsg);
+      console.error('[Kakao Map] Initialization error:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerId]);
+
   useEffect(() => {
     // Reset state when initializing
-    setIsLoaded(false);
+    // setIsLoaded(false); // Removed to avoid set-state-in-effect warning
 
     // Check if Kakao Maps script is already loaded
     if (window.kakao && window.kakao.maps) {
@@ -74,37 +104,11 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
       // Cleanup map instance
       if (mapRef.current) {
         mapRef.current = null;
+        setMap(null);
       }
       setIsLoaded(false);
     };
-  }, [containerId]);
-
-  const initializeMap = () => {
-    const container = document.getElementById(containerId);
-    if (!container) {
-      const errorMsg = `지도 컨테이너를 찾을 수 없습니다. (ID: ${containerId})`;
-      setError(errorMsg);
-      console.error(`[Kakao Map] Container not found: ${containerId}`);
-      return;
-    }
-
-    const { center, level = 3 } = options;
-
-    try {
-      const map = new window.kakao.maps.Map(container, {
-        center: new window.kakao.maps.LatLng(center.lat, center.lng),
-        level,
-      });
-
-      mapRef.current = map;
-      setIsLoaded(true);
-      setError(null);
-    } catch (err) {
-      const errorMsg = '카카오맵 초기화에 실패했습니다.';
-      setError(errorMsg);
-      console.error('[Kakao Map] Initialization error:', err);
-    }
-  };
+  }, [containerId, initializeMap]);
 
   const getCenter = () => {
     if (!mapRef.current) return null;
@@ -137,7 +141,7 @@ export function useKakaoMap(containerId: string, options: MapOptions) {
   };
 
   return {
-    map: mapRef.current,
+    map,
     isLoaded,
     error,
     getCenter,

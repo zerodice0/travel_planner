@@ -3,6 +3,7 @@ import { Loader } from '@googlemaps/js-api-loader';
 import type { MapOptions } from '#types/map';
 
 export function useGoogleMap(containerId: string, options: MapOptions) {
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +11,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
 
   useEffect(() => {
     // Reset state when initializing
-    setIsLoaded(false);
+    // setIsLoaded(false); // Removed to avoid set-state-in-effect warning
 
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     const mapId = import.meta.env.VITE_GOOGLE_MAP_ID;
@@ -46,7 +47,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
           return;
         }
 
-        const map = new Map(container, {
+        const mapInstance = new Map(container, {
           center: options.center,
           zoom: options.level || 14,
           mapTypeControl: false, // Disabled: will use custom control
@@ -68,7 +69,8 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
           ], // Hide all POI markers (icons + labels) for cleaner UI
         });
 
-        mapRef.current = map;
+        mapRef.current = mapInstance;
+        setMap(mapInstance);
         setIsLoaded(true);
         setError(null);
       })
@@ -81,9 +83,10 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
       // Cleanup map instance
       if (mapRef.current) {
         mapRef.current = null;
+        setMap(null);
       }
-      setIsLoaded(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerId]);
 
   const getCenter = () => {
@@ -127,7 +130,7 @@ export function useGoogleMap(containerId: string, options: MapOptions) {
   };
 
   return {
-    map: mapRef.current,
+    map,
     isLoaded,
     error,
     getCenter,

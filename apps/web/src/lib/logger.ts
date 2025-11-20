@@ -37,6 +37,7 @@ interface LogEntry {
  * Axiom 클라이언트 인스턴스
  */
 let axiomClient: Axiom | null = null;
+let axiomDataset: string | null = null;
 
 /**
  * 로깅 활성화 여부
@@ -61,8 +62,8 @@ function initializeAxiom(): void {
   try {
     axiomClient = new Axiom({
       token,
-      dataset,
     });
+    axiomDataset = dataset;
 
     isLoggingEnabled = true;
     console.log('[Logger] Axiom initialized successfully');
@@ -93,7 +94,9 @@ async function sendLog(entry: LogEntry): Promise<void> {
 
   try {
     // Axiom에 로그 전송 (비동기, fire-and-forget)
-    axiomClient.ingest([entry]);
+    if (axiomDataset) {
+      axiomClient.ingest(axiomDataset, [entry]);
+    }
 
     // 개발 환경에서는 콘솔에도 출력
     if (import.meta.env.DEV) {

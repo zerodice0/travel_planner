@@ -10,7 +10,7 @@ declare global {
 }
 
 export function useRecaptcha() {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(!!window.grecaptcha);
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
   useEffect(() => {
@@ -21,7 +21,6 @@ export function useRecaptcha() {
 
     // 이미 로드되어 있으면 스킵
     if (window.grecaptcha) {
-      setIsLoaded(true);
       return;
     }
 
