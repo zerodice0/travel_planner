@@ -214,6 +214,7 @@ model Review {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   place       Place     @relation(fields: [placeId], references: [id])
   reviewer    User?     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+  reports     Report[]
 
   @@index([placeId, isPublic])
   @@index([userId])
@@ -253,23 +254,6 @@ model Notification {
   @@index([userId, isRead])
   @@index([createdAt])
   @@map("notifications")
-}
-
-model Report {
-  id          String   @id @default(uuid())
-  reviewId    String   @map("review_id")
-  userId      String   @map("user_id")
-  reason      String
-  description String?
-  status      String   @default("pending")
-  createdAt   DateTime @default(now()) @updatedAt @map("updated_at")
-  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([reviewId, userId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("reports")
 }
 
 model PlaceModerationQueue {

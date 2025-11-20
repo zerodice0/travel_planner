@@ -56,7 +56,8 @@ export class SearchService {
 
     // Search places
     if (type === 'all' || type === 'place') {
-      const whereClause: Prisma.UserPlaceWhereInput = {
+      // Build where clause incrementally for better type inference
+      const whereClause = {
         userId,
         OR: [
           { place: { name: { contains: keyword } } },
@@ -66,16 +67,19 @@ export class SearchService {
         ],
       };
 
+      // Add optional filters
+      const finalWhereClause: Prisma.UserPlaceWhereInput = { ...whereClause };
+
       if (category) {
-        whereClause.place = { category };
+        finalWhereClause.place = { category };
       }
 
       if (visited !== undefined) {
-        whereClause.visited = visited;
+        finalWhereClause.visited = visited;
       }
 
       const userPlaces = await this.prisma.userPlace.findMany({
-        where: whereClause,
+        where: finalWhereClause,
         take: 20,
         include: {
           place: true,
@@ -83,7 +87,7 @@ export class SearchService {
         orderBy: { createdAt: 'desc' },
       });
 
-      results.places = userPlaces.map((up) => ({
+      results.places = userPlaces.map((up: typeof userPlaces[number]) => ({
         id: up.id,
         name: up.place.name,
         address: up.place.address,
@@ -125,7 +129,7 @@ export class SearchService {
       });
 
       // Transform lists to include counts
-      results.lists = lists.map((list) => ({
+      results.lists = lists.map((list: typeof lists[number]) => ({
         id: list.id,
         name: list.name,
         description: list.description,
@@ -134,7 +138,7 @@ export class SearchService {
         colorTheme: list.colorTheme,
         placesCount: list.placeLists.length,
         visitedCount: list.placeLists.filter(
-          (pl: { userPlace: { visited: boolean } }) => pl.userPlace.visited
+          (pl: typeof list.placeLists[number]) => pl.userPlace.visited
         ).length,
         createdAt: list.createdAt,
         updatedAt: list.updatedAt,

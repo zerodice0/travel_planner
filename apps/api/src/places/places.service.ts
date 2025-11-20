@@ -51,7 +51,7 @@ export class PlacesService {
       },
     });
 
-    const placeResponses: PlaceResponseDto[] = userPlaces.map((userPlace) => ({
+    const placeResponses: PlaceResponseDto[] = userPlaces.map((userPlace: typeof userPlaces[number]) => ({
       id: userPlace.id,
       name: userPlace.place.name,
       category: userPlace.place.category,
@@ -128,7 +128,7 @@ export class PlacesService {
         if (duplicates.length > 0) {
           throw new ConflictException({
             message: 'Duplicate place detected',
-            duplicates: duplicates.map(p => ({
+            duplicates: duplicates.map((p: typeof duplicates[number]) => ({
               id: p.id,
               name: p.name,
               address: p.address,
@@ -148,7 +148,7 @@ export class PlacesService {
       }
 
       // 3. Create Place + UserPlace + ModerationQueue in transaction
-      const result = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Create or reuse place
         const createdPlace = place || await tx.place.create({
           data: {
@@ -307,7 +307,7 @@ export class PlacesService {
     }
 
     return {
-      lists: userPlace.placeLists.map((pl) => ({
+      lists: userPlace.placeLists.map((pl: typeof userPlace.placeLists[number]) => ({
         id: pl.list.id,
         name: pl.list.name,
         iconType: pl.list.iconType,
@@ -410,7 +410,7 @@ export class PlacesService {
 
     // 거리 계산 후 정렬 (모든 등록된 장소 중 가장 가까운 곳 찾기)
     const placesWithDistance = allPlaces
-      .map((place) => ({
+      .map((place: typeof allPlaces[number]) => ({
         ...place,
         distance: this.calculateDistance(
           lat,
@@ -420,19 +420,19 @@ export class PlacesService {
         ),
       }))
       // 거리 제한 제거 - 전 세계 모든 등록된 장소를 대상으로 검색
-      .sort((a, b) => a.distance - b.distance)
+      .sort((a: { distance: number }, b: { distance: number }) => a.distance - b.distance)
       .slice(0, limit);
 
-    const placeResponses: (PublicPlaceResponseDto & { distance: number })[] = placesWithDistance.map((place) => {
+    const placeResponses: (PublicPlaceResponseDto & { distance: number })[] = placesWithDistance.map((place: typeof placesWithDistance[number]) => {
       // 리뷰 수 계산
       const reviewCount = place.userPlaces.reduce(
-        (sum, up) => sum + up.reviews.length,
+        (sum: number, up: typeof place.userPlaces[number]) => sum + up.reviews.length,
         0
       );
 
       // 커스텀 라벨 집계
       const labelCounts = new Map<string, number>();
-      place.userPlaces.forEach((up) => {
+      place.userPlaces.forEach((up: typeof place.userPlaces[number]) => {
         const labels = JSON.parse(up.labels) as string[];
         labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
@@ -446,7 +446,7 @@ export class PlacesService {
         .slice(0, 10);
 
       // 모든 사진 수집
-      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+      const allPhotos = place.userPlaces.flatMap((up: typeof place.userPlaces[number]) => up.photos);
 
       return {
         id: place.id,
@@ -495,16 +495,16 @@ export class PlacesService {
       },
     });
 
-    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place: typeof places[number]) => {
       // 리뷰 수 계산 (평점 제거)
       const reviewCount = place.userPlaces.reduce(
-        (sum, up) => sum + up.reviews.length,
+        (sum: number, up: typeof place.userPlaces[number]) => sum + up.reviews.length,
         0
       );
 
       // 커스텀 라벨 집계 (빈도수 계산)
       const labelCounts = new Map<string, number>();
-      place.userPlaces.forEach((up) => {
+      place.userPlaces.forEach((up: typeof place.userPlaces[number]) => {
         const labels = JSON.parse(up.labels) as string[];
         labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
@@ -518,7 +518,7 @@ export class PlacesService {
         .slice(0, 10);
 
       // 모든 사진 수집
-      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+      const allPhotos = place.userPlaces.flatMap((up: typeof place.userPlaces[number]) => up.photos);
 
       return {
         id: place.id,
@@ -565,16 +565,16 @@ export class PlacesService {
       this.prisma.place.count({ where }),
     ]);
 
-    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place: typeof places[number]) => {
       // 리뷰 수 계산 (평점 제거)
       const reviewCount = place.userPlaces.reduce(
-        (sum, up) => sum + up.reviews.length,
+        (sum: number, up: typeof place.userPlaces[number]) => sum + up.reviews.length,
         0
       );
 
       // 커스텀 라벨 집계 (빈도수 계산)
       const labelCounts = new Map<string, number>();
-      place.userPlaces.forEach((up) => {
+      place.userPlaces.forEach((up: typeof place.userPlaces[number]) => {
         const labels = JSON.parse(up.labels) as string[];
         labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
@@ -588,7 +588,7 @@ export class PlacesService {
         .slice(0, 10);
 
       // 모든 사진 수집
-      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+      const allPhotos = place.userPlaces.flatMap((up: typeof place.userPlaces[number]) => up.photos);
 
       return {
         id: place.id,
@@ -637,12 +637,12 @@ export class PlacesService {
     `;
 
     // Execute FTS5 search
-    const ftsResults = await this.prisma.$queryRawUnsafe<{ place_id: string }[]>(
+    const ftsResults = await this.prisma.$queryRawUnsafe(
       ftsQuery,
       keyword,
       limit,
       offset,
-    );
+    ) as { place_id: string }[];
 
     if (ftsResults.length === 0) {
       return { places: [], total: 0 };
@@ -681,16 +681,16 @@ export class PlacesService {
     ]);
 
     // Transform to PublicPlaceResponseDto (same as findAllPublic)
-    const placeResponses: PublicPlaceResponseDto[] = places.map((place) => {
+    const placeResponses: PublicPlaceResponseDto[] = places.map((place: typeof places[number]) => {
       // Review count
       const reviewCount = place.userPlaces.reduce(
-        (sum, up) => sum + up.reviews.length,
+        (sum: number, up: typeof place.userPlaces[number]) => sum + up.reviews.length,
         0,
       );
 
       // Aggregate labels
       const labelCounts = new Map<string, number>();
-      place.userPlaces.forEach((up) => {
+      place.userPlaces.forEach((up: typeof place.userPlaces[number]) => {
         const labels = JSON.parse(up.labels) as string[];
         labels.forEach((label: string) => {
           labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
@@ -704,7 +704,7 @@ export class PlacesService {
         .slice(0, 10);
 
       // All photos
-      const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+      const allPhotos = place.userPlaces.flatMap((up: typeof place.userPlaces[number]) => up.photos);
 
       return {
         id: place.id,
@@ -750,13 +750,13 @@ export class PlacesService {
 
     // 리뷰 수 계산 (평점 제거)
     const reviewCount = place.userPlaces.reduce(
-      (sum, up) => sum + up.reviews.length,
+      (sum: number, up: typeof place.userPlaces[number]) => sum + up.reviews.length,
       0
     );
 
     // 커스텀 라벨 집계 (빈도수 계산)
     const labelCounts = new Map<string, number>();
-    place.userPlaces.forEach((up) => {
+    place.userPlaces.forEach((up: typeof place.userPlaces[number]) => {
       const labels = JSON.parse(up.labels) as string[];
       labels.forEach((label: string) => {
         labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
@@ -770,7 +770,7 @@ export class PlacesService {
       .slice(0, 10);
 
     // 모든 사진 수집
-    const allPhotos = place.userPlaces.flatMap((up) => up.photos);
+    const allPhotos = place.userPlaces.flatMap((up: typeof place.userPlaces[number]) => up.photos);
 
     return {
       id: place.id,
@@ -903,7 +903,7 @@ export class PlacesService {
     });
 
     // Phase 2: Application-level validation (Haversine + Levenshtein)
-    const duplicates = candidates.filter(place => {
+    const duplicates = candidates.filter((place: typeof candidates[number]) => {
       // Distance check (Haversine)
       const distanceMeters = getDistance(
         { lat, lng },
@@ -915,7 +915,7 @@ export class PlacesService {
       const similarity = 1 - (levenshteinDistance(name, place.name) / maxLength);
 
       return distanceMeters <= 100 && similarity >= 0.8;
-    }).map(place => ({
+    }).map((place: typeof candidates[number]) => ({
       ...place,
       distance: getDistance({ lat, lng }, { lat: Number(place.latitude), lng: Number(place.longitude) }),
       similarity: 1 - (levenshteinDistance(name, place.name) / Math.max(name.length, place.name.length)),

@@ -93,7 +93,7 @@ export class ReviewsService {
     });
 
     return {
-      reviews: reviews.map((review) => ({
+      reviews: reviews.map((review: typeof reviews[number]) => ({
         id: review.id,
         userPlaceId: review.userPlaceId,
         content: review.content,
@@ -130,7 +130,7 @@ export class ReviewsService {
     });
 
     return {
-      reviews: reviews.map((review) => ({
+      reviews: reviews.map((review: typeof reviews[number]) => ({
         id: review.id,
         userPlaceId: review.userPlaceId,
         content: review.content,
