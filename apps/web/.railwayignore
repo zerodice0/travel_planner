@@ -1,0 +1,38 @@
+# Railway Ignore File
+# Files and directories to exclude from deployment
+
+# Development files
+*.md
+.vscode
+.idea
+*.log
+*.env.local
+*.env.development
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__
+coverage
+
+# Documentation
+docs/
+*.md
+
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed during build)
+node_modules
+
+# Build artifacts (will be generated during build)
+dist
+.turbo
+.vite
+
+# Misc
+.DS_Store
+Thumbs.db
