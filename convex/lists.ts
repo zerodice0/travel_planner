@@ -187,6 +187,9 @@ export const createList = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
+    iconType: v.string(),
+    iconValue: v.string(),
+    colorTheme: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx: MutationCtx, args) => {
@@ -196,6 +199,9 @@ export const createList = mutation({
       userId: user._id,
       name: args.name,
       description: args.description,
+      iconType: args.iconType,
+      iconValue: args.iconValue,
+      colorTheme: args.colorTheme,
       isPublic: args.isPublic ?? false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -213,6 +219,9 @@ export const updateList = mutation({
     listId: v.id("lists"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    iconType: v.optional(v.string()),
+    iconValue: v.optional(v.string()),
+    colorTheme: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx: MutationCtx, args) => {

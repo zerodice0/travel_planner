@@ -9,6 +9,7 @@ export interface List {
   visitedCount: number;
   createdAt: string;
   updatedAt: string;
+  isPublic?: boolean;
 }
 
 export interface ListsResponse {
