@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, X, MapPin, FolderOpen } from 'lucide-react';
 import Input from '#components/ui/Input';
@@ -47,7 +47,7 @@ export default function SearchPage() {
     }
   }, []);
 
-  const performSearch = async (q: string) => {
+  const performSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
       setResults(null);
       return;
@@ -72,11 +72,11 @@ export default function SearchPage() {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchHistory]);
 
   const debouncedSearch = useMemo(
     () => debounce((q: string) => performSearch(q), 300),
-    [searchHistory]
+    [performSearch]
   );
 
   useEffect(() => {

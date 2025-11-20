@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Search, MapPin, Navigation, Menu, Plus, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
-import type { Id } from '../../../convex/_generated/dataModel';
+import { api } from '@convex/_generated/api';
+import type { Id, Doc } from '@convex/_generated/dataModel';
 import Input from '#components/ui/Input';
 import { ConfirmDialog } from '#components/ui/ConfirmDialog';
 import { FloatingEmptyNotice } from '#components/ui/FloatingEmptyNotice';
 import { PlaceAddModal } from '#components/map/PlaceAddModal';
 import { ManualPlaceAddModal } from '#components/map/ManualPlaceAddModal';
-import { DuplicateWarningDialog } from '#components/map/DuplicateWarningDialog';
+
 import { PlaceSearchBottomSheet } from '#components/map/PlaceSearchBottomSheet';
 import { EmailVerificationRequiredModal } from '#components/modals/EmailVerificationRequiredModal';
 import { useAuth } from '#contexts/AuthContext';
@@ -247,7 +247,7 @@ export default function MapPage() {
       injectMarkerStyles();
 
       markerManagerRef.current = new GoogleMarkerManager(map);
-      renderPlaceMarkers();
+
     }
 
     return () => {
@@ -270,13 +270,7 @@ export default function MapPage() {
     }
   }, [map, isLoaded, getMapType]);
 
-  // Re-render markers when places or category change (displayPlaces는 하단에서 정의됨)
-  useEffect(() => {
-    if (markerManagerRef.current && isLoaded) {
-      renderPlaceMarkers();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicPlaces, myPlaces, selectedCategory, isLoaded]);
+
 
   // Track viewport bounds for place filtering
   useEffect(() => {
@@ -487,7 +481,7 @@ export default function MapPage() {
   // 공개 장소를 Place 타입으로 변환
   const publicPlaces = useMemo<Place[]>(() => {
     if (!publicPlacesData) return [];
-    return publicPlacesData.map((p: any): Place => ({
+    return publicPlacesData.map((p: Doc<"places">): Place => ({
       id: p._id,
       name: p.name,
       address: p.address,
@@ -508,8 +502,8 @@ export default function MapPage() {
     if (selectedListData) {
       // 선택된 목록의 장소
       return selectedListData.places
-        .filter((p: any) => p.place && p.userPlace)
-        .map((p: any): Place => ({
+        .filter((p: { place: Doc<"places"> | null; userPlace: Doc<"userPlaces"> | null }) => p.place && p.userPlace)
+        .map((p: { place: Doc<"places"> | null; userPlace: Doc<"userPlaces"> | null }): Place => ({
           id: p.userPlace!._id,
           name: p.userPlace!.customName || p.place!.name,
           address: p.place!.address,
@@ -526,8 +520,8 @@ export default function MapPage() {
     } else if (myPlacesData) {
       // 전체 내 장소
       return myPlacesData
-        .filter((up: any) => up.place)
-        .map((up: any): Place => ({
+        .filter((up: Doc<"userPlaces"> & { place: Doc<"places"> | null }) => up.place)
+        .map((up: Doc<"userPlaces"> & { place: Doc<"places"> | null }): Place => ({
           id: up._id,
           name: up.customName || up.place!.name,
           address: up.place!.address,
@@ -548,16 +542,23 @@ export default function MapPage() {
   // 목록 데이터를 List 타입으로 변환
   const lists = useMemo<List[]>(() => {
     if (!listsData) return [];
-    return listsData.map((list: any): List => ({
+    return listsData.map((list: Doc<"lists"> & { itemCount: number }): List => ({
       id: list._id,
       name: list.name,
-      description: list.description,
+      description: list.description ?? null,
       isPublic: list.isPublic,
-      itemCount: list.itemCount,
+      placesCount: list.itemCount,
+      visitedCount: 0,
+      iconType: list.iconType || 'emoji',
+      iconValue: list.iconValue || '📝',
+      colorTheme: list.colorTheme || 'blue',
       createdAt: new Date(list.createdAt).toISOString(),
       updatedAt: new Date(list.updatedAt).toISOString(),
     }));
   }, [listsData]);
+
+  // Re-render markers when places or category change
+
 
   // placesRef 업데이트 (검색에 사용)
   useEffect(() => {
@@ -739,7 +740,7 @@ export default function MapPage() {
     await performSearch(searchKeyword);
   };
 
-  const handleOpenAddModal = (result: SearchResult) => {
+  const handleOpenAddModal = useCallback((result: SearchResult) => {
     // Check email verification before allowing place addition
     if (user && !user.emailVerified) {
       setShowEmailVerificationModal(true);
@@ -748,7 +749,7 @@ export default function MapPage() {
 
     setSelectedSearchResult(result);
     setShowAddModal(true);
-  };
+  }, [user]);
 
   // Handle Info Window button clicks (장소 추가)
   useEffect(() => {
@@ -770,7 +771,7 @@ export default function MapPage() {
     return () => {
       document.removeEventListener('click', handleInfoWindowClick);
     };
-  }, [searchResults]);
+  }, [searchResults, handleOpenAddModal]);
 
   const handleCloseAddModal = () => {
     setShowAddModal(false);
@@ -887,20 +888,7 @@ export default function MapPage() {
     }
   };
 
-  const renderPlaceMarkers = async () => {
-    if (!markerManagerRef.current) return;
 
-    markerManagerRef.current.clearMarkers();
-
-    // Add markers (Google uses async, Kakao is sync - both work with Promise.all)
-    await Promise.all(
-      filteredPlaces.map((place) =>
-        markerManagerRef.current?.addMarker(place, (clickedPlace) => {
-          setSelectedPlaceId(clickedPlace.id);
-        }),
-      ),
-    );
-  };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -1272,6 +1260,28 @@ export default function MapPage() {
       : displayPlaces;
   }, [displayPlaces, selectedCategory]);
 
+  const renderPlaceMarkers = useCallback(async () => {
+    if (!markerManagerRef.current) return;
+
+    markerManagerRef.current.clearMarkers();
+
+    // Add markers (Google uses async, Kakao is sync - both work with Promise.all)
+    await Promise.all(
+      filteredPlaces.map((place) =>
+        markerManagerRef.current?.addMarker(place, (clickedPlace) => {
+          setSelectedPlaceId(clickedPlace.id);
+        }),
+      ),
+    );
+  }, [filteredPlaces]);
+
+  // Re-render markers when places or category change
+  useEffect(() => {
+    if (markerManagerRef.current && isLoaded) {
+      renderPlaceMarkers();
+    }
+  }, [renderPlaceMarkers, isLoaded]);
+
   // Calculate places visible in current viewport
   const visiblePlaces = useMemo(() => {
     if (!viewportBounds) {
@@ -1418,7 +1428,7 @@ export default function MapPage() {
             <ListFilter
               lists={lists}
               selectedListId={selectedListId}
-              onListChange={setSelectedListId}
+              onListChange={(id) => setSelectedListId(id as Id<"lists"> | null)}
             />
           )}
 

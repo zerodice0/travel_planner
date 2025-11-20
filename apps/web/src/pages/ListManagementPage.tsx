@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MoreVertical, ArrowUpDown, Edit2, Trash2, FolderOpen, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -27,11 +27,7 @@ export default function ListManagementPage() {
   const [formIconType, setFormIconType] = useState<'category' | 'image'>('category');
   const [formIconValue, setFormIconValue] = useState('travel');
 
-  useEffect(() => {
-    fetchLists();
-  }, [sortBy]);
-
-  const fetchLists = async () => {
+  const fetchLists = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await listsApi.getAll({ sort: sortBy });
@@ -42,7 +38,13 @@ export default function ListManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sortBy]);
+
+  useEffect(() => {
+    fetchLists();
+  }, [fetchLists]);
+
+
 
   const openCreateModal = () => {
     setEditingList(null);

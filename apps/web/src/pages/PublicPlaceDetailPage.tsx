@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Phone, ExternalLink, ArrowLeft, LogIn, UserPlus } from 'lucide-react';
 import { publicPlacesApi } from '#lib/api';
@@ -23,13 +23,7 @@ export default function PublicPlaceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
-  useEffect(() => {
-    if (placeId) {
-      fetchPlaceDetail();
-    }
-  }, [placeId]);
-
-  const fetchPlaceDetail = async () => {
+  const fetchPlaceDetail = useCallback(async () => {
     if (!placeId) return;
 
     try {
@@ -42,7 +36,13 @@ export default function PublicPlaceDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [placeId]);
+
+  useEffect(() => {
+    if (placeId) {
+      fetchPlaceDetail();
+    }
+  }, [placeId, fetchPlaceDetail]);
 
   const handleBack = () => {
     navigate('/explore');

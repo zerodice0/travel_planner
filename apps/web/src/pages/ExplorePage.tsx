@@ -18,6 +18,8 @@ import { LoginDialog } from '#components/LoginDialog';
 
 import { CATEGORIES } from '#utils/categoryConfig';
 
+const defaultCenter = { lat: 37.5665, lng: 126.9780 };
+
 export default function ExplorePage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -61,8 +63,7 @@ export default function ExplorePage() {
   const isRateLimitedRef = useRef<boolean>(false);
   const rateLimitTimeoutRef = useRef<number | null>(null);
 
-  // 서울 시청 좌표를 기본 중심으로 설정
-  const defaultCenter = { lat: 37.5665, lng: 126.9780 };
+
 
   // 구글맵 초기화 (Explore 페이지는 전 세계 지원을 위해 구글맵만 사용)
   const { map, isLoaded, error: mapError } = useGoogleMap('explore-map', {
@@ -427,7 +428,8 @@ export default function ExplorePage() {
     };
 
     initializeMap();
-  }, [isLoaded, map, isInitialLoad, fetchPlacesByViewport, selectedCategory]);
+    initializeMap();
+  }, [isLoaded, map, isInitialLoad, fetchPlacesByViewport, selectedCategory, userLocation]);
 
   // 지도 이동/줌 완료 시 viewport 기반 장소 조회 (초기 로드 이후)
   useEffect(() => {
