@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -95,13 +95,23 @@ export default function PlaceDetailPage() {
   const [reviewContent, setReviewContent] = useState('');
   const [showCancelReviewDialog, setShowCancelReviewDialog] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchData();
+
+
+  const fetchReviews = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      setIsLoadingReviews(true);
+      const reviewsData = await reviewsApi.getByPlace(id);
+      setReviews(reviewsData.reviews);
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
+    } finally {
+      setIsLoadingReviews(false);
     }
   }, [id]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -210,21 +220,15 @@ export default function PlaceDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, fetchReviews]);
 
-  const fetchReviews = async () => {
-    if (!id) return;
-
-    try {
-      setIsLoadingReviews(true);
-      const reviewsData = await reviewsApi.getByPlace(id);
-      setReviews(reviewsData.reviews);
-    } catch (error) {
-      console.error('Failed to fetch reviews:', error);
-    } finally {
-      setIsLoadingReviews(false);
+  useEffect(() => {
+    if (id) {
+      fetchData();
     }
-  };
+  }, [id, fetchData]);
+
+
 
   const handleToggleVisit = async () => {
     if (!place) return;

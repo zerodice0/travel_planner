@@ -16,7 +16,7 @@ export class CategoriesService {
 
     // Get places count for each custom category
     const customCategoriesWithCount = await Promise.all(
-      customCategories.map(async (category) => {
+      customCategories.map(async (category: typeof customCategories[number]) => {
         const placesCount = await this.prisma.userPlace.count({
           where: {
             userId,
@@ -38,7 +38,12 @@ export class CategoriesService {
     );
 
     // Define default categories
-    const defaultCategories = [
+    const defaultCategories: Array<{
+      id: string;
+      name: string;
+      value: string;
+      color: string;
+    }> = [
       { id: 'default-restaurant', name: '맛집', value: 'restaurant', color: '#FF6B6B' },
       { id: 'default-cafe', name: '카페', value: 'cafe', color: '#A0522D' },
       { id: 'default-attraction', name: '관광', value: 'attraction', color: '#4ECDC4' },

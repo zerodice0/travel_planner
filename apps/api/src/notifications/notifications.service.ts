@@ -150,11 +150,11 @@ export class NotificationsService {
       select: { userId: true },
     });
 
-    const recentlyNotifiedUserIds = new Set(recentNotifications.map((n) => n.userId));
+    const recentlyNotifiedUserIds = new Set(recentNotifications.map((n: typeof recentNotifications[number]) => n.userId));
 
     // 오늘 아직 알림을 받지 않은 사용자들에게만 알림 생성
     const usersToNotify = usersWithSavedPlace.filter(
-      (u) => !recentlyNotifiedUserIds.has(u.userId),
+      (u: typeof usersWithSavedPlace[number]) => !recentlyNotifiedUserIds.has(u.userId),
     );
 
     if (usersToNotify.length === 0) {
@@ -163,7 +163,7 @@ export class NotificationsService {
 
     // 배치로 알림 생성
     await this.prisma.notification.createMany({
-      data: usersToNotify.map((user) => ({
+      data: usersToNotify.map((user: typeof usersToNotify[number]) => ({
         userId: user.userId,
         type: 'new_review_on_saved_place' as const,
         title: '새로운 리뷰가 등록되었습니다',

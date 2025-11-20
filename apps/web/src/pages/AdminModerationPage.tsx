@@ -25,7 +25,7 @@ export default function AdminModerationPage() {
   // Load queue when status or page changes
   useEffect(() => {
     loadQueue();
-  }, [status, page]);
+  }, [status, page, loadQueue]);
 
   const handleStatusChange = (newStatus: 'pending' | 'approved' | 'rejected') => {
     setStatus(newStatus);

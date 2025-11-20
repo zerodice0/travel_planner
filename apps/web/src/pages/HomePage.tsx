@@ -14,6 +14,8 @@ import { useDebounce } from '#hooks/useDebounce';
 import { useDashboardData } from '#hooks/useDashboardData';
 import { CATEGORIES } from '#utils/categoryConfig';
 
+const defaultCenter = { lat: 37.5665, lng: 126.9780 };
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -37,7 +39,7 @@ export default function HomePage() {
   const isRateLimitedRef = useRef<boolean>(false);
   const rateLimitTimeoutRef = useRef<number | null>(null);
 
-  const defaultCenter = { lat: 37.5665, lng: 126.9780 };
+
 
   const { map, isLoaded, error: mapError } = useGoogleMap('home-map', {
     center: defaultCenter,

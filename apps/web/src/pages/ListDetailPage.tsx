@@ -60,38 +60,7 @@ export default function ListDetailPage() {
     level: 14,
   });
 
-  useEffect(() => {
-    if (id) {
-      fetchData();
-    }
-  }, [id, sortBy]);
-
-  // 맵 초기화 및 마커 매니저 생성
-  useEffect(() => {
-    if (map && isLoaded) {
-      // Inject custom marker styles once
-      injectMarkerStyles();
-
-      markerManagerRef.current = new GoogleMarkerManager(map);
-      renderPlaceMarkers();
-    }
-
-    return () => {
-      if (markerManagerRef.current) {
-        markerManagerRef.current.clearMarkers();
-      }
-    };
-  }, [map, isLoaded]);
-
-  // 장소 목록 변경 시 마커 및 경로 재렌더링
-  useEffect(() => {
-    if (markerManagerRef.current && isLoaded && places.length > 0) {
-      renderPlaceMarkers();
-      renderPolyline();
-    }
-  }, [places, isLoaded]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -109,7 +78,110 @@ export default function ListDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, sortBy]);
+
+  // ListPlaceItem을 Place로 변환하는 헬퍼 함수
+  const convertToPlace = useCallback((place: ListPlaceItem): Place => ({
+    id: place.id,
+    name: place.name,
+    address: place.address,
+    category: place.category,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    visited: place.visited,
+    createdAt: new Date().toISOString(),
+  }), []);
+
+  // 마커 클릭 핸들러 (맵 → 리스트)
+  const handleMarkerClick = useCallback((placeId: string) => {
+    setSelectedPlaceId(placeId);
+
+    // 리스트에서 해당 항목으로 스크롤
+    const element = document.getElementById(`place-item-${placeId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
+
+  // 마커 렌더링 함수
+  const renderPlaceMarkers = useCallback(async () => {
+    if (!markerManagerRef.current) return;
+
+    markerManagerRef.current.clearMarkers();
+
+    // 마커 추가
+    await Promise.all(
+      places.map((place) => {
+        const placeData = convertToPlace(place);
+        return markerManagerRef.current?.addMarker(placeData, (clickedPlace) => {
+          handleMarkerClick(clickedPlace.id);
+        });
+      })
+    );
+  }, [places, convertToPlace, handleMarkerClick]);
+
+  // 경로 렌더링 함수
+  const renderPolyline = useCallback(() => {
+    if (!markerManagerRef.current || places.length < 2) {
+      markerManagerRef.current?.clearPolyline();
+      return;
+    }
+
+    const placesData = places.map(convertToPlace);
+    markerManagerRef.current.renderPolyline(placesData);
+  }, [places, convertToPlace]);
+
+  // 리스트 항목 클릭 핸들러 (리스트 → 맵)
+  const handlePlaceCardClick = useCallback((place: ListPlaceItem) => {
+    if (!markerManagerRef.current) return;
+
+    // 맵 이동
+    markerManagerRef.current.panTo(place.latitude, place.longitude);
+    markerManagerRef.current.setZoom(17);
+
+    // InfoWindow 표시
+    markerManagerRef.current.showInfoWindow(place.id);
+
+    // 선택 상태 설정
+    setSelectedPlaceId(place.id);
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      fetchData();
+    }
+  }, [id, fetchData]);
+
+  // 맵 초기화 및 마커 매니저 생성
+  useEffect(() => {
+    if (map && isLoaded) {
+      // Inject custom marker styles once
+      injectMarkerStyles();
+
+      markerManagerRef.current = new GoogleMarkerManager(map);
+      renderPlaceMarkers();
+    }
+
+    return () => {
+      if (markerManagerRef.current) {
+        markerManagerRef.current.clearMarkers();
+      }
+    };
+  }, [map, isLoaded, renderPlaceMarkers]);
+
+  // 장소 목록 변경 시 마커 및 경로 재렌더링
+  useEffect(() => {
+    if (markerManagerRef.current && isLoaded && places.length > 0) {
+      renderPlaceMarkers();
+      renderPolyline();
+    }
+  }, [places, isLoaded, renderPlaceMarkers, renderPolyline]);
+
+
+
+
+
+
 
   const handleToggleVisit = async (placeId: string) => {
     const place = places.find((p) => p.id === placeId);
@@ -216,71 +288,15 @@ export default function ListDetailPage() {
     }
   };
 
-  // ListPlaceItem을 Place로 변환하는 헬퍼 함수
-  const convertToPlace = useCallback((place: ListPlaceItem): Place => ({
-    id: place.id,
-    name: place.name,
-    address: place.address,
-    category: place.category,
-    latitude: place.latitude,
-    longitude: place.longitude,
-    visited: place.visited,
-    createdAt: new Date().toISOString(),
-  }), []);
 
-  // 마커 렌더링 함수
-  const renderPlaceMarkers = useCallback(async () => {
-    if (!markerManagerRef.current) return;
 
-    markerManagerRef.current.clearMarkers();
 
-    // 마커 추가
-    await Promise.all(
-      places.map((place) => {
-        const placeData = convertToPlace(place);
-        return markerManagerRef.current?.addMarker(placeData, (clickedPlace) => {
-          handleMarkerClick(clickedPlace.id);
-        });
-      })
-    );
-  }, [places, convertToPlace]);
 
-  // 경로 렌더링 함수
-  const renderPolyline = useCallback(() => {
-    if (!markerManagerRef.current || places.length < 2) {
-      markerManagerRef.current?.clearPolyline();
-      return;
-    }
 
-    const placesData = places.map(convertToPlace);
-    markerManagerRef.current.renderPolyline(placesData);
-  }, [places, convertToPlace]);
 
-  // 마커 클릭 핸들러 (맵 → 리스트)
-  const handleMarkerClick = useCallback((placeId: string) => {
-    setSelectedPlaceId(placeId);
 
-    // 리스트에서 해당 항목으로 스크롤
-    const element = document.getElementById(`place-item-${placeId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, []);
 
-  // 리스트 항목 클릭 핸들러 (리스트 → 맵)
-  const handlePlaceCardClick = useCallback((place: ListPlaceItem) => {
-    if (!markerManagerRef.current) return;
 
-    // 맵 이동
-    markerManagerRef.current.panTo(place.latitude, place.longitude);
-    markerManagerRef.current.setZoom(17);
-
-    // InfoWindow 표시
-    markerManagerRef.current.showInfoWindow(place.id);
-
-    // 선택 상태 설정
-    setSelectedPlaceId(place.id);
-  }, []);
 
   const handleOptimizeRoute = async () => {
     if (!id) return;

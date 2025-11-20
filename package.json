@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev": "turbo run dev --filter=@travel-planner/web",
+    "dev:convex": "npx convex dev",
+    "dev:legacy": "docker-compose -f docker-compose.dev.yml up",
     "dev:local": "turbo run dev",
     "dev:docker": "docker-compose -f docker-compose.dev.yml up",
     "dev:detached": "docker-compose -f docker-compose.dev.yml up -d",
@@ -23,6 +25,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@types/node": "^22.18.8",
     "prettier": "^3.6.2",
     "turbo": "^2.5.8"
   },
@@ -30,5 +33,10 @@
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
+  },
+  "dependencies": {
+    "@axiomhq/js": "^1.3.1",
+    "convex": "^1.29.2",
+    "posthog-js": "^1.294.0"
   }
 }

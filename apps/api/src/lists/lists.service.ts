@@ -49,7 +49,7 @@ export class ListsService {
       },
     });
 
-    const listResponses: ListResponseDto[] = lists.map((list) => ({
+    const listResponses: ListResponseDto[] = lists.map((list: typeof lists[number]) => ({
       id: list.id,
       name: list.name,
       description: list.description,
@@ -57,7 +57,7 @@ export class ListsService {
       iconValue: list.iconValue,
       colorTheme: list.colorTheme,
       placesCount: list.placeLists.length,
-      visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited).length,
+      visitedCount: list.placeLists.filter((pl: typeof list.placeLists[number]) => pl.userPlace.visited).length,
       createdAt: list.createdAt,
       updatedAt: list.updatedAt,
     }));
@@ -96,7 +96,7 @@ export class ListsService {
       iconValue: list.iconValue,
       colorTheme: list.colorTheme ?? undefined,
       placesCount: list.placeLists.length,
-      visitedCount: list.placeLists.filter((pl) => pl.userPlace.visited).length,
+      visitedCount: list.placeLists.filter((pl: typeof list.placeLists[number]) => pl.userPlace.visited).length,
       createdAt: list.createdAt,
       updatedAt: list.updatedAt,
     };
@@ -204,7 +204,7 @@ export class ListsService {
     }
 
     return {
-      places: list.placeLists.map((pl) => ({
+      places: list.placeLists.map((pl: typeof list.placeLists[number]) => ({
         id: pl.userPlace.id,
         name: pl.userPlace.place.name,
         address: pl.userPlace.place.address,
@@ -338,8 +338,8 @@ export class ListsService {
     }
 
     let places = list.placeLists
-      .filter((pl) => optimizeDto.includeVisited || !pl.userPlace.visited)
-      .map((pl) => ({
+      .filter((pl: typeof list.placeLists[number]) => optimizeDto.includeVisited || !pl.userPlace.visited)
+      .map((pl: typeof list.placeLists[number]) => ({
         id: pl.userPlace.id,
         name: pl.userPlace.place.name,
         latitude: Number(pl.userPlace.place.latitude),
@@ -358,11 +358,11 @@ export class ListsService {
         distance: place.distance,
       })),
       totalDistance: optimizedRoute.reduce(
-        (sum, place) => sum + place.distance,
+        (sum: number, place: typeof optimizedRoute[number]) => sum + place.distance,
         0,
       ),
       estimatedTime: Math.ceil(
-        (optimizedRoute.reduce((sum, place) => sum + place.distance, 0) /
+        (optimizedRoute.reduce((sum: number, place: typeof optimizedRoute[number]) => sum + place.distance, 0) /
           1000) *
           12,
       ),

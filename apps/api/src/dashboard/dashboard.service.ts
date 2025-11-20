@@ -37,21 +37,18 @@ export class DashboardService {
     });
 
     // 2. 최근 수정한 장소 (UserPlace.updatedAt != createdAt)
-    const updatedPlaces = await this.prisma.userPlace.findMany({
-      where: {
-        userId,
-        NOT: {
-          updatedAt: {
-            equals: this.prisma.userPlace.fields.createdAt,
-          },
-        },
-      },
+    const allUpdatedPlaces = await this.prisma.userPlace.findMany({
+      where: { userId },
       orderBy: { updatedAt: 'desc' },
-      take: limit,
+      take: limit * 2, // Fetch more to filter in-memory
       include: {
         place: true,
       },
     });
+    // Filter out places where updatedAt equals createdAt
+    const updatedPlaces = allUpdatedPlaces
+      .filter((up: typeof allUpdatedPlaces[number]) => up.updatedAt.getTime() !== up.createdAt.getTime())
+      .slice(0, limit);
 
     // 3. 최근 방문 완료한 장소 (UserPlace.visitedAt)
     const visitedPlaces = await this.prisma.userPlace.findMany({
@@ -92,18 +89,15 @@ export class DashboardService {
     });
 
     // 6. 최근 수정한 리스트 (List.updatedAt != createdAt)
-    const updatedLists = await this.prisma.list.findMany({
-      where: {
-        userId,
-        NOT: {
-          updatedAt: {
-            equals: this.prisma.list.fields.createdAt,
-          },
-        },
-      },
+    const allUpdatedLists = await this.prisma.list.findMany({
+      where: { userId },
       orderBy: { updatedAt: 'desc' },
-      take: limit,
+      take: limit * 2, // Fetch more to filter in-memory
     });
+    // Filter out lists where updatedAt equals createdAt
+    const updatedLists = allUpdatedLists
+      .filter((list: typeof allUpdatedLists[number]) => list.updatedAt.getTime() !== list.createdAt.getTime())
+      .slice(0, limit);
 
     // 7. 모든 활동을 하나의 배열로 병합
     const activities: Array<{
@@ -115,7 +109,7 @@ export class DashboardService {
     }> = [];
 
     // place_added 활동 추가
-    recentPlaces.forEach((userPlace) => {
+    recentPlaces.forEach((userPlace: typeof recentPlaces[number]) => {
       activities.push({
         type: 'place_added',
         timestamp: userPlace.createdAt,
@@ -131,7 +125,7 @@ export class DashboardService {
     });
 
     // place_updated 활동 추가
-    updatedPlaces.forEach((userPlace) => {
+    updatedPlaces.forEach((userPlace: typeof updatedPlaces[number]) => {
       activities.push({
         type: 'place_updated',
         timestamp: userPlace.updatedAt,
@@ -147,7 +141,7 @@ export class DashboardService {
     });
 
     // place_visited 활동 추가
-    visitedPlaces.forEach((userPlace) => {
+    visitedPlaces.forEach((userPlace: typeof visitedPlaces[number]) => {
       activities.push({
         type: 'place_visited',
         timestamp: userPlace.visitedAt!,
@@ -166,7 +160,7 @@ export class DashboardService {
     });
 
     // place_added_to_list 활동 추가
-    placeLists.forEach((placeList) => {
+    placeLists.forEach((placeList: typeof placeLists[number]) => {
       activities.push({
         type: 'place_added_to_list',
         timestamp: placeList.addedAt,
@@ -189,7 +183,7 @@ export class DashboardService {
     });
 
     // list_created 활동 추가
-    newLists.forEach((list) => {
+    newLists.forEach((list: typeof newLists[number]) => {
       activities.push({
         type: 'list_created',
         timestamp: list.createdAt,
@@ -204,7 +198,7 @@ export class DashboardService {
     });
 
     // list_updated 활동 추가
-    updatedLists.forEach((list) => {
+    updatedLists.forEach((list: typeof updatedLists[number]) => {
       activities.push({
         type: 'list_updated',
         timestamp: list.updatedAt,

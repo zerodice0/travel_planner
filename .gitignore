@@ -85,3 +85,7 @@ todo_list_for_reduce_google_place_api/
 # Database backups
 *.backup/
 **/migrations.*.backup/
+
+# Convex
+convex/_generated/
+.convex/

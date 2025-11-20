@@ -1,0 +1,35 @@
+# Railway Deployment Configuration
+# https://docs.railway.app/deploy/config-as-code
+
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm run build"
+
+[deploy]
+# Railway will automatically detect and use the PORT environment variable
+startCommand = "pnpm run preview -- --port $PORT --host 0.0.0.0"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Health check configuration
+healthcheckPath = "/"
+healthcheckTimeout = 300
+
+# Environment variables
+# Note: Set these in Railway dashboard for security
+[env]
+# Convex
+VITE_CONVEX_URL = "$VITE_CONVEX_URL"
+
+# Clerk
+VITE_CLERK_PUBLISHABLE_KEY = "$VITE_CLERK_PUBLISHABLE_KEY"
+
+# Google Maps
+VITE_GOOGLE_MAPS_API_KEY = "$VITE_GOOGLE_MAPS_API_KEY"
+
+# Analytics (PostHog)
+VITE_POSTHOG_KEY = "$VITE_POSTHOG_KEY"
+
+# Logging (Axiom)
+VITE_AXIOM_TOKEN = "$VITE_AXIOM_TOKEN"
+VITE_AXIOM_DATASET = "$VITE_AXIOM_DATASET"
