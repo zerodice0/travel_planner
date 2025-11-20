@@ -15,6 +15,7 @@ export default defineConfig({
       '#types': path.resolve(__dirname, './src/types'),
       '#utils': path.resolve(__dirname, './src/utils'),
       '#constants': path.resolve(__dirname, './src/constants'),
+      '@convex': path.resolve(__dirname, '../../convex'),
     },
   },
   server: {
@@ -25,5 +26,27 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    // Production build optimizations
+    target: 'esnext',
+    minify: 'esbuild',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          clerk: ['@clerk/clerk-react'],
+          maps: ['@googlemaps/js-api-loader', '@googlemaps/markerclusterer'],
+        },
+      },
+    },
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+  },
+  preview: {
+    port: 3001,
+    host: true, // Listen on all addresses (0.0.0.0) for Railway
   },
 });
